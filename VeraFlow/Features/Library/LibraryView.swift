@@ -1,13 +1,15 @@
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
 
 public struct LibraryView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \Recording.createdAt, order: .reverse) private var recordings: [Recording]
+    @Query private var recordings: [Recording]
     @State private var viewModel = LibraryViewModel()
     @State private var recoveryNotice: String? = nil
     
     private let crashRecoveryService = CrashRecoveryService()
+    private let importService: AudioImportServiceProtocol = AudioImportService()
     
     public init() {}
     
@@ -37,25 +39,151 @@ public struct LibraryView: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
                 }
                 
-                Group {
-                    let filtered = viewModel.filterRecordings(recordings)
-                    if filtered.isEmpty {
-                        ContentUnavailableView(
-                            "No Recordings Yet",
-                            systemImage: "waveform.badge.mic",
-                            description: Text("Tap the record button below to start your first on-device transcript.")
-                        )
-                    } else {
-                        List {
-                            ForEach(filtered) { recording in
-                                NavigationLink(destination: RecordingDetailView(recording: recording)) {
-                                    RecordingRowView(recording: recording)
+                // Import Success Notice Banner
+                if let success = viewModel.importSuccessNotice {
+                    HStack(spacing: 12) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                        Text(success)
+                            .font(.caption)
+                            .foregroundColor(.primary)
+                        Spacer()
+                        Button {
+                            withAnimation { viewModel.importSuccessNotice = nil }
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(Color.green.opacity(0.12))
+                }
+                
+                // Import Error Notice Banner
+                if let err = viewModel.importErrorMessage {
+                    HStack(spacing: 12) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.red)
+                        Text(err)
+                            .font(.caption)
+                            .foregroundColor(.red)
+                        Spacer()
+                        Button {
+                            withAnimation { viewModel.importErrorMessage = nil }
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(Color.red.opacity(0.12))
+                }
+                
+                // Tag Filter Chip Bar (§16 M2)
+                let allTags = viewModel.extractAllTags(from: recordings)
+                if !allTags.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            TagChip(
+                                title: "All",
+                                isSelected: viewModel.selectedTag == nil
+                            ) {
+                                withAnimation { viewModel.selectedTag = nil }
+                            }
+                            
+                            ForEach(allTags, id: \.self) { tag in
+                                TagChip(
+                                    title: tag,
+                                    isSelected: viewModel.selectedTag == tag
+                                ) {
+                                    withAnimation {
+                                        viewModel.selectedTag = (viewModel.selectedTag == tag ? nil : tag)
+                                    }
                                 }
                             }
-                            .onDelete(perform: deleteRecordings)
                         }
-                        .listStyle(.insetGrouped)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
                     }
+                    .background(Color.secondary.opacity(0.04))
+                }
+                
+                // Main Recordings List
+                let displayed = viewModel.filterAndSortRecordings(recordings)
+                if displayed.isEmpty {
+                    ContentUnavailableView(
+                        viewModel.searchText.isEmpty ? "No Recordings Yet" : "No Matches Found",
+                        systemImage: viewModel.searchText.isEmpty ? "waveform.badge.mic" : "magnifyingglass",
+                        description: Text(
+                            viewModel.searchText.isEmpty
+                            ? "Record in-app or import an audio file using the + menu above."
+                            : "Try searching with a different keyword or clearing tag filters."
+                        )
+                    )
+                } else {
+                    List {
+                        ForEach(displayed) { recording in
+                            NavigationLink(destination: RecordingDetailView(recording: recording)) {
+                                RecordingRowView(recording: recording)
+                            }
+                            .swipeActions(edge: .leading) {
+                                Button {
+                                    recording.isFavorite.toggle()
+                                    try? modelContext.save()
+                                } label: {
+                                    Label(
+                                        recording.isFavorite ? "Unfavorite" : "Favorite",
+                                        systemImage: recording.isFavorite ? "star.slash" : "star.fill"
+                                    )
+                                }
+                                .tint(.yellow)
+                            }
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                Button(role: .destructive) {
+                                    deleteSingleRecording(recording)
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                                
+                                Button {
+                                    viewModel.promptRename(for: recording)
+                                } label: {
+                                    Label("Rename", systemImage: "pencil")
+                                }
+                                .tint(.blue)
+                            }
+                            .contextMenu {
+                                Button {
+                                    viewModel.promptRename(for: recording)
+                                } label: {
+                                    Label("Rename", systemImage: "pencil")
+                                }
+                                
+                                Button {
+                                    recording.isFavorite.toggle()
+                                    try? modelContext.save()
+                                } label: {
+                                    Label(
+                                        recording.isFavorite ? "Remove from Favorites" : "Mark as Favorite",
+                                        systemImage: recording.isFavorite ? "star.slash" : "star.fill"
+                                    )
+                                }
+                                
+                                Divider()
+                                
+                                Button(role: .destructive) {
+                                    deleteSingleRecording(recording)
+                                } label: {
+                                    Label("Delete Recording", systemImage: "trash")
+                                }
+                            }
+                        }
+                    }
+                    .listStyle(.insetGrouped)
                 }
             }
             .navigationTitle(AppConstants.appName)
@@ -69,21 +197,63 @@ public struct LibraryView: View {
                     }
                 }
                 
-                ToolbarItem(placement: .bottomBar) {
-                    Button {
-                        viewModel.isRecordingPresented = true
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "record.circle.fill")
-                                .font(.title2)
-                                .foregroundColor(.red)
-                            Text("Record Meeting")
-                                .fontWeight(.semibold)
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        // Import Audio File (§16 M2)
+                        Button {
+                            viewModel.isFileImporterPresented = true
+                        } label: {
+                            Label("Import Audio File...", systemImage: "square.and.arrow.down")
                         }
-                        .padding(.vertical, 8)
-                        .padding(.horizontal, 20)
-                        .background(Color.secondary.opacity(0.15))
-                        .clipShape(Capsule())
+                        
+                        Divider()
+                        
+                        // Favorites Toggle
+                        Toggle(isOn: $viewModel.showFavoritesOnly) {
+                            Label("Favorites Only", systemImage: "star.fill")
+                        }
+                        
+                        Divider()
+                        
+                        // Sort Options
+                        Picker("Sort By", selection: $viewModel.sortOption) {
+                            ForEach(LibrarySortOption.allCases) { option in
+                                Text(option.rawValue).tag(option)
+                            }
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                    }
+                }
+                
+                ToolbarItem(placement: .bottomBar) {
+                    HStack {
+                        // Quick Import Button
+                        Button {
+                            viewModel.isFileImporterPresented = true
+                        } label: {
+                            Label("Import", systemImage: "square.and.arrow.down")
+                                .font(.subheadline)
+                        }
+                        
+                        Spacer()
+                        
+                        // Record Button
+                        Button {
+                            viewModel.isRecordingPresented = true
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "record.circle.fill")
+                                    .font(.title3)
+                                    .foregroundColor(.red)
+                                Text("Record")
+                                    .fontWeight(.semibold)
+                            }
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 20)
+                            .background(Color.secondary.opacity(0.15))
+                            .clipShape(Capsule())
+                        }
                     }
                 }
             }
@@ -93,11 +263,93 @@ public struct LibraryView: View {
             .sheet(isPresented: $viewModel.isRecordingPresented) {
                 RecorderView()
             }
+            .fileImporter(
+                isPresented: $viewModel.isFileImporterPresented,
+                allowedContentTypes: supportedImportUTTypes(),
+                allowsMultipleSelection: false
+            ) { result in
+                handleFileImportResult(result)
+            }
+            .alert("Rename Recording", isPresented: $viewModel.isRenameAlertPresented) {
+                TextField("Title", text: $viewModel.renameTitleText)
+                Button("Cancel", role: .cancel) {
+                    viewModel.recordingToRename = nil
+                }
+                Button("Save") {
+                    viewModel.applyRename()
+                    try? modelContext.save()
+                }
+            } message: {
+                Text("Enter a new title for this recording.")
+            }
             .task {
                 checkForRecoverableRecordings()
             }
         }
     }
+    
+    // MARK: - File Import Handling (§16 M2)
+    
+    private func supportedImportUTTypes() -> [UTType] {
+        var types: [UTType] = [.audio, .mpeg4Audio, .mp3, .wav]
+        if let caf = UTType("com.apple.coreaudio-format") {
+            types.append(caf)
+        }
+        return types
+    }
+    
+    private func handleFileImportResult(_ result: Result<[URL], Error>) {
+        switch result {
+        case .success(let urls):
+            guard let selectedURL = urls.first else { return }
+            importAudioFile(from: selectedURL)
+        case .failure(let error):
+            withAnimation {
+                viewModel.importErrorMessage = "Failed to select file: \(error.localizedDescription)"
+            }
+        }
+    }
+    
+    public func importAudioFile(from sourceURL: URL) {
+        let sessionID = UUID()
+        let destinationDir = AppConstants.recordingsDirectoryURL.appendingPathComponent(sessionID.uuidString, isDirectory: true)
+        
+        Task {
+            do {
+                let (fileURL, duration, title) = try await importService.importAudio(
+                    from: sourceURL,
+                    destinationDirectory: destinationDir
+                )
+                
+                await MainActor.run {
+                    let recording = Recording(
+                        id: sessionID,
+                        title: title,
+                        createdAt: Date(),
+                        duration: duration,
+                        audioFileName: fileURL.lastPathComponent,
+                        source: .imported,
+                        stage: .recorded,
+                        tags: ["Imported"]
+                    )
+                    modelContext.insert(recording)
+                    try? modelContext.save()
+                    
+                    withAnimation {
+                        viewModel.importSuccessNotice = "Imported \"\(title)\" (\(formatDuration(duration)))"
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    withAnimation {
+                        viewModel.importErrorMessage = error.localizedDescription
+                    }
+                }
+            }
+        }
+    }
+    
+    // MARK: - Recording Actions
     
     private func checkForRecoverableRecordings() {
         let recovered = crashRecoveryService.scanAndRecover(
@@ -111,15 +363,37 @@ public struct LibraryView: View {
         }
     }
     
-    private func deleteRecordings(at offsets: IndexSet) {
-        for index in offsets {
-            let recording = recordings[index]
-            // Clean up audio file on disk (§14.4)
-            let fileURL = AppConstants.recordingsDirectoryURL.appendingPathComponent(recording.audioFileName)
-            try? FileManager.default.removeItem(at: fileURL)
-            modelContext.delete(recording)
-        }
+    private func deleteSingleRecording(_ recording: Recording) {
+        let fileURL = AppConstants.recordingsDirectoryURL.appendingPathComponent(recording.audioFileName)
+        try? FileManager.default.removeItem(at: fileURL)
+        modelContext.delete(recording)
         try? modelContext.save()
+    }
+    
+    private func formatDuration(_ duration: TimeInterval) -> String {
+        let minutes = Int(duration) / 60
+        let seconds = Int(duration) % 60
+        return String(format: "%d:%02d", minutes, seconds)
+    }
+}
+
+/// Tag chip button for horizontal category filtering
+public struct TagChip: View {
+    let title: String
+    let isSelected: Bool
+    let action: () -> Void
+    
+    public var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.caption)
+                .fontWeight(isSelected ? .semibold : .regular)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(isSelected ? Color.blue : Color.secondary.opacity(0.12))
+                .foregroundColor(isSelected ? .white : .primary)
+                .clipShape(Capsule())
+        }
     }
 }
 
@@ -127,7 +401,7 @@ public struct RecordingRowView: View {
     let recording: Recording
     
     public var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 5) {
             HStack {
                 Text(recording.title)
                     .font(.headline)
@@ -139,6 +413,17 @@ public struct RecordingRowView: View {
             }
             
             HStack(spacing: 8) {
+                // Source badge (§7)
+                if recording.source == .imported {
+                    Text("Imported")
+                        .font(.system(size: 10, weight: .medium))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.purple.opacity(0.15))
+                        .foregroundColor(.purple)
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                }
+                
                 Text(recording.createdAt.formatted(date: .abbreviated, time: .shortened))
                     .font(.caption2)
                     .foregroundColor(.secondary)
@@ -158,6 +443,18 @@ public struct RecordingRowView: View {
                         .font(.caption)
                         .foregroundColor(.yellow)
                 }
+            }
+            
+            // Tags row
+            if !recording.tags.isEmpty {
+                HStack(spacing: 4) {
+                    ForEach(recording.tags, id: \.self) { tag in
+                        Text("#\(tag)")
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .padding(.top, 1)
             }
         }
         .padding(.vertical, 4)

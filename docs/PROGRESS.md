@@ -24,10 +24,10 @@ Track the implementation of each milestone (§16 of `docs/SPEC.md`). Each milest
   - [x] Disk space warnings (< 500 MB warning, < 100 MB stop)
   - [x] Launch crash-recovery scanner for in-progress recordings
 
-- [ ] **M2: Library and Import**
-  - [ ] SwiftData library list with search, sort, tags, favorites
-  - [ ] File import (Share Sheet / Files app) for m4a/mp3/wav/caf
-  - [ ] Recording rename and deletion (cleans audio files)
+- [x] **M2: Library and Import**
+  - [x] SwiftData library list with search, sort, tags, favorites
+  - [x] File import (Share Sheet / Files app) for m4a/mp3/wav/caf
+  - [x] Recording rename and deletion (cleans audio files)
 
 - [ ] **M3: Transcription**
   - [ ] `SpeechAnalyzer` + `SpeechTranscriber` pipeline with `AssetInventory` downloads

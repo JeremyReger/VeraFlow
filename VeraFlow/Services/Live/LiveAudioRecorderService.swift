@@ -1,0 +1,465 @@
+import AVFAudio
+import Foundation
+
+/// Records the microphone to a crash-safe CAF file (AAC, mono, 44.1 kHz, ~64 kbps) with
+/// `AVAudioEngine` (SPEC §8). Handles interruptions, route changes, and disk space.
+///
+/// Uses the classic `connect`/`installTap`/interruption-notification APIs because the iOS 27
+/// replacements aren't in the iOS 26 SDK (see docs/DECISIONS.md).
+actor LiveAudioRecorderService: AudioRecorderService {
+    /// Reads free disk space in bytes; injected so tests can drive the thresholds.
+    typealias CapacityProvider = @Sendable () -> Int64?
+
+    static let sampleRate: Double = 44_100
+    static let bitRate = 64_000
+
+    private let capacityProvider: CapacityProvider
+    private let diskCheckInterval: Duration
+
+    private var engine: AVAudioEngine?
+    private var mixer: AVAudioMixerNode?
+    private var writer: TapWriter?
+    private var status: RecorderSnapshot.Status = .idle
+    private var fileURL: URL?
+    private var didWarnLowDisk = false
+
+    private var meterTask: Task<Void, Never>?
+    private var diskTask: Task<Void, Never>?
+    private var observers: [any NSObjectProtocol] = []
+
+    private var snapshotContinuations: [UUID: AsyncStream<RecorderSnapshot>.Continuation] = [:]
+    private var interruptionContinuations: [UUID: AsyncStream<RecorderInterruption>.Continuation] = [:]
+
+    init(capacityProvider: @escaping CapacityProvider, diskCheckInterval: Duration = .seconds(10)) {
+        self.capacityProvider = capacityProvider
+        self.diskCheckInterval = diskCheckInterval
+    }
+
+    // MARK: AudioRecorderService
+
+    func requestPermission() async -> Bool {
+        switch AVAudioApplication.shared.recordPermission {
+        case .granted:
+            return true
+        case .denied:
+            return false
+        case .undetermined:
+            return await Self.askForRecordPermission()
+        @unknown default:
+            return await Self.askForRecordPermission()
+        }
+    }
+
+    private static func askForRecordPermission() async -> Bool {
+        await withCheckedContinuation { continuation in
+            AVAudioApplication.requestRecordPermission { granted in
+                continuation.resume(returning: granted)
+            }
+        }
+    }
+
+    func start(to fileURL: URL) async throws {
+        guard status == .idle else { throw AudioRecorderError.alreadyRecording }
+        guard AVAudioApplication.shared.recordPermission == .granted else {
+            throw AudioRecorderError.permissionDenied
+        }
+        if DiskSpacePolicy.evaluate(availableBytes: capacityProvider()) == .stop {
+            throw AudioRecorderError.diskFull
+        }
+
+        let session = AVAudioSession.sharedInstance()
+        do {
+            try Self.configureSession(session)
+            try session.setActive(true)
+        } catch {
+            throw AudioRecorderError.sessionFailed(error.localizedDescription)
+        }
+
+        guard let recordFormat = AVAudioFormat(
+            commonFormat: .pcmFormatFloat32,
+            sampleRate: Self.sampleRate,
+            channels: 1,
+            interleaved: false
+        ) else {
+            throw AudioRecorderError.sessionFailed("Could not create the recording format")
+        }
+
+        let settings: [String: Any] = [
+            AVFormatIDKey: kAudioFormatMPEG4AAC,
+            AVSampleRateKey: Self.sampleRate,
+            AVNumberOfChannelsKey: 1,
+            AVEncoderBitRateKey: Self.bitRate,
+        ]
+        let file: AVAudioFile
+        do {
+            file = try AVAudioFile(forWriting: fileURL, settings: settings, commonFormat: .pcmFormatFloat32, interleaved: false)
+        } catch {
+            throw AudioRecorderError.sessionFailed("Could not create the audio file: \(error.localizedDescription)")
+        }
+        let writer = TapWriter(file: file, sampleRate: Self.sampleRate)
+
+        let engine = AVAudioEngine()
+        let mixer = AVAudioMixerNode()
+        engine.attach(mixer)
+
+        let inputFormat = engine.inputNode.outputFormat(forBus: 0)
+        guard inputFormat.sampleRate > 0, inputFormat.channelCount > 0 else {
+            try? session.setActive(false, options: .notifyOthersOnDeactivation)
+            throw AudioRecorderError.sessionFailed("No microphone is available")
+        }
+
+        // Input → mixer (does sample-rate and channel conversion) → main mixer, muted so the mic
+        // isn't played back. The tap on the mixer receives audio in the recording format.
+        engine.connect(engine.inputNode, to: mixer, format: inputFormat)
+        engine.connect(mixer, to: engine.mainMixerNode, format: recordFormat)
+        engine.mainMixerNode.outputVolume = 0
+        mixer.installTap(onBus: 0, bufferSize: 4_096, format: recordFormat) { buffer, _ in
+            writer.append(buffer)
+        }
+
+        engine.prepare()
+        do {
+            try engine.start()
+        } catch {
+            mixer.removeTap(onBus: 0)
+            writer.close()
+            try? session.setActive(false, options: .notifyOthersOnDeactivation)
+            throw AudioRecorderError.sessionFailed("Could not start the audio engine: \(error.localizedDescription)")
+        }
+
+        self.engine = engine
+        self.mixer = mixer
+        self.writer = writer
+        self.fileURL = fileURL
+        self.didWarnLowDisk = false
+        status = .recording
+        publishSnapshot()
+
+        installObservers(for: engine)
+        startMeter()
+        startDiskWatch()
+    }
+
+    func pause() async throws {
+        guard status == .recording, let engine else { throw AudioRecorderError.notRecording }
+        engine.pause()
+        status = .paused
+        publishSnapshot()
+    }
+
+    func resume() async throws {
+        guard status == .paused, let engine else { throw AudioRecorderError.notRecording }
+        do {
+            try AVAudioSession.sharedInstance().setActive(true)
+            try engine.start()
+        } catch {
+            throw AudioRecorderError.sessionFailed(error.localizedDescription)
+        }
+        status = .recording
+        publishSnapshot()
+    }
+
+    func stop() async throws -> RecorderResult {
+        guard status != .idle, let engine, let mixer, let writer, let fileURL else {
+            throw AudioRecorderError.notRecording
+        }
+        mixer.removeTap(onBus: 0)
+        engine.stop()
+        writer.close()
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+
+        let result = RecorderResult(fileURL: fileURL, duration: writer.elapsed)
+        tearDown()
+        status = .idle
+        publishSnapshot()
+        return result
+    }
+
+    func currentTime() async -> TimeInterval {
+        writer?.elapsed ?? 0
+    }
+
+    func snapshots() async -> AsyncStream<RecorderSnapshot> {
+        let id = UUID()
+        let (stream, continuation) = AsyncStream<RecorderSnapshot>.makeStream()
+        snapshotContinuations[id] = continuation
+        continuation.onTermination = { [weak self] _ in
+            Task { await self?.removeSnapshotContinuation(id) }
+        }
+        continuation.yield(currentSnapshot())
+        return stream
+    }
+
+    func interruptions() async -> AsyncStream<RecorderInterruption> {
+        let id = UUID()
+        let (stream, continuation) = AsyncStream<RecorderInterruption>.makeStream()
+        interruptionContinuations[id] = continuation
+        continuation.onTermination = { [weak self] _ in
+            Task { await self?.removeInterruptionContinuation(id) }
+        }
+        return stream
+    }
+
+    func availableInputs() async -> [AudioInputOption] {
+        let session = AVAudioSession.sharedInstance()
+        // Inputs are only listed for record-capable categories.
+        try? Self.configureSession(session)
+        return (session.availableInputs ?? []).map { port in
+            AudioInputOption(id: port.uid, name: port.portName, isBuiltIn: port.portType == .builtInMic)
+        }
+    }
+
+    func selectInput(id: String?) async throws {
+        let session = AVAudioSession.sharedInstance()
+        do {
+            try Self.configureSession(session)
+            guard let id else {
+                try session.setPreferredInput(nil)
+                return
+            }
+            guard let port = session.availableInputs?.first(where: { $0.uid == id }) else {
+                throw AudioRecorderError.sessionFailed("That microphone is no longer available")
+            }
+            try session.setPreferredInput(port)
+        } catch let error as AudioRecorderError {
+            throw error
+        } catch {
+            throw AudioRecorderError.sessionFailed(error.localizedDescription)
+        }
+    }
+
+    // MARK: Session
+
+    private static func configureSession(_ session: AVAudioSession) throws {
+        try session.setCategory(
+            .playAndRecord,
+            mode: .default,
+            options: [.allowBluetoothHFP, .defaultToSpeaker]
+        )
+    }
+
+    // MARK: Interruptions, route changes, engine restarts (SPEC §8.3)
+
+    private func installObservers(for engine: AVAudioEngine) {
+        let center = NotificationCenter.default
+        let session = AVAudioSession.sharedInstance()
+
+        observers.append(center.addObserver(
+            forName: AVAudioSession.interruptionNotification,
+            object: session,
+            queue: nil
+        ) { [weak self] notification in
+            guard let rawType = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+                  let type = AVAudioSession.InterruptionType(rawValue: rawType) else { return }
+            let rawOptions = notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
+            let shouldResume = AVAudioSession.InterruptionOptions(rawValue: rawOptions).contains(.shouldResume)
+            Task { await self?.handleInterruption(type, shouldResume: shouldResume) }
+        })
+
+        observers.append(center.addObserver(
+            forName: AVAudioSession.routeChangeNotification,
+            object: session,
+            queue: nil
+        ) { [weak self] notification in
+            guard let rawReason = notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt,
+                  let reason = AVAudioSession.RouteChangeReason(rawValue: rawReason) else { return }
+            Task { await self?.handleRouteChange(reason) }
+        })
+
+        observers.append(center.addObserver(
+            forName: .AVAudioEngineConfigurationChange,
+            object: engine,
+            queue: nil
+        ) { [weak self] _ in
+            Task { await self?.handleConfigurationChange() }
+        })
+    }
+
+    private func handleInterruption(_ type: AVAudioSession.InterruptionType, shouldResume: Bool) {
+        switch type {
+        case .began:
+            guard status == .recording, let engine else { return }
+            engine.pause()
+            status = .paused
+            publishSnapshot()
+            emit(.began)
+        case .ended:
+            guard status == .paused else { return }
+            emit(.ended(shouldResume: shouldResume))
+        @unknown default:
+            break
+        }
+    }
+
+    private func handleRouteChange(_ reason: AVAudioSession.RouteChangeReason) {
+        guard status != .idle else { return }
+        if reason == .oldDeviceUnavailable {
+            emit(.routeChanged)
+        }
+    }
+
+    /// The engine stops itself when the input hardware changes; reconnect the input and keep going.
+    private func handleConfigurationChange() {
+        guard status == .recording, let engine, let mixer else { return }
+        engine.disconnectNodeInput(mixer)
+        let inputFormat = engine.inputNode.outputFormat(forBus: 0)
+        guard inputFormat.sampleRate > 0, inputFormat.channelCount > 0 else { return }
+        engine.connect(engine.inputNode, to: mixer, format: inputFormat)
+        if !engine.isRunning {
+            try? engine.start()
+        }
+    }
+
+    // MARK: Meter and disk watch
+
+    private func startMeter() {
+        meterTask?.cancel()
+        meterTask = Task.detached { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(100))
+                guard let self else { return }
+                await self.publishSnapshot()
+            }
+        }
+    }
+
+    private func startDiskWatch() {
+        diskTask?.cancel()
+        let interval = diskCheckInterval
+        diskTask = Task.detached { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: interval)
+                guard let self else { return }
+                await self.checkDiskSpace()
+            }
+        }
+    }
+
+    private func checkDiskSpace() {
+        guard status != .idle else { return }
+        let available = capacityProvider()
+        switch DiskSpacePolicy.evaluate(availableBytes: available) {
+        case .ok:
+            break
+        case .warn:
+            if !didWarnLowDisk {
+                didWarnLowDisk = true
+                emit(.lowDiskSpace(availableBytes: available ?? 0))
+            }
+        case .stop:
+            if status == .recording, let engine {
+                engine.pause()
+                status = .paused
+                publishSnapshot()
+            }
+            emit(.diskFull(availableBytes: available ?? 0))
+        }
+    }
+
+    // MARK: Publishing
+
+    private func currentSnapshot() -> RecorderSnapshot {
+        RecorderSnapshot(
+            status: status,
+            elapsed: writer?.elapsed ?? 0,
+            level: status == .recording ? (writer?.level ?? 0) : 0
+        )
+    }
+
+    private func publishSnapshot() {
+        let snapshot = currentSnapshot()
+        for continuation in snapshotContinuations.values {
+            continuation.yield(snapshot)
+        }
+    }
+
+    private func emit(_ interruption: RecorderInterruption) {
+        for continuation in interruptionContinuations.values {
+            continuation.yield(interruption)
+        }
+    }
+
+    private func tearDown() {
+        meterTask?.cancel()
+        meterTask = nil
+        diskTask?.cancel()
+        diskTask = nil
+        for observer in observers {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        observers.removeAll()
+        engine = nil
+        mixer = nil
+        writer = nil
+        fileURL = nil
+    }
+
+    private func removeSnapshotContinuation(_ id: UUID) {
+        snapshotContinuations[id] = nil
+    }
+
+    private func removeInterruptionContinuation(_ id: UUID) {
+        interruptionContinuations[id] = nil
+    }
+}
+
+/// Writes tap buffers to the file and tracks frames written and peak level.
+/// Called from the audio render thread; guarded by a lock so the actor can read it.
+private final class TapWriter: @unchecked Sendable {
+    private let file: AVAudioFile
+    private let sampleRate: Double
+    private let lock = NSLock()
+    private var framesWritten: AVAudioFramePosition = 0
+    private var peak: Float = 0
+    private var isClosed = false
+
+    init(file: AVAudioFile, sampleRate: Double) {
+        self.file = file
+        self.sampleRate = sampleRate
+    }
+
+    func append(_ buffer: AVAudioPCMBuffer) {
+        var bufferPeak: Float = 0
+        if let channels = buffer.floatChannelData {
+            let frameCount = Int(buffer.frameLength)
+            for channel in 0..<Int(buffer.format.channelCount) {
+                let samples = UnsafeBufferPointer(start: channels[channel], count: frameCount)
+                for sample in samples {
+                    bufferPeak = max(bufferPeak, abs(sample))
+                }
+            }
+        }
+        lock.lock()
+        defer { lock.unlock() }
+        guard !isClosed else { return }
+        do {
+            try file.write(from: buffer)
+            framesWritten += AVAudioFramePosition(buffer.frameLength)
+        } catch {
+            // Keep going; the next buffer may succeed. Disk-full is caught by the disk watch.
+        }
+        peak = bufferPeak
+    }
+
+    /// Seconds of audio written so far. Paused time never reaches the tap, so it's excluded.
+    var elapsed: TimeInterval {
+        lock.lock()
+        defer { lock.unlock() }
+        return TimeInterval(framesWritten) / sampleRate
+    }
+
+    /// Meter value 0...1 for the most recent buffer.
+    var level: Float {
+        lock.lock()
+        defer { lock.unlock() }
+        return AudioLevel.normalized(peak: peak)
+    }
+
+    func close() {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !isClosed else { return }
+        isClosed = true
+        file.close()
+    }
+}

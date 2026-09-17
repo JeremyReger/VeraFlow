@@ -39,7 +39,9 @@ struct AppServices: Sendable {
     /// M5 summarization + due dates, M6 exporter, M7 capabilities, M8 purchases.
     static func live() throws -> AppServices {
         let storage = try RecordingStorage.appDefault()
-        return fakes(storage: storage)
+        var services = fakes(storage: storage)
+        services.recorder = LiveAudioRecorderService(capacityProvider: { storage.availableCapacity() })
+        return services
     }
 }
 

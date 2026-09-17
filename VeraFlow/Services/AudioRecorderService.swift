@@ -25,6 +25,16 @@ enum RecorderInterruption: Sendable, Equatable {
     case routeChanged
     /// Free disk space fell below the warning threshold (SPEC §8.3).
     case lowDiskSpace(availableBytes: Int64)
+    /// Free disk space fell below the hard limit. The recorder paused itself; the UI should stop and save.
+    case diskFull(availableBytes: Int64)
+}
+
+/// A microphone the user can record from (SPEC §8.1).
+struct AudioInputOption: Sendable, Identifiable, Hashable {
+    /// The audio session port UID.
+    var id: String
+    var name: String
+    var isBuiltIn: Bool
 }
 
 /// The result of stopping a recording.
@@ -57,13 +67,22 @@ protocol AudioRecorderService: Sendable {
     func snapshots() async -> AsyncStream<RecorderSnapshot>
     /// Emits interruptions and route changes.
     func interruptions() async -> AsyncStream<RecorderInterruption>
+    /// Microphones currently available (built-in, AirPods, USB...).
+    func availableInputs() async -> [AudioInputOption]
+    /// Prefers an input for the next and current recording. `nil` lets the system choose.
+    func selectInput(id: String?) async throws
 }
 
 /// Scripted recorder for tests and previews. Advances time only when told to.
 actor FakeAudioRecorderService: AudioRecorderService {
     private(set) var snapshot = RecorderSnapshot()
     private(set) var startedURL: URL?
+    private(set) var selectedInputID: String?
     var permissionGranted = true
+    var inputs: [AudioInputOption] = [
+        AudioInputOption(id: "builtin", name: "iPhone Microphone", isBuiltIn: true),
+        AudioInputOption(id: "airpods", name: "AirPods", isBuiltIn: false),
+    ]
 
     private var snapshotContinuations: [UUID: AsyncStream<RecorderSnapshot>.Continuation] = [:]
     private var interruptionContinuations: [UUID: AsyncStream<RecorderInterruption>.Continuation] = [:]
@@ -126,6 +145,15 @@ actor FakeAudioRecorderService: AudioRecorderService {
         return stream
     }
 
+    func availableInputs() async -> [AudioInputOption] { inputs }
+
+    func selectInput(id: String?) async throws {
+        if let id, !inputs.contains(where: { $0.id == id }) {
+            throw AudioRecorderError.sessionFailed("Input \(id) is not available")
+        }
+        selectedInputID = id
+    }
+
     // MARK: Test controls
 
     /// Pretends `seconds` of audio were captured at `level`.
@@ -138,9 +166,14 @@ actor FakeAudioRecorderService: AudioRecorderService {
 
     /// Simulates a system interruption or route change.
     func simulate(_ interruption: RecorderInterruption) {
-        if case .began = interruption, snapshot.status == .recording {
-            snapshot.status = .paused
-            publish()
+        switch interruption {
+        case .began, .diskFull:
+            if snapshot.status == .recording {
+                snapshot.status = .paused
+                publish()
+            }
+        default:
+            break
         }
         for continuation in interruptionContinuations.values {
             continuation.yield(interruption)

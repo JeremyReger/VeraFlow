@@ -3,9 +3,31 @@ import SwiftUI
 /// Summary / Transcript / Audio tabs for one recording (SPEC §4.4). Placeholder in M0; built in M3–M5.
 struct RecordingDetailView: View {
     let recording: Recording
+    @Environment(\.services) private var services
+    @State private var player = AudioPlayerController()
 
     var body: some View {
         List {
+            Section("Audio") {
+                AudioPlayerView(player: player)
+            }
+            if !recording.bookmarks.isEmpty {
+                Section("Bookmarks") {
+                    ForEach(recording.bookmarks.sorted { $0.time < $1.time }) { bookmark in
+                        Button {
+                            player.seek(to: bookmark.time)
+                        } label: {
+                            HStack {
+                                Text(Duration.seconds(bookmark.time), format: .time(pattern: .minuteSecond))
+                                    .monospacedDigit()
+                                    .foregroundStyle(.secondary)
+                                Text(bookmark.note ?? "Bookmark")
+                            }
+                        }
+                        .tint(.primary)
+                    }
+                }
+            }
             Section("Status") {
                 LabeledContent("Stage", value: recording.stage.displayName)
                 if let message = recording.failureMessage {
@@ -38,6 +60,10 @@ struct RecordingDetailView: View {
         }
         .navigationTitle(recording.title)
         .navigationBarTitleDisplayMode(.inline)
+        .task {
+            player.load(url: services.storage.audioURL(for: recording.id, fileName: recording.audioFileName))
+        }
+        .onDisappear { player.stop() }
     }
 
     private func speakerName(for key: String?) -> String {
@@ -51,4 +77,5 @@ struct RecordingDetailView: View {
         RecordingDetailView(recording: PreviewData.sampleRecording())
     }
     .modelContainer(PreviewData.container())
+    .environment(\.services, .fakes())
 }

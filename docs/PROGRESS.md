@@ -14,7 +14,18 @@ Update this file at the end of every session. Check an item only when its "Done 
   - [x] `xcodegen generate` + `scripts/test.sh --unit-only` pass on Jeremy's Mac (Xcode 26.6, 29 tests) with no strict-concurrency warnings
   - [x] `scripts/test.sh` (unit + UI) passes on Jeremy's Mac (29 unit tests + 1 XCUITest)
   - [x] App launches to an empty Library on a device (Jeremy's iPhone, iOS 26)
-- [ ] M1 — Recording
+- [ ] M1 — Recording (code written; needs `scripts/test.sh` green on a Mac and the §16 device checks)
+  - [x] `LiveAudioRecorderService`: AVAudioEngine → CAF/AAC mono 44.1 kHz 64 kbps; `.playAndRecord` with Bluetooth HFP + speaker; input picker
+  - [x] Recorder screen: start, timer, level meter, pause/resume, stop, bookmarks, name-on-stop, permission-denied state
+  - [x] Interruptions: auto-pause + "Interrupted" bookmark, "Resume recording?" prompt, route-change notice, engine restart on hardware change
+  - [x] Disk space: warning banner under 500 MB, auto-stop under 100 MB
+  - [x] Launch recovery of `.recording` rows (duration from file; unreadable → failed) with a one-time alert
+  - [x] Minimal playback (play/pause/scrub/skip, bookmark tap-to-seek) in the detail screen
+  - [x] Tests: view model (11), recovery (5), disk policy, level meter, file info; UI test of the record → save flow with fakes
+  - [ ] `scripts/test.sh` green on Jeremy's Mac
+  - [ ] Device: 90-minute recording with the screen locked plays back fully
+  - [ ] Device: force-quit mid-recording recovers a playable file
+  - [ ] Device: a phone call pauses and offers resume
 - [ ] M2 — Library and import
 - [ ] M3 — Transcription (+ SpeechAnalyzer vs Parakeet benchmark)
 - [ ] M4 — Speaker labels

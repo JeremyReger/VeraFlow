@@ -1,3 +1,4 @@
+import SwiftData
 import SwiftUI
 
 /// Summary / Transcript / Audio tabs for one recording (SPEC §4.4). Placeholder in M0; built in M3–M5.

@@ -1,0 +1,25 @@
+# Xcode & macOS
+.DS_Store
+*/.DS_Store
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+DerivedData/
+.build/
+*.xcuserstate
+*.xcresult/
+*.hmap
+
+# Swift Package Manager
+.swiftpm/
+Packages/
+Package.pins
+Package.resolved
+
+# Test Audio Fixtures (large binary files)
+TestAudio/*
+!TestAudio/.gitkeep
+
+# Environment & Local Overrides
+*.local
+.env

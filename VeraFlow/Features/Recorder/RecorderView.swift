@@ -54,7 +54,10 @@ private struct RecorderContent: View {
             }
         }
         .interactiveDismissDisabled(viewModel.isActive || viewModel.phase == .naming)
-        .task { await viewModel.loadInputs() }
+        .task {
+            await viewModel.loadInputs()
+            await viewModel.watchInputs()
+        }
         .onChange(of: viewModel.phase) { _, phase in
             if case .saved = phase { dismiss() }
         }
@@ -97,7 +100,7 @@ private struct RecorderContent: View {
             .accessibilityLabel("Start Recording")
             .accessibilityIdentifier("recorder.start")
 
-            inputPicker
+            microphoneRow
             Text("Everything stays on this iPhone.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
@@ -106,12 +109,12 @@ private struct RecorderContent: View {
         .padding()
     }
 
+    /// "Microphone: iPhone Microphone ▾". Shown before and during recording; switching
+    /// mid-recording restarts capture on the new input without a pause.
     @ViewBuilder
-    private var inputPicker: some View {
-        if viewModel.inputs.count > 1 {
+    private var microphoneRow: some View {
+        if !viewModel.inputs.isEmpty {
             Menu {
-                Button("Automatic") { Task { await viewModel.selectInput(id: nil) } }
-                Divider()
                 ForEach(viewModel.inputs) { input in
                     Button {
                         Task { await viewModel.selectInput(id: input.id) }
@@ -123,15 +126,42 @@ private struct RecorderContent: View {
                         }
                     }
                 }
+                Divider()
+                Button {
+                    Task { await viewModel.selectInput(id: nil) }
+                } label: {
+                    if viewModel.inputChoice == .automatic {
+                        Label("Automatic", systemImage: "checkmark")
+                    } else {
+                        Text("Automatic")
+                    }
+                }
             } label: {
-                Label(selectedInputName, systemImage: "mic")
+                HStack(spacing: 6) {
+                    Image(systemName: "mic.fill")
+                    Text("Microphone")
+                        .foregroundStyle(.secondary)
+                    Text(selectedInputName)
+                        .fontWeight(.medium)
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                .font(.subheadline)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(.thinMaterial, in: Capsule())
             }
+            .accessibilityLabel("Microphone: \(selectedInputName)")
             .accessibilityIdentifier("recorder.inputPicker")
         }
     }
 
     private var selectedInputName: String {
-        viewModel.inputs.first { $0.id == viewModel.selectedInputID }?.name ?? "Automatic microphone"
+        if let selected = viewModel.inputs.first(where: { $0.id == viewModel.selectedInputID }) {
+            return selected.name
+        }
+        return viewModel.inputChoice == .automatic ? "Automatic" : "iPhone Microphone"
     }
 
     // MARK: Permission denied
@@ -186,6 +216,8 @@ private struct RecorderContent: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
+
+            microphoneRow
 
             if let notice = viewModel.notice {
                 Text(notice)

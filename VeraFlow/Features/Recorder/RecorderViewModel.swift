@@ -1,3 +1,4 @@
+import AVFAudio
 import Foundation
 import Observation
 import SwiftData
@@ -34,7 +35,10 @@ final class RecorderViewModel {
     private(set) var recording: Recording?
     private(set) var bookmarkCount = 0
     private(set) var inputs: [AudioInputOption] = []
+    /// The port currently preferred; `nil` while iOS is choosing. Drives the picker's label.
     private(set) var selectedInputID: String?
+    /// What the user asked for (remembered in `UserDefaults`).
+    private(set) var inputChoice: AudioInputChoice
     /// Free bytes when the low-disk warning fired; `nil` when there is no warning.
     private(set) var lowDiskBytes: Int64?
     /// True after a phone call ends and the system says we may resume (SPEC §8.3).
@@ -46,30 +50,76 @@ final class RecorderViewModel {
 
     var isActive: Bool { phase == .recording || phase == .paused }
 
+    static let inputChoiceKey = "recorder.inputChoice"
+
     private let services: AppServices
     private let context: ModelContext
+    private let defaults: UserDefaults
     private let now: @Sendable () -> Date
     private var streamTasks: [Task<Void, Never>] = []
+    private var routeObserver: (any NSObjectProtocol)?
+    /// Last port handed to the recorder, so route-change reloads don't re-apply the same one.
+    private var appliedInputID: String??
 
-    init(services: AppServices, context: ModelContext, now: @escaping @Sendable () -> Date = { .now }) {
+    init(
+        services: AppServices,
+        context: ModelContext,
+        defaults: UserDefaults = .standard,
+        now: @escaping @Sendable () -> Date = { .now }
+    ) {
         self.services = services
         self.context = context
+        self.defaults = defaults
         self.now = now
+        self.inputChoice = AudioInputChoice(stored: defaults.string(forKey: Self.inputChoiceKey))
     }
 
     // MARK: Inputs
 
+    /// Reads what's plugged in and applies the remembered choice (built-in mic by default).
+    /// Safe to call often: the recorder is only told when the effective port changes.
     func loadInputs() async {
         inputs = await services.recorder.availableInputs()
-        if let selectedInputID, !inputs.contains(where: { $0.id == selectedInputID }) {
-            self.selectedInputID = nil
+        await applyInputChoice()
+    }
+
+    /// The user picked a microphone (`nil` = let iOS choose). Remembered for next time.
+    func selectInput(id: String?) async {
+        inputChoice = id.map { .device($0) } ?? .automatic
+        defaults.set(inputChoice.stored, forKey: Self.inputChoiceKey)
+        appliedInputID = nil
+        await applyInputChoice()
+    }
+
+    /// Reloads the input list whenever a headset connects or disconnects. Call from the
+    /// screen's `.task`; stops when that task is cancelled.
+    func watchInputs() async {
+        let center = NotificationCenter.default
+        let observer = center.addObserver(
+            forName: AVAudioSession.routeChangeNotification,
+            object: nil,
+            queue: nil
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in await self?.loadInputs() }
+        }
+        routeObserver = observer
+        defer {
+            center.removeObserver(observer)
+            routeObserver = nil
+        }
+        // Hold until the enclosing SwiftUI task is cancelled.
+        while !Task.isCancelled {
+            try? await Task.sleep(for: .seconds(3600))
         }
     }
 
-    func selectInput(id: String?) async {
+    private func applyInputChoice() async {
+        let effective = AudioInputPolicy.effectiveInput(available: inputs, choice: inputChoice)
+        selectedInputID = effective
+        guard appliedInputID != .some(effective) else { return }
         do {
-            try await services.recorder.selectInput(id: id)
-            selectedInputID = id
+            try await services.recorder.selectInput(id: effective)
+            appliedInputID = .some(effective)
         } catch {
             errorMessage = Self.message(for: error)
         }

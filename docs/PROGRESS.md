@@ -26,7 +26,8 @@ Update this file at the end of every session. Check an item only when its "Done 
   - [x] Device: record → waveform/level meter/bookmarks → stop → save → playback with audio (Jeremy's iPhone; 1:13 recording = 606 KB CAF/AAC 44.1 kHz mono)
   - [x] Device: recording continues with the screen locked (10-minute locked recording plays back)
   - [ ] Device: 90-minute recording with the screen locked plays back fully (first attempt: system interruption at 43:42, crash on Resume in the configuration-change re-tap per the crash log; capture restarts now rebuild the engine and validate the format first; re-test needed)
-  - [ ] Device: disconnecting a Bluetooth headset mid-recording continues on the iPhone mic without a pause
+  - [x] Device: connecting or disconnecting Bluetooth earbuds mid-recording switches mics without a pause (Jeremy's soundcore earbuds; both directions)
+  - [ ] Device: Microphone menu shows iPhone Microphone by default with earbuds connected; picking the earbuds mid-recording switches to them; the choice survives relaunch
   - [ ] Device: Live Activity shows timer/Paused/bookmarks on the Lock Screen and in the Dynamic Island while recording, and disappears on Stop
   - [x] Device: force-quit mid-recording recovers a playable file (first try FAILED with CAF/AAC; after switching capture to ADTS: recovered alert, 0:09 row, plays)
   - [x] Device: a phone call pauses, adds an "Interrupted" bookmark, and offers resume (4:40 recording plays back)

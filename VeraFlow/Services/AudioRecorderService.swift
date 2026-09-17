@@ -147,6 +147,11 @@ actor FakeAudioRecorderService: AudioRecorderService {
 
     func availableInputs() async -> [AudioInputOption] { inputs }
 
+    /// Test control: pretend a headset connected or disconnected.
+    func setInputs(_ inputs: [AudioInputOption]) {
+        self.inputs = inputs
+    }
+
     func selectInput(id: String?) async throws {
         if let id, !inputs.contains(where: { $0.id == id }) {
             throw AudioRecorderError.sessionFailed("Input \(id) is not available")

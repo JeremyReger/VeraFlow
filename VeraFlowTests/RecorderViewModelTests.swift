@@ -10,6 +10,8 @@ struct RecorderViewModelTests {
         let recorder: FakeAudioRecorderService
         let pipeline: FakePipelineCoordinator
         let activity: FakeRecordingActivityService
+        let defaults: UserDefaults
+        let defaultsSuite: String
         let storage: RecordingStorage
         /// Kept alive for the test's duration; the context does not retain it.
         let container: ModelContainer
@@ -17,10 +19,11 @@ struct RecorderViewModelTests {
 
         func cleanUp() {
             try? FileManager.default.removeItem(at: storage.rootDirectory)
+            defaults.removePersistentDomain(forName: defaultsSuite)
         }
     }
 
-    private func makeHarness(permissionGranted: Bool = true) throws -> Harness {
+    private func makeHarness(permissionGranted: Bool = true, defaultsSuite: String? = nil) throws -> Harness {
         let storage = RecordingStorage(rootDirectory: try TestAudioFiles.temporaryDirectory())
         var services = AppServices.fakes(storage: storage)
         let recorder = FakeAudioRecorderService(permissionGranted: permissionGranted)
@@ -32,8 +35,10 @@ struct RecorderViewModelTests {
         let container = try ModelContainerFactory.makeInMemory()
         let context = container.mainContext
         let fixedNow = Date(timeIntervalSince1970: 1_789_000_000)
-        let viewModel = RecorderViewModel(services: services, context: context, now: { fixedNow })
-        return Harness(viewModel: viewModel, recorder: recorder, pipeline: pipeline, activity: activity, storage: storage, container: container, context: context)
+        let suite = defaultsSuite ?? "RecorderViewModelTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        let viewModel = RecorderViewModel(services: services, context: context, defaults: defaults, now: { fixedNow })
+        return Harness(viewModel: viewModel, recorder: recorder, pipeline: pipeline, activity: activity, defaults: defaults, defaultsSuite: suite, storage: storage, container: container, context: context)
     }
 
     /// Waits for an async condition driven by the fake's streams.
@@ -253,7 +258,7 @@ struct RecorderViewModelTests {
         #expect(viewModel.recording?.title.hasPrefix("Meeting · ") == true)
     }
 
-    @Test("Input selection is forwarded to the recorder")
+    @Test("The built-in mic is preferred by default; a choice is forwarded and remembered")
     func inputs() async throws {
         let harness = try makeHarness()
         defer { harness.cleanUp() }
@@ -261,14 +266,41 @@ struct RecorderViewModelTests {
 
         await viewModel.loadInputs()
         #expect(viewModel.inputs.count == 2)
+        #expect(viewModel.inputChoice == .unset)
+        #expect(viewModel.selectedInputID == "builtin")
+        #expect(await harness.recorder.selectedInputID == "builtin")
 
         await viewModel.selectInput(id: "airpods")
         #expect(viewModel.selectedInputID == "airpods")
         #expect(await harness.recorder.selectedInputID == "airpods")
 
-        await viewModel.selectInput(id: "missing")
-        #expect(viewModel.errorMessage != nil)
-        #expect(viewModel.selectedInputID == "airpods")
+        // A new view model on the same defaults restores the choice.
+        let again = try makeHarness(defaultsSuite: harness.defaultsSuite)
+        defer { again.cleanUp() }
+        #expect(again.viewModel.inputChoice == .device("airpods"))
+        await again.viewModel.loadInputs()
+        #expect(await again.recorder.selectedInputID == "airpods")
+
+        await again.viewModel.selectInput(id: nil)
+        #expect(again.viewModel.inputChoice == .automatic)
+        #expect(again.viewModel.selectedInputID == nil)
+        #expect(await again.recorder.selectedInputID == nil)
+    }
+
+    @Test("When the chosen headset disappears, the phone mic is applied instead")
+    func inputFallsBackWhenHeadsetLeaves() async throws {
+        let harness = try makeHarness()
+        defer { harness.cleanUp() }
+        let viewModel = harness.viewModel
+
+        await viewModel.loadInputs()
+        await viewModel.selectInput(id: "airpods")
+        await harness.recorder.setInputs([AudioInputOption(id: "builtin", name: "iPhone Microphone", isBuiltIn: true)])
+        await viewModel.loadInputs()
+
+        #expect(viewModel.inputChoice == .device("airpods"), "the preference survives; only the applied port changes")
+        #expect(viewModel.selectedInputID == "builtin")
+        #expect(await harness.recorder.selectedInputID == "builtin")
     }
 
     @Test("The Live Activity follows start, pause, bookmark, resume, and stop")

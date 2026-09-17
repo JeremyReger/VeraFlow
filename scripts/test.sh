@@ -41,6 +41,7 @@ swiftc -emit-module -module-name VeraFlow \
     -load-plugin-library "${PLUGIN_DIR}/libSwiftDataMacros.dylib" \
     -load-plugin-library "${PLUGIN_DIR}/libObservationMacros.dylib" \
     -load-plugin-library "${PLUGIN_DIR}/libPreviewsMacros.dylib" \
+    -load-plugin-library "${PLUGIN_DIR}/libFoundationModelsMacros.dylib" \
     -module-cache-path "${REPO_ROOT}/.build/clang-cache" \
     -o "${REPO_ROOT}/.build/VeraFlow.swiftmodule" \
     ${SWIFT_FILES}
@@ -56,6 +57,10 @@ swiftc -parse \
     -I "${REPO_ROOT}/.build" \
     -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk \
     -target arm64-apple-ios26.0 \
+    -disable-sandbox \
+    -load-plugin-library "${PLUGIN_DIR}/libSwiftDataMacros.dylib" \
+    -load-plugin-library "${PLUGIN_DIR}/libObservationMacros.dylib" \
+    -load-plugin-library "${PLUGIN_DIR}/libFoundationModelsMacros.dylib" \
     -module-cache-path "${REPO_ROOT}/.build/clang-cache" \
     ${TEST_FILES}
 

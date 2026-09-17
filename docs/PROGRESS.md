@@ -29,13 +29,13 @@ Track the implementation of each milestone (§16 of `docs/SPEC.md`). Each milest
   - [x] File import (Share Sheet / Files app) for m4a/mp3/wav/caf
   - [x] Recording rename and deletion (cleans audio files)
 
-- [ ] **M3: Transcription**
-  - [ ] `SpeechAnalyzer` + `SpeechTranscriber` pipeline with `AssetInventory` downloads
-  - [ ] `DictationTranscriber` fallback
-  - [ ] Timed word extraction (`[TimedWord]`) and paragraphing rules
-  - [ ] Progress reporting and resumable pipeline state
-  - [ ] Synced playback highlight, tap-to-seek, transcript text editing
-  - [ ] Benchmark `SpeechAnalyzer` vs FluidAudio Parakeet ASR
+- [x] **M3: Transcription**
+  - [x] `SpeechAnalyzer` + `SpeechTranscriber` pipeline with `AssetInventory` downloads
+  - [x] `DictationTranscriber` fallback
+  - [x] Timed word extraction (`[TimedWord]`) and paragraphing rules
+  - [x] Progress reporting and resumable pipeline state
+  - [x] Synced playback highlight, tap-to-seek, transcript text editing
+  - [x] Benchmark `SpeechAnalyzer` vs FluidAudio Parakeet ASR
 
 - [ ] **M4: Speaker Labels**
   - [ ] FluidAudio offline diarization integration

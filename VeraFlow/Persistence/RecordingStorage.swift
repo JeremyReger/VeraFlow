@@ -27,7 +27,7 @@ struct RecordingStorage: Sendable {
     func folder(for id: UUID, excludeFromBackup: Bool = true) throws -> URL {
         let url = rootDirectory.appending(path: id.uuidString, directoryHint: .isDirectory)
         let fileManager = FileManager.default
-        if !fileManager.fileExists(atPath: url.path()) {
+        if !fileManager.fileExists(at: url) {
             try fileManager.createDirectory(
                 at: url,
                 withIntermediateDirectories: true,
@@ -48,13 +48,13 @@ struct RecordingStorage: Sendable {
     /// Deletes a recording's folder and everything in it. Missing folders are not an error.
     func deleteFolder(for id: UUID) throws {
         let url = rootDirectory.appending(path: id.uuidString, directoryHint: .isDirectory)
-        guard FileManager.default.fileExists(atPath: url.path()) else { return }
+        guard FileManager.default.fileExists(at: url) else { return }
         try FileManager.default.removeItem(at: url)
     }
 
     /// IDs of every recording folder on disk. Used for crash recovery and orphan cleanup.
     func existingFolderIDs() throws -> [UUID] {
-        guard FileManager.default.fileExists(atPath: rootDirectory.path()) else { return [] }
+        guard FileManager.default.fileExists(at: rootDirectory) else { return [] }
         let contents = try FileManager.default.contentsOfDirectory(
             at: rootDirectory,
             includingPropertiesForKeys: [.isDirectoryKey],

@@ -36,7 +36,7 @@ actor FakeAudioImportService: AudioImportService {
         guard supportedExtensions.contains(ext) else { throw AudioImportError.unsupportedType(ext) }
         let fileName = "audio.\(ext)"
         let destination = destinationFolder.appending(path: fileName, directoryHint: .notDirectory)
-        if FileManager.default.fileExists(atPath: sourceURL.path()) {
+        if FileManager.default.fileExists(at: sourceURL) {
             try? FileManager.default.removeItem(at: destination)
             try FileManager.default.copyItem(at: sourceURL, to: destination)
         }

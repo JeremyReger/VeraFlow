@@ -16,7 +16,7 @@ struct RecordingStorageTests {
 
         let id = UUID()
         let folder = try storage.folder(for: id)
-        #expect(FileManager.default.fileExists(atPath: folder.path()))
+        #expect(FileManager.default.fileExists(at: folder))
         #expect(folder.lastPathComponent == id.uuidString)
         #expect(try storage.existingFolderIDs() == [id])
 
@@ -69,5 +69,26 @@ struct RecordingStorageTests {
         try FileManager.default.createDirectory(at: stray, withIntermediateDirectories: true)
         try Data("x".utf8).write(to: storage.rootDirectory.appending(path: "notes.txt"))
         #expect(try storage.existingFolderIDs().count == 1)
+    }
+
+    @Test("Works when the root path contains spaces, like Application Support on device")
+    func rootPathWithSpaces() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appending(path: "Space Test \(UUID().uuidString)", directoryHint: .isDirectory)
+            .appending(path: "Recordings", directoryHint: .isDirectory)
+        let storage = RecordingStorage(rootDirectory: root)
+        defer { try? FileManager.default.removeItem(at: root.deletingLastPathComponent()) }
+
+        let id = UUID()
+        try storage.folder(for: id)
+        let audio = storage.audioURL(for: id, fileName: "audio.caf")
+        try Data("x".utf8).write(to: audio)
+
+        #expect(FileManager.default.fileExists(at: audio))
+        #expect(try storage.existingFolderIDs() == [id])
+
+        try storage.deleteFolder(for: id)
+        #expect(!FileManager.default.fileExists(at: audio))
+        #expect(try storage.existingFolderIDs().isEmpty)
     }
 }

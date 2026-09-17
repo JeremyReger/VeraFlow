@@ -57,7 +57,7 @@ struct RecorderViewModelTests {
 
         let expectedURL = harness.storage.audioURL(for: recording.id, fileName: recording.audioFileName)
         #expect(await harness.recorder.startedURL == expectedURL)
-        #expect(FileManager.default.fileExists(atPath: expectedURL.deletingLastPathComponent().path()))
+        #expect(FileManager.default.fileExists(at: expectedURL.deletingLastPathComponent()))
         #expect(try harness.context.fetchCount(FetchDescriptor<Recording>()) == 1)
     }
 

@@ -17,7 +17,7 @@ final class AudioPlayerController {
 
     func load(url: URL) {
         stop()
-        guard FileManager.default.fileExists(atPath: url.path()) else {
+        guard FileManager.default.fileExists(at: url) else {
             errorMessage = "Audio file not found."
             isLoaded = false
             return

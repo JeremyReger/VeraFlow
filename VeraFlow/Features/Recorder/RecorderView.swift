@@ -164,7 +164,7 @@ private struct RecorderContent: View {
 
             Text(viewModel.phase == .paused ? "Paused" : "Recording")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(viewModel.phase == .paused ? .secondary : .red)
+                .foregroundStyle(viewModel.phase == .paused ? Color.secondary : Color.red)
                 .accessibilityIdentifier("recorder.status")
 
             Text(Duration.seconds(viewModel.snapshot.elapsed), format: .time(pattern: .hourMinuteSecond))

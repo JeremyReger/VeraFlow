@@ -22,7 +22,7 @@ Update this file at the end of every session. Check an item only when its "Done 
   - [x] Launch recovery of `.recording` rows (duration from file; unreadable → failed) with a one-time alert
   - [x] Minimal playback (play/pause/scrub/skip, bookmark tap-to-seek) in the detail screen
   - [x] Tests: view model (11), recovery (5), disk policy, level meter, file info; UI test of the record → save flow with fakes
-  - [ ] `scripts/test.sh` green on Jeremy's Mac
+  - [x] `scripts/test.sh` green on Jeremy's Mac (52 unit tests + 2 XCUITests, Xcode 26.6)
   - [ ] Device: 90-minute recording with the screen locked plays back fully
   - [ ] Device: force-quit mid-recording recovers a playable file
   - [ ] Device: a phone call pauses and offers resume

@@ -51,7 +51,7 @@ enum AudioRecorderError: Error, Equatable {
     case sessionFailed(String)
 }
 
-/// Records audio to a crash-safe CAF file (SPEC §8). Implemented for real in M1.
+/// Records audio to a crash-safe AAC (ADTS) file (SPEC §8; see docs/DECISIONS.md). Implemented for real in M1.
 protocol AudioRecorderService: Sendable {
     /// Asks for microphone permission if needed. Returns whether recording is allowed.
     func requestPermission() async -> Bool

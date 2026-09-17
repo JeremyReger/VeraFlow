@@ -37,7 +37,7 @@ final class Recording {
         title: String,
         createdAt: Date = .now,
         duration: TimeInterval = 0,
-        audioFileName: String = "audio.caf",
+        audioFileName: String = "audio.aac",
         source: RecordingSource = .recorded,
         stage: PipelineStage = .recording,
         failureMessage: String? = nil,

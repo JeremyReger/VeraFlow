@@ -25,8 +25,8 @@ Update this file at the end of every session. Check an item only when its "Done 
   - [x] `scripts/test.sh` green on Jeremy's Mac (52 unit tests + 2 XCUITests, Xcode 26.6)
   - [x] Device: record → waveform/level meter/bookmarks → stop → save → playback with audio (Jeremy's iPhone; 1:13 recording = 606 KB CAF/AAC 44.1 kHz mono)
   - [ ] Device: 90-minute recording with the screen locked plays back fully
-  - [ ] Device: force-quit mid-recording recovers a playable file
-  - [ ] Device: a phone call pauses and offers resume
+  - [ ] Device: force-quit mid-recording recovers a playable file (first try FAILED with CAF/AAC: alert + Failed row, audio unreadable; switched capture to ADTS, re-test)
+  - [x] Device: a phone call pauses, adds an "Interrupted" bookmark, and offers resume (4:40 recording plays back)
 - [ ] M2 — Library and import
 - [ ] M3 — Transcription (+ SpeechAnalyzer vs Parakeet benchmark)
 - [ ] M4 — Speaker labels

@@ -23,7 +23,7 @@ Private on-device meeting recorder for iPhone (record → transcribe → speaker
 - Services behind protocols with fakes for tests and previews. `@Observable` view models; actors for stateful services.
 - **Verify Apple and FluidAudio API signatures against the current SDK/docs before using them.** Don't code from memory; these APIs are new and have changed since WWDC.
 - Fresh `LanguageModelSession` per summarization call; read the context size at runtime on iOS 27; never hardcode it.
-- Record to CAF (crash-safe), not directly to m4a.
+- Record to an AAC ADTS stream (`audio.aac`, crash-safe: every frame is self-describing), never directly to m4a or to AAC-in-CAF (needs a packet table written on close). See DECISIONS.md 2026-09-17.
 
 ## Workflow
 - Plan first; wait for approval on anything touching more than a few files.

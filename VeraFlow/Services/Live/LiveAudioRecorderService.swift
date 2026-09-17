@@ -2,8 +2,10 @@ import AVFAudio
 import Foundation
 import os
 
-/// Records the microphone to a crash-safe CAF file (AAC, mono, 44.1 kHz, ~64 kbps) with
-/// `AVAudioEngine` (SPEC §8). Handles interruptions, route changes, and disk space.
+/// Records the microphone to a crash-safe AAC ADTS stream (mono, 44.1 kHz, ~64 kbps) with
+/// `AVAudioEngine` (SPEC §8). ADTS instead of CAF because CAF/AAC needs a packet table that is
+/// only written on close, so a force-quit left an unreadable file (docs/DECISIONS.md).
+/// Handles interruptions, route changes, and disk space.
 ///
 /// The graph is just a tap on the input node (no output path); each buffer is converted to the
 /// recording format with `AVAudioConverter` before it is written. Uses the classic
@@ -89,6 +91,8 @@ actor LiveAudioRecorderService: AudioRecorderService {
             throw AudioRecorderError.sessionFailed("Could not create the recording format")
         }
 
+        // The container comes from the URL's extension: ".aac" → ADTS, which stays readable when
+        // writing is cut off. Callers pass the URL from `RecordingStorage`.
         let settings: [String: Any] = [
             AVFormatIDKey: kAudioFormatMPEG4AAC,
             AVSampleRateKey: Self.sampleRate,

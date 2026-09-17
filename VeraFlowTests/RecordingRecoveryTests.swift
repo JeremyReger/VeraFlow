@@ -88,6 +88,29 @@ struct RecordingRecoveryTests {
         #expect(abs(interrupted.duration - 3) < 0.001)
     }
 
+    @Test("A force-quit recording (truncated ADTS file) is recovered as playable")
+    func recoversTruncatedADTS() throws {
+        let store = try makeStore()
+        let context = store.context
+        let storage = try makeStorage()
+        defer { try? FileManager.default.removeItem(at: storage.rootDirectory) }
+
+        let interrupted = Recording(title: "Killed", stage: .recording)
+        #expect(interrupted.audioFileName == "audio.aac")
+        context.insert(interrupted)
+        try context.save()
+        try storage.folder(for: interrupted.id)
+        let url = storage.audioURL(for: interrupted.id, fileName: interrupted.audioFileName)
+        try TestAudioFiles.writeToneAAC(to: url, seconds: 3)
+        let data = try Data(contentsOf: url)
+        try data.prefix(data.count / 2).write(to: url)
+
+        let outcome = try RecordingRecovery(context: context, storage: storage).run()
+        #expect(outcome.recoveredIDs == [interrupted.id])
+        #expect(interrupted.stage == .recorded)
+        #expect(interrupted.duration > 0.5)
+    }
+
     @Test("Nothing to recover leaves the store untouched and no message")
     func nothingToRecover() throws {
         let store = try makeStore()

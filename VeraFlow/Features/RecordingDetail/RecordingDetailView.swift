@@ -4,7 +4,11 @@ import SwiftUI
 struct RecordingDetailView: View {
     let recording: Recording
     @Environment(\.services) private var services
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+    @Query private var allRecordings: [Recording]
     @State private var player = AudioPlayerController()
+    @State private var controller: RecordingActionsController?
 
     var body: some View {
         List {
@@ -34,6 +38,9 @@ struct RecordingDetailView: View {
                     Text(message).foregroundStyle(.red)
                 }
                 LabeledContent("Template", value: recording.templateID.displayName)
+                if !recording.tags.isEmpty {
+                    LabeledContent("Tags", value: recording.tags.joined(separator: ", "))
+                }
                 LabeledContent("Duration") {
                     Text(Duration.seconds(recording.duration), format: .time(pattern: .minuteSecond))
                 }
@@ -63,7 +70,24 @@ struct RecordingDetailView: View {
         }
         .navigationTitle(recording.title)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if let controller {
+                ToolbarItem(placement: .primaryAction) {
+                    Menu("Actions", systemImage: "ellipsis.circle") {
+                        RecordingMenuItems(recording: recording, controller: controller)
+                    }
+                    .accessibilityIdentifier("detail.actions")
+                }
+            }
+        }
+        .modifier(OptionalRecordingActions(controller: controller, allTags: LibraryFilter.allTags(in: allRecordings)))
         .task {
+            if controller == nil {
+                let actions = LibraryActions(context: modelContext, services: services)
+                let controller = RecordingActionsController(actions: actions)
+                controller.onDeleted = { _ in dismiss() }
+                self.controller = controller
+            }
             player.load(url: services.storage.audioURL(for: recording.id, fileName: recording.audioFileName))
         }
         .onDisappear { player.stop() }
@@ -72,6 +96,20 @@ struct RecordingDetailView: View {
     private func speakerName(for key: String?) -> String {
         guard let key else { return "Speaker" }
         return recording.speakers.first { $0.key == key }?.displayName ?? key
+    }
+}
+
+/// Applies the shared alerts and sheets once the controller exists.
+private struct OptionalRecordingActions: ViewModifier {
+    let controller: RecordingActionsController?
+    let allTags: [String]
+
+    func body(content: Content) -> some View {
+        if let controller {
+            content.modifier(RecordingActionsModifier(controller: controller, allTags: allTags))
+        } else {
+            content
+        }
     }
 }
 

@@ -28,7 +28,15 @@ Update this file at the end of every session. Check an item only when its "Done 
   - [ ] Device: 90-minute recording with the screen locked plays back fully
   - [x] Device: force-quit mid-recording recovers a playable file (first try FAILED with CAF/AAC; after switching capture to ADTS: recovered alert, 0:09 row, plays)
   - [x] Device: a phone call pauses, adds an "Interrupted" bookmark, and offers resume (4:40 recording plays back)
-- [ ] M2 — Library and import
+- [ ] M2 — Library and import (code written; needs `scripts/test.sh` green on a Mac and the device checks)
+  - [x] Library: search by title, sort (newest/oldest/title/longest), favorites filter, tag chips
+  - [x] Rename (alert), favorite (swipe + menu), tags (editor sheet with suggestions), delete (confirmation; removes folder + cancels pipeline)
+  - [x] Import from Files (`fileImporter`, m4a/mp3/wav/caf) and via share sheet / "Open in" (document types + `onOpenURL`, Inbox cleanup)
+  - [x] `LiveAudioImportService`: security-scoped + coordinated copy, duration from the file, unreadable files rejected
+  - [x] Tests: import service on real wav/caf/m4a (+ rejections), library actions (8), filter/sort (5); UI test renames via context menu and searches
+  - [ ] `scripts/test.sh` green on Jeremy's Mac
+  - [ ] Device: share a Voice Memo into VeraFlow; it appears with the correct duration and plays
+  - [ ] Device: Import from Files picks an m4a/wav and it plays
 - [ ] M3 — Transcription (+ SpeechAnalyzer vs Parakeet benchmark)
 - [ ] M4 — Speaker labels
 - [ ] M5 — Summaries and templates

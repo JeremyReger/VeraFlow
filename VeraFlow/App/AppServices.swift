@@ -41,6 +41,7 @@ struct AppServices: Sendable {
         let storage = try RecordingStorage.appDefault()
         var services = fakes(storage: storage)
         services.recorder = LiveAudioRecorderService(capacityProvider: { storage.availableCapacity() })
+        services.importer = LiveAudioImportService()
         return services
     }
 }

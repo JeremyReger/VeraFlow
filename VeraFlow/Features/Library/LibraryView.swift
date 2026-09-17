@@ -1,26 +1,41 @@
 import SwiftData
 import SwiftUI
+import UniformTypeIdentifiers
 
-/// The list of recordings (SPEC §3). M0 ships the empty state; M2 adds search, tags, and import.
+/// The list of recordings (SPEC §3): search, sort, favorites, tags, rename, delete, and import.
 struct LibraryView: View {
+    @Environment(\.services) private var services
+    @Environment(\.modelContext) private var modelContext
+    @Environment(AppState.self) private var appState
     @Query(sort: \Recording.createdAt, order: .reverse) private var recordings: [Recording]
+
+    @State private var controller: RecordingActionsController?
+    @State private var filter = LibraryFilter()
     @State private var isShowingRecorder = false
     @State private var isShowingSettings = false
+    @State private var isShowingImporter = false
+    @State private var isImporting = false
+    @State private var importMessage: String?
+
+    /// Types the Files picker offers (SPEC M2: m4a, mp3, wav, caf).
+    static let importTypes: [UTType] = [
+        .mpeg4Audio,
+        .mp3,
+        .wav,
+        UTType("com.apple.coreaudio-format") ?? .audio,
+    ]
+
+    private var allTags: [String] { LibraryFilter.allTags(in: recordings) }
+    private var visibleRecordings: [Recording] { filter.apply(to: recordings) }
 
     var body: some View {
         Group {
-            if recordings.isEmpty {
-                emptyState
+            if let controller {
+                content(controller)
+                    .modifier(RecordingActionsModifier(controller: controller, allTags: allTags))
             } else {
-                List(recordings) { recording in
-                    NavigationLink(value: recording.id) {
-                        LibraryRow(recording: recording)
-                    }
-                }
-                .navigationDestination(for: UUID.self) { id in
-                    if let recording = recordings.first(where: { $0.id == id }) {
-                        RecordingDetailView(recording: recording)
-                    }
+                Color.clear.task {
+                    controller = RecordingActionsController(actions: LibraryActions(context: modelContext, services: services))
                 }
             }
         }
@@ -31,33 +46,191 @@ struct LibraryView: View {
                     isShowingSettings = true
                 }
             }
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItemGroup(placement: .primaryAction) {
+                Menu("More", systemImage: "ellipsis.circle") {
+                    Picker("Sort", selection: $filter.sort) {
+                        ForEach(LibrarySort.allCases) { sort in
+                            Text(sort.displayName).tag(sort)
+                        }
+                    }
+                    Toggle("Favorites Only", systemImage: "star", isOn: $filter.favoritesOnly)
+                    Divider()
+                    Button("Import from Files", systemImage: "square.and.arrow.down") {
+                        isShowingImporter = true
+                    }
+                }
+                .accessibilityIdentifier("library.more")
                 Button("Record", systemImage: "record.circle") {
                     isShowingRecorder = true
                 }
             }
         }
+        .searchable(text: $filter.searchText, prompt: "Search titles")
         .sheet(isPresented: $isShowingRecorder) {
             RecorderView()
         }
         .sheet(isPresented: $isShowingSettings) {
             SettingsView()
         }
+        .fileImporter(
+            isPresented: $isShowingImporter,
+            allowedContentTypes: Self.importTypes,
+            allowsMultipleSelection: true
+        ) { result in
+            switch result {
+            case .success(let urls):
+                Task { await importFiles(urls) }
+            case .failure(let error):
+                importMessage = error.localizedDescription
+            }
+        }
+        .alert("Import", isPresented: Binding(
+            get: { importMessage != nil },
+            set: { if !$0 { importMessage = nil } }
+        )) {
+            Button("OK") { importMessage = nil }
+        } message: {
+            Text(importMessage ?? "")
+        }
+        .task { await importPendingURLs() }
+        .onChange(of: appState.pendingImportURLs) { _, urls in
+            if !urls.isEmpty {
+                Task { await importPendingURLs() }
+            }
+        }
         .accessibilityIdentifier("library")
+    }
+
+    @ViewBuilder
+    private func content(_ controller: RecordingActionsController) -> some View {
+        if recordings.isEmpty {
+            emptyState
+        } else {
+            List {
+                if !allTags.isEmpty {
+                    tagChips
+                        .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                }
+                ForEach(visibleRecordings) { recording in
+                    NavigationLink(value: recording.id) {
+                        LibraryRow(recording: recording)
+                    }
+                    .swipeActions(edge: .trailing) {
+                        Button("Delete", systemImage: "trash", role: .destructive) {
+                            controller.requestDelete(recording)
+                        }
+                    }
+                    .swipeActions(edge: .leading) {
+                        Button(recording.isFavorite ? "Unfavorite" : "Favorite",
+                               systemImage: recording.isFavorite ? "star.slash" : "star") {
+                            controller.toggleFavorite(recording)
+                        }
+                        .tint(.yellow)
+                    }
+                    .contextMenu {
+                        RecordingMenuItems(recording: recording, controller: controller)
+                    }
+                }
+            }
+            .navigationDestination(for: UUID.self) { id in
+                if let recording = recordings.first(where: { $0.id == id }) {
+                    RecordingDetailView(recording: recording)
+                }
+            }
+            .overlay {
+                if visibleRecordings.isEmpty, filter.isNarrowing {
+                    ContentUnavailableView.search(text: filter.searchText)
+                }
+                if isImporting {
+                    ProgressView("Importing…")
+                        .padding()
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+                }
+            }
+        }
+    }
+
+    private var tagChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(allTags, id: \.self) { tag in
+                    Button {
+                        filter.tag = filter.tag == tag ? nil : tag
+                    } label: {
+                        Text(tag)
+                            .font(.subheadline)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                filter.tag == tag ? Color.accentColor : Color.secondary.opacity(0.15),
+                                in: Capsule()
+                            )
+                            .foregroundStyle(filter.tag == tag ? Color.white : Color.primary)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(filter.tag == tag ? .isSelected : [])
+                }
+            }
+            .padding(.horizontal)
+        }
     }
 
     private var emptyState: some View {
         ContentUnavailableView {
             Label("No recordings yet", systemImage: "waveform")
         } description: {
-            Text("Tap Record to capture a meeting. Everything stays on this iPhone.")
+            Text("Tap Record to capture a meeting, or import an audio file. Everything stays on this iPhone.")
         } actions: {
             Button("Record") {
                 isShowingRecorder = true
             }
             .buttonStyle(.borderedProminent)
+            Button("Import from Files") {
+                isShowingImporter = true
+            }
         }
         .accessibilityIdentifier("library.empty")
+    }
+
+    // MARK: Import
+
+    private func importPendingURLs() async {
+        let urls = appState.takePendingImports()
+        guard !urls.isEmpty else { return }
+        await importFiles(urls)
+    }
+
+    private func importFiles(_ urls: [URL]) async {
+        let actions = LibraryActions(context: modelContext, services: services)
+        isImporting = true
+        defer { isImporting = false }
+        var failures: [String] = []
+        for url in urls {
+            do {
+                try await actions.importAudio(from: url)
+            } catch {
+                failures.append("\(url.lastPathComponent): \(Self.describe(error))")
+            }
+        }
+        if !failures.isEmpty {
+            importMessage = failures.joined(separator: "\n")
+        }
+    }
+
+    private static func describe(_ error: Error) -> String {
+        if let error = error as? AudioImportError {
+            switch error {
+            case .unsupportedType(let ext):
+                return "\(ext.isEmpty ? "This file type" : ".\(ext)") isn't supported. Use m4a, mp3, wav, or caf."
+            case .unreadable:
+                return "The file couldn't be read as audio."
+            case .copyFailed(let detail):
+                return "Couldn't copy the file: \(detail)"
+            }
+        }
+        return error.localizedDescription
     }
 }
 
@@ -76,6 +249,11 @@ struct LibraryRow: View {
                         .foregroundStyle(.yellow)
                         .accessibilityLabel("Favorite")
                 }
+                if recording.source == .imported {
+                    Image(systemName: "square.and.arrow.down")
+                        .foregroundStyle(.secondary)
+                        .accessibilityLabel("Imported")
+                }
             }
             HStack(spacing: 8) {
                 Text(recording.createdAt, format: .dateTime.month(.abbreviated).day().hour().minute())
@@ -89,6 +267,12 @@ struct LibraryRow: View {
             }
             .font(.subheadline)
             .foregroundStyle(.secondary)
+            if !recording.tags.isEmpty {
+                Text(recording.tags.joined(separator: " · "))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
         }
         .padding(.vertical, 2)
     }
@@ -100,6 +284,7 @@ struct LibraryRow: View {
     }
     .modelContainer(PreviewData.container(populated: false))
     .environment(\.services, .fakes())
+    .environment(AppState(services: .fakes()))
 }
 
 #Preview("Populated") {
@@ -108,4 +293,5 @@ struct LibraryRow: View {
     }
     .modelContainer(PreviewData.container())
     .environment(\.services, .fakes())
+    .environment(AppState(services: .fakes()))
 }

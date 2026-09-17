@@ -13,6 +13,8 @@ final class AppState {
     /// Set when launch found an interrupted recording (SPEC §8.2); shown once as an alert.
     private(set) var recoveryMessage: String?
     private(set) var lastRecovery: RecordingRecoveryOutcome?
+    /// Audio files handed to the app via the share sheet / "Open in", waiting for the Library to import them.
+    private(set) var pendingImportURLs: [URL] = []
 
     private let services: AppServices
     private let modelContext: ModelContext?
@@ -37,6 +39,18 @@ final class AppState {
 
     func dismissRecoveryMessage() {
         recoveryMessage = nil
+    }
+
+    /// Queues a file from `onOpenURL`. Only file URLs are accepted.
+    func enqueueImport(_ url: URL) {
+        guard url.isFileURL else { return }
+        pendingImportURLs.append(url)
+    }
+
+    /// Hands the queued files to whoever will import them and clears the queue.
+    func takePendingImports() -> [URL] {
+        defer { pendingImportURLs = [] }
+        return pendingImportURLs
     }
 
     private func recoverInterruptedRecordings() {

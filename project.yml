@@ -69,6 +69,19 @@ targets:
           - audio
         NSMicrophoneUsageDescription: "VeraFlow uses the microphone to record your meetings. Audio stays on this iPhone."
         ITSAppUsesNonExemptEncryption: false
+        # Lets Voice Memos, Files, Mail, etc. hand audio to VeraFlow. The system copies the file into
+        # Documents/Inbox and calls onOpenURL (SPEC M2; onOpenURL chosen over a Share Extension).
+        LSSupportsOpeningDocumentsInPlace: false
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: Audio
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Alternate
+            LSItemContentTypes:
+              - public.mpeg-4-audio
+              - public.mp3
+              - com.microsoft.waveform-audio
+              - com.apple.coreaudio-format
+              - public.audio
 
   VeraFlowTests:
     type: bundle.unit-test

@@ -35,8 +35,8 @@ actor LiveAudioRecorderService: AudioRecorderService {
     /// notifications don't start a second restart.
     private var isRestarting = false
 
-    /// Thrown by `restartCapture` when the mic's reported format hasn't caught up with the hardware
-    /// yet (seen for a moment after a headset disconnects). Retried, never shown as is.
+    /// Thrown by `restartCapture` when the input node reports no usable format yet (0 Hz or 0
+    /// channels), which happens for a moment while a route change settles. Retried, never shown.
     private struct InputFormatSettling: Error {}
 
     private var meterTask: Task<Void, Never>?
@@ -381,7 +381,7 @@ actor LiveAudioRecorderService: AudioRecorderService {
                 }
             }
         }
-        throw AudioRecorderError.sessionFailed("The microphone is still switching. Try Resume again.")
+        throw AudioRecorderError.sessionFailed("No microphone is available right now. Try Resume again.")
     }
 
     /// Discards the engine, builds a new one, installs a tap against the microphone's *current*
@@ -411,15 +411,13 @@ actor LiveAudioRecorderService: AudioRecorderService {
         removeObservers()
         installObservers(for: engine)
 
+        // The tap must use the node's *output* format (Apple's pattern). The hardware format is
+        // logged only: after a Bluetooth switch the session can run at the headset's rate while the
+        // hardware already reports the iPhone mic's, and that is fine; the converter handles either.
         let inputFormat = engine.inputNode.outputFormat(forBus: 0)
         let hardwareFormat = engine.inputNode.inputFormat(forBus: 0)
         Self.log.info("restart: tap \(inputFormat.sampleRate, privacy: .public) Hz \(inputFormat.channelCount, privacy: .public) ch; hardware \(hardwareFormat.sampleRate, privacy: .public) Hz \(hardwareFormat.channelCount, privacy: .public) ch; route \(session.currentRoute.inputs.map(\.portName).joined(separator: ","), privacy: .public)")
         guard inputFormat.sampleRate > 0, inputFormat.channelCount > 0 else {
-            throw AudioRecorderError.sessionFailed("No microphone is available")
-        }
-        // A tap whose format disagrees with the hardware is what `installTap` throws on.
-        guard inputFormat.sampleRate == hardwareFormat.sampleRate,
-              inputFormat.channelCount == hardwareFormat.channelCount else {
             throw InputFormatSettling()
         }
         try Self.installInputTap(on: engine, inputFormat: inputFormat, recordFormat: recordFormat, writer: writer)

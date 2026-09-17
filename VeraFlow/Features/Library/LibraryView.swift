@@ -5,29 +5,57 @@ public struct LibraryView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Recording.createdAt, order: .reverse) private var recordings: [Recording]
     @State private var viewModel = LibraryViewModel()
+    @State private var recoveryNotice: String? = nil
+    
+    private let crashRecoveryService = CrashRecoveryService()
     
     public init() {}
     
     public var body: some View {
         NavigationStack {
-            Group {
-                let filtered = viewModel.filterRecordings(recordings)
-                if filtered.isEmpty {
-                    ContentUnavailableView(
-                        "No Recordings Yet",
-                        systemImage: "waveform.badge.mic",
-                        description: Text("Tap the record button below to start your first on-device transcript.")
-                    )
-                } else {
-                    List {
-                        ForEach(filtered) { recording in
-                            NavigationLink(destination: RecordingDetailView(recording: recording)) {
-                                RecordingRowView(recording: recording)
-                            }
+            VStack(spacing: 0) {
+                // Interrupted Crash Recovery Banner (§8.2)
+                if let notice = recoveryNotice {
+                    HStack(spacing: 12) {
+                        Image(systemName: "arrow.triangle.2.circlepath.circle.fill")
+                            .foregroundColor(.blue)
+                        Text(notice)
+                            .font(.caption)
+                            .foregroundColor(.primary)
+                        Spacer()
+                        Button {
+                            withAnimation { recoveryNotice = nil }
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
                         }
-                        .onDelete(perform: deleteRecordings)
                     }
-                    .listStyle(.insetGrouped)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(Color.blue.opacity(0.12))
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
+                
+                Group {
+                    let filtered = viewModel.filterRecordings(recordings)
+                    if filtered.isEmpty {
+                        ContentUnavailableView(
+                            "No Recordings Yet",
+                            systemImage: "waveform.badge.mic",
+                            description: Text("Tap the record button below to start your first on-device transcript.")
+                        )
+                    } else {
+                        List {
+                            ForEach(filtered) { recording in
+                                NavigationLink(destination: RecordingDetailView(recording: recording)) {
+                                    RecordingRowView(recording: recording)
+                                }
+                            }
+                            .onDelete(perform: deleteRecordings)
+                        }
+                        .listStyle(.insetGrouped)
+                    }
                 }
             }
             .navigationTitle(AppConstants.appName)
@@ -65,14 +93,33 @@ public struct LibraryView: View {
             .sheet(isPresented: $viewModel.isRecordingPresented) {
                 RecorderView()
             }
+            .task {
+                checkForRecoverableRecordings()
+            }
+        }
+    }
+    
+    private func checkForRecoverableRecordings() {
+        let recovered = crashRecoveryService.scanAndRecover(
+            in: modelContext,
+            recordingsBaseURL: AppConstants.recordingsDirectoryURL
+        )
+        if !recovered.isEmpty {
+            withAnimation {
+                recoveryNotice = "Recovered \(recovered.count) interrupted recording: \(recovered.joined(separator: ", "))"
+            }
         }
     }
     
     private func deleteRecordings(at offsets: IndexSet) {
         for index in offsets {
             let recording = recordings[index]
+            // Clean up audio file on disk (§14.4)
+            let fileURL = AppConstants.recordingsDirectoryURL.appendingPathComponent(recording.audioFileName)
+            try? FileManager.default.removeItem(at: fileURL)
             modelContext.delete(recording)
         }
+        try? modelContext.save()
     }
 }
 

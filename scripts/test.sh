@@ -69,5 +69,5 @@ fi
 
 echo ""
 echo "=========================================="
-echo "  All VeraFlow M0 automated checks passed!"
+echo "  All VeraFlow automated checks passed!"
 echo "=========================================="

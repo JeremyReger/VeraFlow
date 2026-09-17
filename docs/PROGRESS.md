@@ -12,7 +12,7 @@ Update this file at the end of every session. Check an item only when its "Done 
   - [x] Swift Testing unit tests, network-policy test (§6.2), single-dependency test, XCUITest launch test
   - [x] `scripts/test.sh`, `PrivacyInfo.xcprivacy`, `docs/DECISIONS.md`
   - [x] `xcodegen generate` + `scripts/test.sh --unit-only` pass on Jeremy's Mac (Xcode 26.6, 29 tests) with no strict-concurrency warnings
-  - [ ] `scripts/test.sh` (unit + UI) passes
+  - [x] `scripts/test.sh` (unit + UI) passes on Jeremy's Mac (29 unit tests + 1 XCUITest)
   - [ ] App launches to an empty Library on a device
 - [ ] M1 — Recording
 - [ ] M2 — Library and import

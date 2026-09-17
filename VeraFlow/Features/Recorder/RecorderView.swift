@@ -173,7 +173,7 @@ private struct RecorderContent: View {
                 .accessibilityLabel("Elapsed time")
                 .accessibilityIdentifier("recorder.timer")
 
-            WaveformView(levels: viewModel.levelHistory, capacity: RecorderViewModel.waveformSampleCount)
+            WaveformView(samples: viewModel.levelHistory, capacity: RecorderViewModel.waveformSampleCount)
                 .frame(height: 88)
                 .padding(.horizontal, 24)
 
@@ -281,10 +281,13 @@ private struct RecorderContent: View {
     }
 }
 
-/// Scrolling bars of recent input levels, mirrored around the centre line. A clap shows as a spike.
+/// Scrolling bars of recent input levels, mirrored around the centre line. A clap shows as a
+/// spike; a bookmark shows as an orange marker with a flag on top.
 struct WaveformView: View {
-    let levels: [Float]
+    let samples: [WaveformSample]
     let capacity: Int
+
+    static let bookmarkColor = Color.orange
 
     var body: some View {
         Canvas { context, size in
@@ -293,14 +296,24 @@ struct WaveformView: View {
             let barWidth = max(1, slot * 0.6)
             let midY = size.height / 2
             let minHeight: CGFloat = 2
+            let flagSize: CGFloat = 6
+            // Bars use the top/bottom inset so a flag never collides with a full-height bar.
+            let barArea = size.height - flagSize * 2
             // Right-align so the newest sample sits at the right edge and older ones scroll left.
-            let offset = count - levels.count
-            for (index, level) in levels.enumerated() {
+            let offset = count - samples.count
+            for (index, sample) in samples.enumerated() {
                 let x = CGFloat(index + offset) * slot + (slot - barWidth) / 2
-                let height = max(minHeight, CGFloat(min(max(level, 0), 1)) * size.height)
+                let height = max(minHeight, CGFloat(min(max(sample.level, 0), 1)) * barArea)
                 let rect = CGRect(x: x, y: midY - height / 2, width: barWidth, height: height)
-                let color: Color = level > 0.9 ? .red : .accentColor
-                context.fill(Path(roundedRect: rect, cornerRadius: barWidth / 2), with: .color(color))
+                context.fill(Path(roundedRect: rect, cornerRadius: barWidth / 2), with: .color(.accentColor))
+
+                if sample.isBookmark {
+                    let centerX = x + barWidth / 2
+                    let line = CGRect(x: centerX - 0.5, y: flagSize, width: 1, height: size.height - flagSize)
+                    context.fill(Path(line), with: .color(Self.bookmarkColor))
+                    let flag = CGRect(x: centerX - flagSize / 2, y: 0, width: flagSize, height: flagSize)
+                    context.fill(Path(ellipseIn: flag), with: .color(Self.bookmarkColor))
+                }
             }
         }
         .accessibilityHidden(true)

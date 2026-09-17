@@ -24,6 +24,7 @@ Update this file at the end of every session. Check an item only when its "Done 
   - [x] Tests: view model (11), recovery (5), disk policy, level meter, file info; UI test of the record → save flow with fakes
   - [x] `scripts/test.sh` green on Jeremy's Mac (56 unit tests + 2 XCUITests, Xcode 26.6, no strict-concurrency warnings)
   - [x] Device: record → waveform/level meter/bookmarks → stop → save → playback with audio (Jeremy's iPhone; 1:13 recording = 606 KB CAF/AAC 44.1 kHz mono)
+  - [x] Device: recording continues with the screen locked (10-minute locked recording plays back)
   - [ ] Device: 90-minute recording with the screen locked plays back fully
   - [x] Device: force-quit mid-recording recovers a playable file (first try FAILED with CAF/AAC; after switching capture to ADTS: recovered alert, 0:09 row, plays)
   - [x] Device: a phone call pauses, adds an "Interrupted" bookmark, and offers resume (4:40 recording plays back)

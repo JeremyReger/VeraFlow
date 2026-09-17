@@ -115,17 +115,23 @@ struct RecorderViewModelTests {
         }
         await waitUntil { viewModel.snapshot.elapsed > Double(RecorderViewModel.waveformSampleCount + 19) * 0.1 - 0.001 }
         // The stream may still be draining; wait for the history to fill.
-        await waitUntil { viewModel.levelHistory.count == RecorderViewModel.waveformSampleCount && viewModel.levelHistory.last == 0.9 }
+        await waitUntil { viewModel.levelHistory.count == RecorderViewModel.waveformSampleCount && viewModel.levelHistory.last?.level == 0.9 }
 
         #expect(viewModel.levelHistory.count == RecorderViewModel.waveformSampleCount)
-        #expect(viewModel.levelHistory.last == 0.9)
+        #expect(viewModel.levelHistory.last?.level == 0.9)
+        #expect(viewModel.levelHistory.contains { $0.isBookmark } == false)
+
+        await viewModel.addBookmark()
+        #expect(viewModel.levelHistory.last?.isBookmark == true)
 
         await viewModel.pause()
         await harness.recorder.advance(by: 0.1, level: 0.5) // ignored while paused
         await viewModel.resume()
         await harness.recorder.advance(by: 0.1, level: 0.3)
-        await waitUntil { viewModel.levelHistory.last == 0.3 }
-        #expect(viewModel.levelHistory.last == 0.3)
+        await waitUntil { viewModel.levelHistory.last?.level == 0.3 }
+        #expect(viewModel.levelHistory.last?.level == 0.3)
+        #expect(viewModel.levelHistory.last?.isBookmark == false)
+        #expect(viewModel.levelHistory.filter { $0.isBookmark }.count == 1)
     }
 
     @Test("Bookmarks are stamped with the recorder's current time")

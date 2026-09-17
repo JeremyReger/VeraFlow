@@ -2,6 +2,13 @@ import Foundation
 import Observation
 import SwiftData
 
+/// One bar of the live waveform.
+struct WaveformSample: Equatable, Sendable {
+    var level: Float
+    /// A bookmark (manual or "Interrupted") was added at this moment.
+    var isBookmark = false
+}
+
 /// Drives the recording screen (SPEC §4.2, §8): permission, start/pause/resume/stop,
 /// bookmarks, interruptions, disk space, and the naming step after stop.
 @Observable
@@ -23,7 +30,7 @@ final class RecorderViewModel {
     private(set) var phase: Phase = .idle
     private(set) var snapshot = RecorderSnapshot()
     /// Recent input levels, oldest first, for the live waveform. Paused time adds zeros.
-    private(set) var levelHistory: [Float] = []
+    private(set) var levelHistory: [WaveformSample] = []
     private(set) var recording: Recording?
     private(set) var bookmarkCount = 0
     private(set) var inputs: [AudioInputOption] = []
@@ -243,9 +250,18 @@ final class RecorderViewModel {
     }
 
     private func appendLevel(_ level: Float) {
-        levelHistory.append(level)
+        levelHistory.append(WaveformSample(level: level))
         if levelHistory.count > Self.waveformSampleCount {
             levelHistory.removeFirst(levelHistory.count - Self.waveformSampleCount)
+        }
+    }
+
+    /// Flags the newest waveform bar so the bookmark shows where it was added.
+    private func markBookmarkOnWaveform() {
+        if levelHistory.isEmpty {
+            levelHistory.append(WaveformSample(level: 0, isBookmark: true))
+        } else {
+            levelHistory[levelHistory.count - 1].isBookmark = true
         }
     }
 
@@ -259,6 +275,7 @@ final class RecorderViewModel {
             errorMessage = Self.message(for: error)
         }
         bookmarkCount = recording.bookmarks.count
+        markBookmarkOnWaveform()
     }
 
     private func cancelStreams() {

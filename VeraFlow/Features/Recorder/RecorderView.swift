@@ -173,8 +173,12 @@ private struct RecorderContent: View {
                 .accessibilityLabel("Elapsed time")
                 .accessibilityIdentifier("recorder.timer")
 
+            WaveformView(levels: viewModel.levelHistory, capacity: RecorderViewModel.waveformSampleCount)
+                .frame(height: 88)
+                .padding(.horizontal, 24)
+
             LevelMeter(level: viewModel.snapshot.level)
-                .frame(height: 12)
+                .frame(height: 6)
                 .padding(.horizontal, 48)
 
             if viewModel.bookmarkCount > 0 {
@@ -274,6 +278,32 @@ private struct RecorderContent: View {
                     .accessibilityIdentifier("recorder.save")
             }
         }
+    }
+}
+
+/// Scrolling bars of recent input levels, mirrored around the centre line. A clap shows as a spike.
+struct WaveformView: View {
+    let levels: [Float]
+    let capacity: Int
+
+    var body: some View {
+        Canvas { context, size in
+            let count = max(capacity, 1)
+            let slot = size.width / CGFloat(count)
+            let barWidth = max(1, slot * 0.6)
+            let midY = size.height / 2
+            let minHeight: CGFloat = 2
+            // Right-align so the newest sample sits at the right edge and older ones scroll left.
+            let offset = count - levels.count
+            for (index, level) in levels.enumerated() {
+                let x = CGFloat(index + offset) * slot + (slot - barWidth) / 2
+                let height = max(minHeight, CGFloat(min(max(level, 0), 1)) * size.height)
+                let rect = CGRect(x: x, y: midY - height / 2, width: barWidth, height: height)
+                let color: Color = level > 0.9 ? .red : .accentColor
+                context.fill(Path(roundedRect: rect, cornerRadius: barWidth / 2), with: .color(color))
+            }
+        }
+        .accessibilityHidden(true)
     }
 }
 

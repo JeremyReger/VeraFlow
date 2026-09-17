@@ -17,8 +17,13 @@ final class RecorderViewModel {
         case saved(recordingID: UUID)
     }
 
+    /// How many recent level samples the waveform keeps (about 10 s at 10 Hz).
+    static let waveformSampleCount = 100
+
     private(set) var phase: Phase = .idle
     private(set) var snapshot = RecorderSnapshot()
+    /// Recent input levels, oldest first, for the live waveform. Paused time adds zeros.
+    private(set) var levelHistory: [Float] = []
     private(set) var recording: Recording?
     private(set) var bookmarkCount = 0
     private(set) var inputs: [AudioInputOption] = []
@@ -96,6 +101,7 @@ final class RecorderViewModel {
         self.recording = recording
         draftTitle = recording.title
         bookmarkCount = 0
+        levelHistory = []
         lowDiskBytes = nil
         notice = nil
         phase = .recording
@@ -200,6 +206,7 @@ final class RecorderViewModel {
     private func apply(_ snapshot: RecorderSnapshot) {
         guard isActive else { return }
         self.snapshot = snapshot
+        appendLevel(snapshot.status == .recording ? snapshot.level : 0)
         switch snapshot.status {
         case .recording where phase == .paused:
             phase = .recording
@@ -232,6 +239,13 @@ final class RecorderViewModel {
             lowDiskBytes = bytes
             notice = "Storage is full. Recording stopped and saved."
             await stop()
+        }
+    }
+
+    private func appendLevel(_ level: Float) {
+        levelHistory.append(level)
+        if levelHistory.count > Self.waveformSampleCount {
+            levelHistory.removeFirst(levelHistory.count - Self.waveformSampleCount)
         }
     }
 

@@ -5,8 +5,10 @@ import os
 /// Records the microphone to a crash-safe CAF file (AAC, mono, 44.1 kHz, ~64 kbps) with
 /// `AVAudioEngine` (SPEC §8). Handles interruptions, route changes, and disk space.
 ///
-/// Uses the classic `connect`/`installTap`/interruption-notification APIs because the iOS 27
-/// replacements aren't in the iOS 26 SDK (see docs/DECISIONS.md).
+/// The graph is just a tap on the input node (no output path); each buffer is converted to the
+/// recording format with `AVAudioConverter` before it is written. Uses the classic
+/// `installTap`/interruption-notification APIs because the iOS 27 replacements aren't in the
+/// iOS 26 SDK (see docs/DECISIONS.md).
 actor LiveAudioRecorderService: AudioRecorderService {
     /// Reads free disk space in bytes; injected so tests can drive the thresholds.
     typealias CapacityProvider = @Sendable () -> Int64?
@@ -20,8 +22,8 @@ actor LiveAudioRecorderService: AudioRecorderService {
     private let diskCheckInterval: Duration
 
     private var engine: AVAudioEngine?
-    private var mixer: AVAudioMixerNode?
     private var writer: TapWriter?
+    private var recordFormat: AVAudioFormat?
     private var status: RecorderSnapshot.Status = .idle
     private var fileURL: URL?
     private var didWarnLowDisk = false
@@ -102,9 +104,6 @@ actor LiveAudioRecorderService: AudioRecorderService {
         let writer = TapWriter(file: file, sampleRate: Self.sampleRate)
 
         let engine = AVAudioEngine()
-        let mixer = AVAudioMixerNode()
-        engine.attach(mixer)
-
         let inputFormat = engine.inputNode.outputFormat(forBus: 0)
         Self.log.info("start: input \(inputFormat.sampleRate, privacy: .public) Hz \(inputFormat.channelCount, privacy: .public) ch; route \(session.currentRoute.inputs.map(\.portName).joined(separator: ","), privacy: .public) -> \(session.currentRoute.outputs.map(\.portName).joined(separator: ","), privacy: .public)")
         guard inputFormat.sampleRate > 0, inputFormat.channelCount > 0 else {
@@ -112,13 +111,12 @@ actor LiveAudioRecorderService: AudioRecorderService {
             throw AudioRecorderError.sessionFailed("No microphone is available")
         }
 
-        // Input → mixer (does sample-rate and channel conversion) → main mixer, muted so the mic
-        // isn't played back. The tap on the mixer receives audio in the recording format.
-        engine.connect(engine.inputNode, to: mixer, format: inputFormat)
-        engine.connect(mixer, to: engine.mainMixerNode, format: recordFormat)
-        engine.mainMixerNode.outputVolume = 0
-        mixer.installTap(onBus: 0, bufferSize: 4_096, format: recordFormat) { buffer, _ in
-            writer.append(buffer)
+        do {
+            try Self.installInputTap(on: engine, inputFormat: inputFormat, recordFormat: recordFormat, writer: writer)
+        } catch {
+            writer.close()
+            try? session.setActive(false, options: .notifyOthersOnDeactivation)
+            throw error
         }
 
         engine.prepare()
@@ -126,15 +124,15 @@ actor LiveAudioRecorderService: AudioRecorderService {
             try engine.start()
             Self.log.info("engine running; file \(file.fileFormat.description, privacy: .public); processing \(file.processingFormat.description, privacy: .public)")
         } catch {
-            mixer.removeTap(onBus: 0)
+            engine.inputNode.removeTap(onBus: 0)
             writer.close()
             try? session.setActive(false, options: .notifyOthersOnDeactivation)
             throw AudioRecorderError.sessionFailed("Could not start the audio engine: \(error.localizedDescription)")
         }
 
         self.engine = engine
-        self.mixer = mixer
         self.writer = writer
+        self.recordFormat = recordFormat
         self.fileURL = fileURL
         self.didWarnLowDisk = false
         status = .recording
@@ -165,10 +163,10 @@ actor LiveAudioRecorderService: AudioRecorderService {
     }
 
     func stop() async throws -> RecorderResult {
-        guard status != .idle, let engine, let mixer, let writer, let fileURL else {
+        guard status != .idle, let engine, let writer, let fileURL else {
             throw AudioRecorderError.notRecording
         }
-        mixer.removeTap(onBus: 0)
+        engine.inputNode.removeTap(onBus: 0)
         engine.stop()
         writer.close()
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
@@ -303,15 +301,38 @@ actor LiveAudioRecorderService: AudioRecorderService {
         }
     }
 
-    /// The engine stops itself when the input hardware changes; reconnect the input and keep going.
+    /// The engine stops itself when the input hardware changes; re-tap the input in its new format.
     private func handleConfigurationChange() {
-        guard status == .recording, let engine, let mixer else { return }
-        engine.disconnectNodeInput(mixer)
+        guard status == .recording, let engine, let writer, let recordFormat else { return }
+        engine.inputNode.removeTap(onBus: 0)
         let inputFormat = engine.inputNode.outputFormat(forBus: 0)
+        Self.log.info("configuration change: input now \(inputFormat.sampleRate, privacy: .public) Hz \(inputFormat.channelCount, privacy: .public) ch")
         guard inputFormat.sampleRate > 0, inputFormat.channelCount > 0 else { return }
-        engine.connect(engine.inputNode, to: mixer, format: inputFormat)
-        if !engine.isRunning {
-            try? engine.start()
+        do {
+            try Self.installInputTap(on: engine, inputFormat: inputFormat, recordFormat: recordFormat, writer: writer)
+            if !engine.isRunning {
+                try engine.start()
+            }
+        } catch {
+            Self.log.error("could not resume after configuration change: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    /// Taps the mic in its native format and converts each buffer to `recordFormat` for the writer.
+    private static func installInputTap(
+        on engine: AVAudioEngine,
+        inputFormat: AVAudioFormat,
+        recordFormat: AVAudioFormat,
+        writer: TapWriter
+    ) throws {
+        guard let converter = AVAudioConverter(from: inputFormat, to: recordFormat) else {
+            throw AudioRecorderError.sessionFailed("Could not convert \(inputFormat) to the recording format")
+        }
+        let resampler = BufferResampler(converter: converter, outputFormat: recordFormat)
+        engine.inputNode.installTap(onBus: 0, bufferSize: 4_096, format: inputFormat) { buffer, _ in
+            if let converted = resampler.convert(buffer) {
+                writer.append(converted)
+            }
         }
     }
 
@@ -404,8 +425,8 @@ actor LiveAudioRecorderService: AudioRecorderService {
         }
         observers.removeAll()
         engine = nil
-        mixer = nil
         writer = nil
+        recordFormat = nil
         fileURL = nil
     }
 
@@ -415,6 +436,44 @@ actor LiveAudioRecorderService: AudioRecorderService {
 
     private func removeInterruptionContinuation(_ id: UUID) {
         interruptionContinuations[id] = nil
+    }
+}
+
+/// Converts input-node buffers (any rate/channel count) to the recording format, one buffer at a time.
+/// Owned by a single tap block, so it is only ever used from the audio render thread.
+private final class BufferResampler: @unchecked Sendable {
+    private let converter: AVAudioConverter
+    private let outputFormat: AVAudioFormat
+    private let ratio: Double
+
+    init(converter: AVAudioConverter, outputFormat: AVAudioFormat) {
+        self.converter = converter
+        self.outputFormat = outputFormat
+        self.ratio = outputFormat.sampleRate / converter.inputFormat.sampleRate
+    }
+
+    func convert(_ input: AVAudioPCMBuffer) -> AVAudioPCMBuffer? {
+        let capacity = AVAudioFrameCount(Double(input.frameLength) * ratio) + 64
+        guard let output = AVAudioPCMBuffer(pcmFormat: outputFormat, frameCapacity: capacity) else { return nil }
+        var consumed = false
+        var error: NSError?
+        let status = converter.convert(to: output, error: &error) { _, outStatus in
+            if consumed {
+                outStatus.pointee = .noDataNow
+                return nil
+            }
+            consumed = true
+            outStatus.pointee = .haveData
+            return input
+        }
+        switch status {
+        case .haveData, .inputRanDry:
+            return output.frameLength > 0 ? output : nil
+        case .endOfStream, .error:
+            return nil
+        @unknown default:
+            return nil
+        }
     }
 }
 

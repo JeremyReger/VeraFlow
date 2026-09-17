@@ -103,6 +103,31 @@ struct RecorderViewModelTests {
         #expect(viewModel.snapshot.level == 0.7)
     }
 
+    @Test("Waveform history keeps the newest levels and is capped")
+    func levelHistory() async throws {
+        let harness = try makeHarness()
+        defer { harness.cleanUp() }
+        let viewModel = harness.viewModel
+
+        await viewModel.start()
+        for step in 0..<(RecorderViewModel.waveformSampleCount + 20) {
+            await harness.recorder.advance(by: 0.1, level: Float(step % 10) / 10)
+        }
+        await waitUntil { viewModel.snapshot.elapsed > Double(RecorderViewModel.waveformSampleCount + 19) * 0.1 - 0.001 }
+        // The stream may still be draining; wait for the history to fill.
+        await waitUntil { viewModel.levelHistory.count == RecorderViewModel.waveformSampleCount && viewModel.levelHistory.last == 0.9 }
+
+        #expect(viewModel.levelHistory.count == RecorderViewModel.waveformSampleCount)
+        #expect(viewModel.levelHistory.last == 0.9)
+
+        await viewModel.pause()
+        await harness.recorder.advance(by: 0.1, level: 0.5) // ignored while paused
+        await viewModel.resume()
+        await harness.recorder.advance(by: 0.1, level: 0.3)
+        await waitUntil { viewModel.levelHistory.last == 0.3 }
+        #expect(viewModel.levelHistory.last == 0.3)
+    }
+
     @Test("Bookmarks are stamped with the recorder's current time")
     func bookmarks() async throws {
         let harness = try makeHarness()

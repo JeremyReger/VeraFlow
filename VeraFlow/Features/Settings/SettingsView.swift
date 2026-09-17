@@ -16,6 +16,7 @@ public struct SettingsView: View {
     @State private var showDiagnostics = false
     @State private var showDeleteAllAlert = false
     @State private var showFaceIDAuthError = false
+    @State private var sampleMeetingsLoadedNotice = false
     @State private var capabilities: DeviceCapabilities? = nil
     @State private var storageStats: (recordingCount: Int, totalSizeBytes: Int64) = (0, 0)
     @State private var entitlement: UserEntitlementState? = nil
@@ -168,6 +169,23 @@ public struct SettingsView: View {
                     }
                 }
                 
+                // MARK: - Demo & Testing (§16 M9)
+                Section {
+                    Button {
+                        TestFixtures.loadSampleRecordings(into: modelContext)
+                        storageStats = capabilityService.calculateStorageUsage()
+                        sampleMeetingsLoadedNotice = true
+                    } label: {
+                        Label("Load Sample Meetings", systemImage: "tray.and.arrow.down")
+                    }
+                    .accessibilityLabel("Load Sample Meetings")
+                    .accessibilityHint("Populates your library with 3 sample meetings across General, Client, and Contractor templates.")
+                } header: {
+                    Text("Demo & Testing")
+                } footer: {
+                    Text("Adds 3 realistic sample meetings (General Review, Client Consultation, Contractor Walkthrough) with transcripts, summaries, and action items.")
+                }
+                
                 // MARK: - About & Secret Diagnostics (§15)
                 Section("About") {
                     HStack {
@@ -229,6 +247,11 @@ public struct SettingsView: View {
                 }
             } message: {
                 Text("This will permanently delete all recordings, transcripts, summaries, and audio files from this iPhone. This action cannot be undone.")
+            }
+            .alert("Sample Meetings Loaded", isPresented: $sampleMeetingsLoadedNotice) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("3 realistic sample meetings have been added to your library.")
             }
             .sheet(isPresented: $showDiagnostics) {
                 DiagnosticsView(capabilities: capabilities, storageStats: storageStats)

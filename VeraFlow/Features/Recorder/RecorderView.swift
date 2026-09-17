@@ -116,6 +116,8 @@ public struct RecorderView: View {
                                     .foregroundColor(.secondary)
                             }
                         }
+                        .accessibilityLabel("Add bookmark")
+                        .accessibilityHint("Flags this timestamp in the meeting recording")
                         
                         // Stop Button (Finalize)
                         Button {
@@ -130,6 +132,8 @@ public struct RecorderView: View {
                                     .frame(width: 32, height: 32)
                             }
                         }
+                        .accessibilityLabel("Stop recording")
+                        .accessibilityHint("Finishes audio capture and saves the recording")
                         
                         // Pause / Resume Button
                         Button {
@@ -148,6 +152,7 @@ public struct RecorderView: View {
                                     .foregroundColor(.secondary)
                             }
                         }
+                        .accessibilityLabel(isPaused ? "Resume recording" : "Pause recording")
                     }
                     .padding(.bottom, 36)
                 } else {
@@ -168,6 +173,8 @@ public struct RecorderView: View {
                                 .frame(width: 66, height: 66)
                         }
                     }
+                    .accessibilityLabel("Start recording")
+                    .accessibilityHint("Begins a new meeting recording")
                     .padding(.bottom, 40)
                 }
             }

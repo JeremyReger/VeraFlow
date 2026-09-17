@@ -126,6 +126,7 @@ public struct LibraryView: View {
                             : "Try searching with a different keyword or clearing tag filters."
                         )
                     )
+                    .accessibilityElement(children: .combine)
                 } else {
                     List {
                         ForEach(displayed) { recording in
@@ -469,6 +470,27 @@ public struct RecordingRowView: View {
             }
         }
         .padding(.vertical, 4)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityDescription)
+        .accessibilityHint("Double tap to view transcript, summary, and action items.")
+    }
+    
+    private var accessibilityDescription: String {
+        var parts: [String] = []
+        parts.append(recording.title)
+        parts.append("Duration: \(formatDuration(recording.duration))")
+        parts.append("Recorded: \(recording.createdAt.formatted(date: .abbreviated, time: .shortened))")
+        parts.append("Status: \(recording.stage.displayTitle)")
+        if recording.source == .imported {
+            parts.append("Imported audio")
+        }
+        if recording.isFavorite {
+            parts.append("Favorited")
+        }
+        if !recording.tags.isEmpty {
+            parts.append("Tags: \(recording.tags.joined(separator: ", "))")
+        }
+        return parts.joined(separator: ", ")
     }
     
     private func formatDuration(_ duration: TimeInterval) -> String {

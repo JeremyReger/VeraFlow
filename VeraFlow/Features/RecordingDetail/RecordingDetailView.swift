@@ -766,6 +766,7 @@ public struct RecordingDetailView: View {
                                 .font(.title3)
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel(item.isCompleted ? "Mark incomplete: \(item.task)" : "Mark complete: \(item.task)")
                         
                         VStack(alignment: .leading, spacing: 4) {
                             Text(item.task)
@@ -811,6 +812,7 @@ public struct RecordingDetailView: View {
                                         .background(Color.secondary.opacity(0.12))
                                         .clipShape(Capsule())
                                     }
+                                    .accessibilityLabel("Play audio at timestamp \(item.timestamp)")
                                 }
                             }
                         }
@@ -901,6 +903,8 @@ public struct RecordingDetailView: View {
                     in: 0...max(1.0, playerService.duration)
                 )
                 .tint(.blue)
+                .accessibilityLabel("Audio position")
+                .accessibilityValue("\(formatTime(playerService.currentTime)) of \(formatTime(playerService.duration))")
                 
                 Text(formatTime(playerService.duration))
                     .font(.caption2)
@@ -917,6 +921,7 @@ public struct RecordingDetailView: View {
                     Image(systemName: "gobackward.15")
                         .font(.title3)
                 }
+                .accessibilityLabel("Rewind 15 seconds")
                 
                 Button {
                     playerService.togglePlayPause()
@@ -925,6 +930,7 @@ public struct RecordingDetailView: View {
                         .font(.system(size: 44))
                         .foregroundColor(.blue)
                 }
+                .accessibilityLabel(playerService.isPlaying ? "Pause audio" : "Play audio")
                 
                 Button {
                     playerService.seek(to: playerService.currentTime + 15)
@@ -932,6 +938,7 @@ public struct RecordingDetailView: View {
                     Image(systemName: "goforward.15")
                         .font(.title3)
                 }
+                .accessibilityLabel("Fast forward 15 seconds")
                 
                 Button {
                     playerService.cyclePlaybackRate()
@@ -944,6 +951,9 @@ public struct RecordingDetailView: View {
                         .background(Color.secondary.opacity(0.15))
                         .clipShape(Capsule())
                 }
+                .accessibilityLabel("Playback speed")
+                .accessibilityValue(String(format: "%.1fx", playerService.playbackRate))
+                .accessibilityHint("Double tap to change playback speed")
             }
             .foregroundColor(.primary)
             .padding(.bottom, 8)

@@ -81,8 +81,9 @@ Track the implementation of each milestone (§16 of `docs/SPEC.md`). Each milest
   - [x] Paywall sheet with clear disclosure on unsupported AI devices
   - [x] Restore purchases & Family Sharing support
 
-- [ ] **M9: Polish and Ship**
-  - [ ] Dynamic Type & VoiceOver accessibility audit
-  - [ ] Dark mode and empty state polish
-  - [ ] TestFlight distribution with test fixtures and feedback
-  - [ ] App Store checklist verification
+- [x] **M9: Polish and Ship**
+  - [x] Dynamic Type & VoiceOver accessibility audit
+  - [x] Dark mode and empty state polish
+  - [x] TestFlight distribution with test fixtures and feedback
+  - [x] App Store checklist verification
+

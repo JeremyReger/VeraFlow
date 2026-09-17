@@ -121,7 +121,7 @@ struct LibraryActionsTests {
         try Data("x".utf8).write(to: source)
 
         await #expect(throws: AudioImportError.unsupportedType("txt")) {
-            try await harness.actions.importAudio(from: source)
+            _ = try await harness.actions.importAudio(from: source)
         }
         #expect(try harness.context.fetchCount(FetchDescriptor<Recording>()) == 0)
         #expect(try harness.storage.existingFolderIDs().isEmpty)

@@ -26,7 +26,7 @@ struct VeraFlowApp: App {
                 }
             } else {
                 container = try ModelContainerFactory.makePersistent()
-                services = try AppServices.live()
+                services = try AppServices.live(container: container)
             }
         } catch {
             // Without a store or file storage the app can't do anything useful.

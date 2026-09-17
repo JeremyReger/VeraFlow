@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 import SwiftUI
 
 /// Every injectable service, bundled so views and view models get them from the environment (SPEC §6.2).
@@ -13,6 +14,7 @@ struct AppServices: Sendable {
     var dueDates: any DueDateResolving
     var exporter: any ExportService
     var pipeline: any PipelineCoordinating
+    var background: any BackgroundProcessing
     var capabilities: any CapabilityService
     var purchases: any PurchaseService
     var storage: RecordingStorage
@@ -30,6 +32,7 @@ struct AppServices: Sendable {
             dueDates: FakeDueDateResolver(),
             exporter: FakeExportService(),
             pipeline: FakePipelineCoordinator(),
+            background: FakeBackgroundProcessing(),
             capabilities: FakeCapabilityService(),
             purchases: FakePurchaseService(),
             storage: storage ?? RecordingStorage(rootDirectory: FileManager.default.temporaryDirectory.appending(path: "Recordings"))
@@ -39,12 +42,20 @@ struct AppServices: Sendable {
     /// The services the shipping app uses. Real implementations replace fakes milestone by milestone:
     /// M1 recorder, M2 importer, M3 transcription + pipeline, M4 diarization + aligner,
     /// M5 summarization + due dates, M6 exporter, M7 capabilities, M8 purchases.
-    static func live() throws -> AppServices {
+    static func live(container: ModelContainer) throws -> AppServices {
         let storage = try RecordingStorage.appDefault()
         var services = fakes(storage: storage)
         services.recorder = LiveAudioRecorderService(capacityProvider: { storage.availableCapacity() })
         services.activity = LiveRecordingActivityService()
         services.importer = LiveAudioImportService()
+        services.transcription = LiveTranscriptionService()
+        services.background = LiveBackgroundProcessing()
+        services.pipeline = LivePipelineCoordinator(
+            container: container,
+            transcription: services.transcription,
+            storage: storage,
+            background: services.background
+        )
         return services
     }
 }

@@ -54,7 +54,10 @@ actor FakeTranscriptionService: TranscriptionService {
     var assetStatusToReport: TranscriptionAssetStatus = .ready
     var wordsToReturn: [TimedWord]
     var errorToThrow: TranscriptionError?
+    /// Test control: how long `transcribe` pretends to work (honours cancellation).
+    var delay: Duration = .zero
     private(set) var transcribedURLs: [URL] = []
+    private(set) var prepareCount = 0
 
     init(words: [TimedWord] = FakeTranscriptionService.sampleWords) {
         self.wordsToReturn = words
@@ -65,6 +68,8 @@ actor FakeTranscriptionService: TranscriptionService {
     func assetStatus(for locale: Locale) async -> TranscriptionAssetStatus { assetStatusToReport }
 
     func prepareAssets(for locale: Locale, progress: @Sendable @escaping (Double) -> Void) async throws {
+        prepareCount += 1
+        progress(0.5)
         progress(1)
         assetStatusToReport = .ready
     }
@@ -77,6 +82,9 @@ actor FakeTranscriptionService: TranscriptionService {
         if let errorToThrow { throw errorToThrow }
         transcribedURLs.append(fileURL)
         progress(0.5)
+        if delay > .zero {
+            try await Task.sleep(for: delay)
+        }
         progress(1)
         return TranscriptionResult(
             words: wordsToReturn,
@@ -84,6 +92,13 @@ actor FakeTranscriptionService: TranscriptionService {
             localeIdentifier: locale.identifier(.bcp47)
         )
     }
+
+    // MARK: Test controls
+
+    func setError(_ error: TranscriptionError?) { errorToThrow = error }
+    func setAssetStatus(_ status: TranscriptionAssetStatus) { assetStatusToReport = status }
+    func setAvailable(_ available: Bool) { self.available = available }
+    func setDelay(_ delay: Duration) { self.delay = delay }
 
     /// A short two-sentence exchange, ~6 seconds long.
     static let sampleWords: [TimedWord] = {

@@ -18,6 +18,10 @@ final class Recording {
     var templateID: TemplateID
     var tags: [String]
     var isFavorite: Bool
+    /// Which speech engine produced the transcript (SPEC §9.1); `nil` until transcribed.
+    var transcriptionEngine: TranscriptionEngine?
+    /// The stage that was running when `stage` became `.failed`, so Retry knows where to resume.
+    var failedStage: PipelineStage?
 
     @Relationship(deleteRule: .cascade, inverse: \TranscriptSegment.recording)
     var segments: [TranscriptSegment]

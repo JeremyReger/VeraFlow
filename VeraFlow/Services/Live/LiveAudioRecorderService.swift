@@ -556,58 +556,6 @@ actor LiveAudioRecorderService: AudioRecorderService {
     }
 }
 
-/// Converts input-node buffers (any rate/channel count) to the recording format, one buffer at a time.
-/// Owned by a single tap block, so it is only ever used from the audio render thread.
-private final class BufferResampler: @unchecked Sendable {
-    private let converter: AVAudioConverter
-    private let outputFormat: AVAudioFormat
-    private let ratio: Double
-
-    init(converter: AVAudioConverter, outputFormat: AVAudioFormat) {
-        self.converter = converter
-        self.outputFormat = outputFormat
-        self.ratio = outputFormat.sampleRate / converter.inputFormat.sampleRate
-    }
-
-    func convert(_ input: AVAudioPCMBuffer) -> AVAudioPCMBuffer? {
-        let capacity = AVAudioFrameCount(Double(input.frameLength) * ratio) + 64
-        guard let output = AVAudioPCMBuffer(pcmFormat: outputFormat, frameCapacity: capacity) else { return nil }
-        let pending = PendingInput(input)
-        var error: NSError?
-        let status = converter.convert(to: output, error: &error) { _, outStatus in
-            if let buffer = pending.take() {
-                outStatus.pointee = .haveData
-                return buffer
-            }
-            outStatus.pointee = .noDataNow
-            return nil
-        }
-        switch status {
-        case .haveData, .inputRanDry:
-            return output.frameLength > 0 ? output : nil
-        case .endOfStream, .error:
-            return nil
-        @unknown default:
-            return nil
-        }
-    }
-}
-
-/// Hands one input buffer to an `AVAudioConverter` input block exactly once. The block is
-/// `@Sendable`, so the buffer travels in this box; it is only touched on the render thread.
-private final class PendingInput: @unchecked Sendable {
-    private var buffer: AVAudioPCMBuffer?
-
-    init(_ buffer: AVAudioPCMBuffer) {
-        self.buffer = buffer
-    }
-
-    func take() -> AVAudioPCMBuffer? {
-        defer { buffer = nil }
-        return buffer
-    }
-}
-
 /// Writes tap buffers to the file and tracks frames written and peak level.
 /// Called from the audio render thread; guarded by a lock so the actor can read it.
 private final class TapWriter: @unchecked Sendable {

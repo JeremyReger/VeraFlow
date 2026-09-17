@@ -4,6 +4,8 @@ import Foundation
 enum PipelineEvent: Sendable, Equatable {
     case stageChanged(recordingID: UUID, stage: PipelineStage)
     case progress(recordingID: UUID, stage: PipelineStage, fraction: Double)
+    /// A one-time model download is running before `stage` can start (speech assets, Core ML models).
+    case preparingAssets(recordingID: UUID, stage: PipelineStage, fraction: Double)
     case failed(recordingID: UUID, stage: PipelineStage, message: String)
     /// A recording was found with `stage == .recording` on launch and repaired (SPEC §8.2).
     case recoveredInterruptedRecording(recordingID: UUID)

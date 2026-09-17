@@ -70,7 +70,12 @@ targets:
           - UIInterfaceOrientationPortrait
         UIBackgroundModes:
           - audio
+          - processing
         NSSupportsLiveActivities: true
+        # Continued-processing tasks (transcription keeps running after the user leaves the app).
+        # Wildcard: each run registers com.jeremyreger.veraflow.processing.<uuid>.
+        BGTaskSchedulerPermittedIdentifiers:
+          - com.jeremyreger.veraflow.processing.*
         NSMicrophoneUsageDescription: "VeraFlow uses the microphone to record your meetings. Audio stays on this iPhone."
         ITSAppUsesNonExemptEncryption: false
         # Lets Voice Memos, Files, Mail, etc. hand audio to VeraFlow. The system copies the file into

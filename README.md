@@ -23,6 +23,8 @@ scripts/test.sh --unit-only    # faster
 
 Open `VeraFlow.xcodeproj` in Xcode for device runs. The `VeraFlow-Alpha` scheme builds the "Riffle (alpha)" configuration.
 
+`VeraFlow.xcodeproj` is generated and not committed. `scripts/test.sh` regenerates it on every run. If Xcode reports "Build input files cannot be found" after a `git pull` or after files were added or removed, close Xcode, run `xcodegen generate`, and reopen the project.
+
 Milestones are built in order (SPEC §16), one branch and PR each. `docs/PROGRESS.md` shows where things stand.
 
 ## Layout

@@ -13,15 +13,18 @@ if ! command -v xcodebuild >/dev/null 2>&1; then
   exit 1
 fi
 
-if [[ ! -d VeraFlow.xcodeproj ]]; then
-  if command -v xcodegen >/dev/null 2>&1; then
-    echo "==> VeraFlow.xcodeproj not found; generating with xcodegen"
-    xcodegen generate
-  else
-    echo "error: VeraFlow.xcodeproj not found and xcodegen is not installed." >&2
-    echo "       brew install xcodegen && xcodegen generate" >&2
-    exit 1
-  fi
+# Always regenerate the project so it matches the files on disk. project.yml is
+# the source of truth; a stale VeraFlow.xcodeproj can reference files that no
+# longer exist ("Build input files cannot be found").
+if command -v xcodegen >/dev/null 2>&1; then
+  echo "==> Regenerating VeraFlow.xcodeproj from project.yml"
+  xcodegen generate --quiet
+elif [[ ! -d VeraFlow.xcodeproj ]]; then
+  echo "error: VeraFlow.xcodeproj not found and xcodegen is not installed." >&2
+  echo "       brew install xcodegen && xcodegen generate" >&2
+  exit 1
+else
+  echo "warning: xcodegen not installed; using existing VeraFlow.xcodeproj (may be stale)" >&2
 fi
 
 # Pick a simulator: prefer one that's already booted, else the first available iPhone.

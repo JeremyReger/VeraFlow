@@ -1,0 +1,55 @@
+import Foundation
+
+/// A paragraph produced by alignment: contiguous words from one speaker.
+struct AlignedSegment: Sendable, Equatable {
+    var start: TimeInterval
+    var end: TimeInterval
+    /// "S1", "S2"… in order of first appearance; `nil` when no speaker turns were supplied.
+    var speakerKey: String?
+    var words: [TimedWord]
+
+    var text: String {
+        words.map(\.text).joined(separator: " ")
+    }
+}
+
+/// Merges timed words with speaker turns into speaker-labeled segments (SPEC §10.2).
+/// Pure Swift, no framework dependencies. The real rules land in M3 (paragraphing) and M4 (speaker overlap).
+protocol TranscriptAligning: Sendable {
+    /// Splits `words` into paragraphs with no speaker information (SPEC §9.3).
+    func paragraphs(from words: [TimedWord]) -> [AlignedSegment]
+    /// Assigns each word a speaker from `turns`, then builds segments. Empty `turns` behaves like `paragraphs(from:)`.
+    func align(words: [TimedWord], turns: [SpeakerTurn]) -> [AlignedSegment]
+}
+
+/// Simplest possible aligner: one segment per turn by word midpoint, or one segment overall.
+struct FakeTranscriptAligner: TranscriptAligning {
+    func paragraphs(from words: [TimedWord]) -> [AlignedSegment] {
+        guard let first = words.first, let last = words.last else { return [] }
+        return [AlignedSegment(start: first.start, end: last.end, speakerKey: nil, words: words)]
+    }
+
+    func align(words: [TimedWord], turns: [SpeakerTurn]) -> [AlignedSegment] {
+        guard !turns.isEmpty else { return paragraphs(from: words) }
+        let sortedTurns = turns.sorted { $0.start < $1.start }
+        var keyByID: [String: String] = [:]
+        for turn in sortedTurns where keyByID[turn.speakerID] == nil {
+            keyByID[turn.speakerID] = "S\(keyByID.count + 1)"
+        }
+
+        var segments: [AlignedSegment] = []
+        for word in words {
+            let midpoint = (word.start + word.end) / 2
+            let turn = sortedTurns.first { midpoint >= $0.start && midpoint < $0.end } ?? sortedTurns.last!
+            let key = keyByID[turn.speakerID]
+            if var current = segments.last, current.speakerKey == key {
+                current.words.append(word)
+                current.end = word.end
+                segments[segments.count - 1] = current
+            } else {
+                segments.append(AlignedSegment(start: word.start, end: word.end, speakerKey: key, words: [word]))
+            }
+        }
+        return segments
+    }
+}

@@ -1,0 +1,26 @@
+import Foundation
+import SwiftData
+
+/// Builds the app's SwiftData container.
+enum ModelContainerFactory {
+    /// Every persisted model type. Add new `@Model` types here.
+    static let schema = Schema([
+        Recording.self,
+        TranscriptSegment.self,
+        Speaker.self,
+        Bookmark.self,
+        SummaryRecord.self,
+    ])
+
+    /// The on-disk container used by the app.
+    static func makePersistent() throws -> ModelContainer {
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+        return try ModelContainer(for: schema, configurations: [configuration])
+    }
+
+    /// An in-memory container for tests and previews.
+    static func makeInMemory() throws -> ModelContainer {
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        return try ModelContainer(for: schema, configurations: [configuration])
+    }
+}

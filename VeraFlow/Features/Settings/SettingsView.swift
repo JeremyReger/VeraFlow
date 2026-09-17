@@ -4,6 +4,7 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(AppState.self) private var appState: AppState?
+    @State private var expectedSpeakers = DiarizationPreference.expectedSpeakers()
 
     var body: some View {
         NavigationStack {
@@ -16,6 +17,20 @@ struct SettingsView: View {
                     } else {
                         Text("Checking…").foregroundStyle(.secondary)
                     }
+                }
+                Section {
+                    Picker("Expected speakers", selection: $expectedSpeakers) {
+                        ForEach(DiarizationPreference.ExpectedSpeakers.allCases, id: \.self) { choice in
+                            Text(choice.displayName).tag(choice)
+                        }
+                    }
+                    .onChange(of: expectedSpeakers) { _, choice in
+                        DiarizationPreference.setExpectedSpeakers(choice)
+                    }
+                } header: {
+                    Text("Speaker labels")
+                } footer: {
+                    Text("A hint for the next recording whose speakers are labeled. Labels can be wrong when people talk over each other.")
                 }
                 Section("Privacy") {
                     Text("Everything stays on this iPhone. VeraFlow makes no network requests with your recordings.")

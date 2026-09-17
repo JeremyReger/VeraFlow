@@ -5,16 +5,20 @@ import SwiftData
 /// Runs recordings through the processing stages one at a time, in order, persisting the stage
 /// after every step so work resumes after a crash or relaunch (SPEC §6.3).
 ///
-/// M3: recorded → transcribing → transcribed. M4 and M5 add diarization and summarization
-/// behind the same queue. Each drain runs inside a background-processing task so it can
-/// finish after the user leaves the app.
+/// M3: recorded → transcribing → transcribed. M4: → diarizing → diarized (speaker labels;
+/// failure is non-fatal). M5 adds summarization behind the same queue. Each drain runs inside a
+/// background-processing task so it can finish after the user leaves the app.
 actor LivePipelineCoordinator: PipelineCoordinating {
     private static let log = Logger(subsystem: "com.jeremyreger.veraflow", category: "pipeline")
 
     private let container: ModelContainer
     private let transcription: any TranscriptionService
+    private let diarization: any DiarizationService
+    private let aligner: any TranscriptAligning
     private let storage: RecordingStorage
     private let background: any BackgroundProcessing
+    /// Reads the "Expected speakers" setting at the moment diarization starts.
+    private let speakerHint: @Sendable () -> SpeakerCountHint
     private let events = PipelineEventHub()
 
     private lazy var context = ModelContext(container)
@@ -28,13 +32,19 @@ actor LivePipelineCoordinator: PipelineCoordinating {
     init(
         container: ModelContainer,
         transcription: any TranscriptionService,
+        diarization: any DiarizationService,
+        aligner: any TranscriptAligning,
         storage: RecordingStorage,
-        background: any BackgroundProcessing
+        background: any BackgroundProcessing,
+        speakerHint: @escaping @Sendable () -> SpeakerCountHint = { .automatic }
     ) {
         self.container = container
         self.transcription = transcription
+        self.diarization = diarization
+        self.aligner = aligner
         self.storage = storage
         self.background = background
+        self.speakerHint = speakerHint
     }
 
     // MARK: PipelineCoordinating
@@ -78,10 +88,10 @@ actor LivePipelineCoordinator: PipelineCoordinating {
 
     // MARK: Queue
 
-    /// Stages with automatic work still ahead of them (M3: up to transcription).
+    /// Stages with automatic work still ahead of them (M4: up to speaker labels).
     static func needsWork(_ stage: PipelineStage) -> Bool {
         switch stage {
-        case .recorded, .transcribing: true
+        case .recorded, .transcribing, .transcribed, .diarizing: true
         default: false
         }
     }
@@ -128,14 +138,14 @@ actor LivePipelineCoordinator: PipelineCoordinating {
 
     // MARK: Steps
 
+    /// Runs every stage the recording still needs, in order, stopping at the first failure.
     private func process(_ id: UUID, progress: @Sendable @escaping (Double) -> Void) async {
         guard let recording = try? fetchRecording(id) else { return }
-        switch recording.stage {
-        case .recorded, .transcribing:
+        if recording.stage == .recorded || recording.stage == .transcribing {
             await transcribe(recording, progress: progress)
-        default:
-            return
         }
+        guard !Task.isCancelled, recording.stage == .transcribed || recording.stage == .diarizing else { return }
+        await diarize(recording, progress: progress)
     }
 
     private func transcribe(_ recording: Recording, progress: @Sendable @escaping (Double) -> Void) async {
@@ -176,10 +186,10 @@ actor LivePipelineCoordinator: PipelineCoordinating {
             events.emit(.stageChanged(recordingID: id, stage: .transcribed))
             Self.log.info("transcribed \(id.uuidString, privacy: .public): \(result.words.count, privacy: .public) words, \(recording.segments.count, privacy: .public) paragraphs, engine \(result.engine.rawValue, privacy: .public)")
         } catch is CancellationError {
-            handleCancellation(recording)
+            handleCancellation(recording, resumeFrom: .recorded)
         } catch {
             if Task.isCancelled {
-                handleCancellation(recording)
+                handleCancellation(recording, resumeFrom: .recorded)
                 return
             }
             let message = PipelineFailure.message(for: error)
@@ -192,13 +202,107 @@ actor LivePipelineCoordinator: PipelineCoordinating {
         }
     }
 
-    /// Deleted → leave the row alone (it is going away). Expired → back to `.recorded` so the next
-    /// launch or drain picks it up again (SPEC §6.3).
-    private func handleCancellation(_ recording: Recording) {
-        guard !cancelledIDs.contains(recording.id) else { return }
-        recording.stage = .recorded
+    /// Speaker labels (SPEC §10). Never blocks the recording: on any failure the transcript keeps
+    /// one speaker, the reason is stored for a Retry banner, and the stage still becomes `.diarized`.
+    private func diarize(_ recording: Recording, progress: @Sendable @escaping (Double) -> Void) async {
+        let id = recording.id
+        recording.stage = .diarizing
+        recording.failureMessage = nil
+        recording.failedStage = nil
         save()
-        events.emit(.stageChanged(recordingID: recording.id, stage: .recorded))
+        events.emit(.stageChanged(recordingID: id, stage: .diarizing))
+
+        let url = storage.audioURL(for: id, fileName: recording.audioFileName)
+        let hub = events
+        do {
+            if await !diarization.modelsReady() {
+                try await diarization.prepareModels { fraction in
+                    hub.emit(.preparingAssets(recordingID: id, stage: .diarizing, fraction: fraction))
+                }
+            }
+            try Task.checkCancellation()
+            let turns = try await diarization.diarize(fileURL: url, expectedSpeakers: speakerHint()) { fraction in
+                hub.emit(.progress(recordingID: id, stage: .diarizing, fraction: fraction))
+                progress(fraction)
+            }
+            try Task.checkCancellation()
+            applySpeakers(turns: turns, to: recording)
+            recording.stage = .diarized
+            save()
+            events.emit(.stageChanged(recordingID: id, stage: .diarized))
+            Self.log.info("diarized \(id.uuidString, privacy: .public): \(recording.speakers.count, privacy: .public) speakers, \(recording.segments.count, privacy: .public) paragraphs")
+        } catch is CancellationError {
+            handleCancellation(recording, resumeFrom: .transcribed)
+        } catch {
+            if Task.isCancelled {
+                handleCancellation(recording, resumeFrom: .transcribed)
+                return
+            }
+            let message = PipelineFailure.message(for: error)
+            applySpeakers(turns: [], to: recording)
+            recording.stage = .diarized
+            recording.failedStage = .diarizing
+            recording.failureMessage = message
+            save()
+            events.emit(.failed(recordingID: id, stage: .diarizing, message: message))
+            events.emit(.stageChanged(recordingID: id, stage: .diarized))
+            Self.log.error("diarization failed for \(id.uuidString, privacy: .public), continuing with one speaker: \(message, privacy: .public)")
+        }
+    }
+
+    /// Rebuilds the paragraphs by speaker (SPEC §10.2) unless the user has edited the transcript,
+    /// in which case the existing paragraphs are only labeled so no edit is lost. No turns → one speaker.
+    private func applySpeakers(turns: [SpeakerTurn], to recording: Recording) {
+        let ordered = recording.orderedSegments
+        let keys: [String]
+        if ordered.contains(where: \.isEdited) || turns.isEmpty || ordered.contains(where: { $0.words.isEmpty }) {
+            let labels = aligner.speakerKeys(forSegments: ordered.map(\.words), turns: turns)
+            for (segment, label) in zip(ordered, labels) {
+                segment.speakerKey = label ?? "S1"
+            }
+            keys = ordered.map { $0.speakerKey ?? "S1" }
+        } else {
+            let aligned = aligner.align(words: ordered.flatMap(\.words), turns: turns)
+            for old in recording.segments {
+                context.delete(old)
+            }
+            recording.segments = aligned.enumerated().map { index, segment in
+                TranscriptSegment(
+                    index: index,
+                    start: segment.start,
+                    end: segment.end,
+                    text: segment.text,
+                    speakerKey: segment.speakerKey ?? "S1",
+                    words: segment.words
+                )
+            }
+            keys = aligned.map { $0.speakerKey ?? "S1" }
+        }
+
+        // Speakers S1…Sn in order of first appearance; names the user already gave are kept.
+        var seen: [String] = []
+        for key in keys where !seen.contains(key) {
+            seen.append(key)
+        }
+        if seen.isEmpty, !recording.segments.isEmpty {
+            seen = ["S1"]
+        }
+        let existing = Dictionary(recording.speakers.map { ($0.key, $0) }, uniquingKeysWith: { first, _ in first })
+        for stale in recording.speakers where !seen.contains(stale.key) {
+            context.delete(stale)
+        }
+        recording.speakers = seen.enumerated().map { index, key in
+            existing[key] ?? Speaker(key: key, displayName: "Speaker \(index + 1)", colorIndex: index % 8)
+        }
+    }
+
+    /// Deleted → leave the row alone (it is going away). Expired → back to the stage before the
+    /// interrupted step so the next launch or drain picks it up again (SPEC §6.3).
+    private func handleCancellation(_ recording: Recording, resumeFrom stage: PipelineStage) {
+        guard !cancelledIDs.contains(recording.id) else { return }
+        recording.stage = stage
+        save()
+        events.emit(.stageChanged(recordingID: recording.id, stage: stage))
         if !queue.contains(recording.id) {
             queue.append(recording.id)
         }
@@ -236,6 +340,16 @@ enum PipelineFailure {
                 return "The iPhone was too busy to transcribe. Tap Retry to try again."
             case .analysisFailed(let detail):
                 return "Transcription failed: \(detail)"
+            }
+        }
+        if let error = error as? DiarizationError {
+            switch error {
+            case .modelsNotReady:
+                return "The speaker-label models aren't downloaded yet."
+            case .modelDownloadFailed(let detail):
+                return "The speaker-label models couldn't be downloaded: \(detail)"
+            case .processingFailed(let detail):
+                return "Speaker labeling failed: \(detail)"
             }
         }
         return error.localizedDescription

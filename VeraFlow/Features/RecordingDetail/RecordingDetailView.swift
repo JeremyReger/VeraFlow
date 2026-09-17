@@ -139,10 +139,19 @@ struct RecordingDetailView: View {
                 }
             }
             if !recording.speakers.isEmpty {
-                Section("Speakers") {
+                Section {
                     ForEach(recording.speakers.sorted { $0.key < $1.key }, id: \.key) { speaker in
-                        Text(speaker.displayName)
+                        Label {
+                            Text(speaker.displayName)
+                        } icon: {
+                            Image(systemName: "circle.fill")
+                                .foregroundStyle(SpeakerPalette.color(for: speaker.colorIndex))
+                        }
                     }
+                } header: {
+                    Text("Speakers")
+                } footer: {
+                    Text("Labels can be wrong when people talk over each other. Tap a name in the transcript to rename it, or use the Speakers menu to merge two labels.")
                 }
             }
         }

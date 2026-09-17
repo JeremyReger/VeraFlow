@@ -14,15 +14,20 @@ enum DiarizationError: Error, Equatable {
     case processingFailed(String)
 }
 
-/// Speaker diarization on device via FluidAudio (SPEC §10). Implemented for real in M4.
+/// Speaker diarization on device via FluidAudio (SPEC §10). `LiveDiarizationService` is the real one.
 /// Failure is non-fatal: the pipeline continues with a single speaker (SPEC §6.3).
 protocol DiarizationService: Sendable {
     /// Whether the Core ML models are installed.
     func modelsReady() async -> Bool
     /// Downloads/loads models if needed, reporting 0...1 progress. One-time.
     func prepareModels(progress: @Sendable @escaping (Double) -> Void) async throws
-    /// Returns speaker turns for the file. `expectedSpeakers` is a hint (nil = auto).
-    func diarize(fileURL: URL, expectedSpeakers: Int?) async throws -> [SpeakerTurn]
+    /// Returns speaker turns for the file, sorted by start. `expectedSpeakers` is a hint from
+    /// Settings (SPEC §10.3). An empty result means one speaker. `progress` is 0...1.
+    func diarize(
+        fileURL: URL,
+        expectedSpeakers: SpeakerCountHint,
+        progress: @Sendable @escaping (Double) -> Void
+    ) async throws -> [SpeakerTurn]
 }
 
 /// Returns scripted turns.
@@ -30,6 +35,9 @@ actor FakeDiarizationService: DiarizationService {
     var ready = true
     var turnsToReturn: [SpeakerTurn]
     var errorToThrow: DiarizationError?
+    private(set) var prepareCount = 0
+    private(set) var diarizedURLs: [URL] = []
+    private(set) var hints: [SpeakerCountHint] = []
 
     init(turns: [SpeakerTurn] = FakeDiarizationService.sampleTurns) {
         self.turnsToReturn = turns
@@ -38,14 +46,30 @@ actor FakeDiarizationService: DiarizationService {
     func modelsReady() async -> Bool { ready }
 
     func prepareModels(progress: @Sendable @escaping (Double) -> Void) async throws {
+        prepareCount += 1
+        progress(0.5)
         progress(1)
         ready = true
     }
 
-    func diarize(fileURL: URL, expectedSpeakers: Int?) async throws -> [SpeakerTurn] {
+    func diarize(
+        fileURL: URL,
+        expectedSpeakers: SpeakerCountHint,
+        progress: @Sendable @escaping (Double) -> Void
+    ) async throws -> [SpeakerTurn] {
         if let errorToThrow { throw errorToThrow }
+        diarizedURLs.append(fileURL)
+        hints.append(expectedSpeakers)
+        progress(0.5)
+        progress(1)
         return turnsToReturn
     }
+
+    // MARK: Test controls
+
+    func setError(_ error: DiarizationError?) { errorToThrow = error }
+    func setReady(_ ready: Bool) { self.ready = ready }
+    func setTurns(_ turns: [SpeakerTurn]) { turnsToReturn = turns }
 
     /// Two speakers alternating over the `FakeTranscriptionService.sampleWords` span.
     static let sampleTurns: [SpeakerTurn] = [

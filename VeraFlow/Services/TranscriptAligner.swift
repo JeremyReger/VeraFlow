@@ -14,12 +14,15 @@ struct AlignedSegment: Sendable, Equatable {
 }
 
 /// Merges timed words with speaker turns into speaker-labeled segments (SPEC §10.2).
-/// Pure Swift, no framework dependencies. The real rules land in M3 (paragraphing) and M4 (speaker overlap).
+/// Pure Swift, no framework dependencies. `LiveTranscriptAligner` is the real one.
 protocol TranscriptAligning: Sendable {
     /// Splits `words` into paragraphs with no speaker information (SPEC §9.3).
     func paragraphs(from words: [TimedWord]) -> [AlignedSegment]
     /// Assigns each word a speaker from `turns`, then builds segments. Empty `turns` behaves like `paragraphs(from:)`.
     func align(words: [TimedWord], turns: [SpeakerTurn]) -> [AlignedSegment]
+    /// Labels existing paragraphs (given as their words) without re-splitting them, so a transcript
+    /// the user already edited keeps its text. One key per paragraph; `nil` when `turns` is empty.
+    func speakerKeys(forSegments segments: [[TimedWord]], turns: [SpeakerTurn]) -> [String?]
 }
 
 /// Simplest possible aligner: one segment per turn by word midpoint, or one segment overall.
@@ -51,5 +54,18 @@ struct FakeTranscriptAligner: TranscriptAligning {
             }
         }
         return segments
+    }
+
+    func speakerKeys(forSegments segments: [[TimedWord]], turns: [SpeakerTurn]) -> [String?] {
+        guard !turns.isEmpty else { return Array(repeating: nil, count: segments.count) }
+        let labeled = align(words: segments.flatMap { $0 }, turns: turns)
+        // The fake's segments are one per turn; each paragraph takes the key of its first word.
+        var keyByWordStart: [TimeInterval: String] = [:]
+        for segment in labeled {
+            for word in segment.words where keyByWordStart[word.start] == nil {
+                keyByWordStart[word.start] = segment.speakerKey
+            }
+        }
+        return segments.map { words in words.first.flatMap { keyByWordStart[$0.start] } }
     }
 }

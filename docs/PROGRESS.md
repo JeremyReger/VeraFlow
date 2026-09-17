@@ -57,7 +57,18 @@ Update this file at the end of every session. Check an item only when its "Done 
   - [ ] Device: lock the phone during transcription; it finishes (or resumes on next launch from `.recorded`)
   - [ ] Device: the 60-minute fixture transcribes without a crash or memory warning
   - [ ] Device: benchmark on the 10-minute fixture; WER + time for both engines recorded in `docs/DECISIONS.md`, engine choice decided
-- [ ] M4 — Speaker labels
+- [ ] M4 — Speaker labels — code written while Jeremy was away (plan: `docs/plans/2026-09-17-m4-speaker-labels.md`); needs the compile run and device checks
+  - [x] `LiveTranscriptAligner` (SPEC §10.2, ported from the Antigravity branch with credit): overlap / nearest / previous-speaker assignment, short-run smoothing, speaker-change + §9.3 paragraph breaks, `S1…Sn` by first appearance, majority labeling of edited paragraphs
+  - [x] `LiveDiarizationService` on FluidAudio 0.15.7 `OfflineDiarizerManager` (calls verified against the pinned source); one-time model download with progress; "Expected speakers" hint
+  - [x] Pipeline: transcribed → diarizing → diarized; failure is non-fatal (one speaker + Retry); cancellation resumes from `.transcribed`
+  - [x] Transcript: coloured speaker names (tap to rename), Change speaker per paragraph (existing or new), Speakers menu with Rename / Merge into…, "Labeling speakers" progress and non-fatal failure banner
+  - [x] Settings → Speaker labels → Expected speakers (Automatic / 2 / 3 / 4 or more) with the honesty note; Audio tab lists speakers with colours and the same note
+  - [x] Tests: aligner (9), speaker actions (5), preference (1), coordinator diarization path (4 new, 4 updated)
+  - [ ] `scripts/test.sh` green on Jeremy's Mac
+  - [ ] Device: first run downloads the diarizer models with progress; a 2-person recording shows Speaker 1 / Speaker 2
+  - [ ] Device: 10-minute 2-person fixture: spot-check 20 turns, ≥ 85 % correct (SPEC §16)
+  - [ ] Device: rename propagates to every paragraph; merge two speakers; change speaker on one paragraph; new speaker
+  - [ ] Device: with the models not downloaded and no network, the transcript still appears with one speaker and Retry works once online
 - [ ] M5 — Summaries and templates
 - [ ] M6 — Exports
 - [ ] M7 — Onboarding, settings, capability messaging, privacy

@@ -45,7 +45,7 @@ struct AppServices: Sendable {
     }
 
     /// The services the shipping app uses. Real implementations replace fakes milestone by milestone:
-    /// M1 recorder, M2 importer, M3 transcription + pipeline, M4 diarization + aligner,
+    /// M1 recorder, M2 importer, M3 transcription + pipeline, M4 diarization + aligner (done),
     /// M5 summarization + due dates, M6 exporter, M7 capabilities, M8 purchases.
     static func live(container: ModelContainer) throws -> AppServices {
         let storage = try RecordingStorage.appDefault()
@@ -58,12 +58,17 @@ struct AppServices: Sendable {
         let parakeet = ParakeetTranscriptionService()
         services.transcription = EngineSelectingTranscriptionService(apple: apple, parakeet: parakeet)
         services.benchmarkEngines = [.init(name: "Apple Speech", service: apple), .init(name: "Parakeet", service: parakeet)]
+        services.diarization = LiveDiarizationService()
+        services.aligner = LiveTranscriptAligner()
         services.background = LiveBackgroundProcessing()
         services.pipeline = LivePipelineCoordinator(
             container: container,
             transcription: services.transcription,
+            diarization: services.diarization,
+            aligner: services.aligner,
             storage: storage,
-            background: services.background
+            background: services.background,
+            speakerHint: { SpeakerCountHint(DiarizationPreference.expectedSpeakers()) }
         )
         return services
     }

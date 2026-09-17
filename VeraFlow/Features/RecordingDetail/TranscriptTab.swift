@@ -13,6 +13,9 @@ struct TranscriptTab: View {
     @State private var isEditing = false
     /// Edits in progress, keyed by segment index; applied on Done.
     @State private var drafts: [Int: String] = [:]
+    @State private var speakerController: SpeakerActionsController?
+
+    private var speakers: [Speaker] { recording.speakers.sorted { $0.key < $1.key } }
 
     private var segments: [TranscriptSegment] { recording.orderedSegments }
 
@@ -40,6 +43,12 @@ struct TranscriptTab: View {
                 emptyState
             }
         }
+        .modifier(OptionalSpeakerAlerts(controller: speakerController))
+        .task {
+            if speakerController == nil {
+                speakerController = SpeakerActionsController(actions: SpeakerActions(context: modelContext))
+            }
+        }
     }
 
     // MARK: Status
@@ -57,7 +66,9 @@ struct TranscriptTab: View {
                 .accessibilityIdentifier("transcript.transcribe")
             }
         case .transcribing:
-            progressBanner
+            progressBanner(working: "Transcribing…", downloading: "Downloading the speech model (one time)…", systemImage: "waveform")
+        case .diarizing:
+            progressBanner(working: "Labeling speakers…", downloading: "Downloading the speaker-label models (one time)…", systemImage: "person.2.wave.2")
         case .failed where recording.failedStage == .transcribing || recording.failedStage == nil:
             banner(systemImage: "exclamationmark.triangle", text: recording.failureMessage ?? "Transcription failed.", tint: .red) {
                 Button("Retry") {
@@ -66,17 +77,25 @@ struct TranscriptTab: View {
                 .accessibilityIdentifier("transcript.retry")
             }
         default:
-            EmptyView()
+            if recording.failedStage == .diarizing, let message = recording.failureMessage {
+                // Non-fatal (SPEC §6.3): the transcript is readable with one speaker.
+                banner(systemImage: "person.2.slash", text: "Speaker labels couldn't be added: \(message)", tint: .orange) {
+                    Button("Retry") {
+                        Task { await services.pipeline.retry(recordingID: recording.id, from: .diarizing) }
+                    }
+                    .accessibilityIdentifier("transcript.retrySpeakers")
+                }
+            }
         }
     }
 
-    private var progressBanner: some View {
+    private func progressBanner(working: String, downloading: String, systemImage: String) -> some View {
         let progress = appState?.pipelineProgress[recording.id]
         let preparing = progress?.isPreparingAssets ?? false
         return VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Image(systemName: preparing ? "arrow.down.circle" : "waveform")
-                Text(preparing ? "Downloading the speech model (one time)…" : "Transcribing…")
+                Image(systemName: preparing ? "arrow.down.circle" : systemImage)
+                Text(preparing ? downloading : working)
                 Spacer()
                 if let fraction = progress?.fraction, fraction > 0 {
                     Text(fraction, format: .percent.precision(.fractionLength(0)))
@@ -141,6 +160,10 @@ struct TranscriptTab: View {
                     .monospacedDigit()
             }
 
+            if !speakers.isEmpty, let speakerController {
+                speakersMenu(speakerController)
+            }
+
             if recording.transcriptionEngine == .dictationTranscriber {
                 Text("Standard accuracy")
                     .font(.caption2)
@@ -159,6 +182,32 @@ struct TranscriptTab: View {
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
+    }
+
+    /// Rename / Merge for every speaker (SPEC §10.3).
+    private func speakersMenu(_ controller: SpeakerActionsController) -> some View {
+        Menu {
+            ForEach(speakers, id: \.key) { speaker in
+                Menu(speaker.displayName) {
+                    Button("Rename…", systemImage: "pencil") {
+                        controller.beginRename(speaker)
+                    }
+                    if speakers.count > 1 {
+                        Menu("Merge into…") {
+                            ForEach(speakers.filter { $0.key != speaker.key }, id: \.key) { target in
+                                Button(target.displayName) {
+                                    controller.merge(speaker, into: target, in: recording)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } label: {
+            Image(systemName: "person.2")
+        }
+        .accessibilityLabel("Speakers")
+        .accessibilityIdentifier("transcript.speakers")
     }
 
     private var matchCountText: String {
@@ -206,8 +255,19 @@ struct TranscriptTab: View {
                 Text(timestamp(segment.start))
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(isCurrent ? Color.accentColor : .secondary)
-                if let name = speakerName(for: segment.speakerKey) {
-                    Text(name).font(.caption.weight(.semibold))
+                if let speaker = speaker(for: segment.speakerKey) {
+                    Button {
+                        speakerController?.beginRename(speaker)
+                    } label: {
+                        Text(speaker.displayName)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(SpeakerPalette.color(for: speaker.colorIndex))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isEditing)
+                    .accessibilityLabel("Speaker \(speaker.displayName), tap to rename")
+                } else if let key = segment.speakerKey {
+                    Text(key).font(.caption.weight(.semibold))
                 }
                 if segment.isEdited {
                     Image(systemName: "pencil")
@@ -245,6 +305,25 @@ struct TranscriptTab: View {
                     TranscriptText.revert(segment)
                     drafts[segment.index] = nil
                     try? modelContext.save()
+                }
+            }
+            if let speakerController, recording.stage.hasTranscript, recording.stage != .diarizing {
+                Menu("Change speaker", systemImage: "person.crop.circle") {
+                    ForEach(speakers, id: \.key) { speaker in
+                        Button {
+                            speakerController.assign(segment, to: speaker)
+                        } label: {
+                            if speaker.key == segment.speakerKey {
+                                Label(speaker.displayName, systemImage: "checkmark")
+                            } else {
+                                Text(speaker.displayName)
+                            }
+                        }
+                    }
+                    Divider()
+                    Button("New speaker", systemImage: "person.badge.plus") {
+                        speakerController.assignToNewSpeaker(segment, in: recording)
+                    }
                 }
             }
         }
@@ -297,13 +376,59 @@ struct TranscriptTab: View {
 
     // MARK: Helpers
 
-    private func speakerName(for key: String?) -> String? {
+    private func speaker(for key: String?) -> Speaker? {
         guard let key else { return nil }
-        return recording.speakers.first { $0.key == key }?.displayName ?? key
+        return recording.speakers.first { $0.key == key }
     }
 
     private func timestamp(_ seconds: TimeInterval) -> String {
         Duration.seconds(max(0, seconds)).formatted(.time(pattern: seconds >= 3_600 ? .hourMinuteSecond : .minuteSecond))
+    }
+}
+
+/// Rename and error alerts for the speaker controller, once it exists.
+private struct OptionalSpeakerAlerts: ViewModifier {
+    let controller: SpeakerActionsController?
+
+    func body(content: Content) -> some View {
+        if let controller {
+            content.modifier(SpeakerAlerts(controller: controller))
+        } else {
+            content
+        }
+    }
+}
+
+private struct SpeakerAlerts: ViewModifier {
+    @Bindable var controller: SpeakerActionsController
+
+    func body(content: Content) -> some View {
+        content
+            .alert(
+                "Rename speaker",
+                isPresented: Binding(
+                    get: { controller.renameTarget != nil },
+                    set: { if !$0 { controller.cancelRename() } }
+                ),
+                presenting: controller.renameTarget
+            ) { speaker in
+                TextField("Name", text: $controller.renameDraft)
+                Button("Save") { controller.commitRename(speaker) }
+                Button("Cancel", role: .cancel) { controller.cancelRename() }
+            } message: { _ in
+                Text("The new name shows everywhere this speaker appears, including summaries.")
+            }
+            .alert(
+                "Couldn't change speaker",
+                isPresented: Binding(
+                    get: { controller.errorMessage != nil },
+                    set: { if !$0 { controller.errorMessage = nil } }
+                )
+            ) {
+                Button("OK") { controller.errorMessage = nil }
+            } message: {
+                Text(controller.errorMessage ?? "")
+            }
     }
 }
 

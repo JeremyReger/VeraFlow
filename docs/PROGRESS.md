@@ -37,12 +37,12 @@ Track the implementation of each milestone (§16 of `docs/SPEC.md`). Each milest
   - [x] Synced playback highlight, tap-to-seek, transcript text editing
   - [x] Benchmark `SpeechAnalyzer` vs FluidAudio Parakeet ASR
 
-- [ ] **M4: Speaker Labels**
-  - [ ] FluidAudio offline diarization integration
-  - [ ] `TranscriptAligner` (pure Swift alignment + smoothing) with unit tests
-  - [ ] Speaker rename (propagates across transcript and summaries)
-  - [ ] Speaker merge and turn reassignment
-  - [ ] Non-fatal failure fallback (single speaker + retry)
+- [x] **M4: Speaker Labels**
+  - [x] FluidAudio offline diarization integration
+  - [x] `TranscriptAligner` (pure Swift alignment + smoothing) with unit tests
+  - [x] Speaker rename (propagates across transcript and summaries)
+  - [x] Speaker merge and turn reassignment
+  - [x] Non-fatal failure fallback (single speaker + retry)
 
 - [ ] **M5: Summaries and Templates**
   - [ ] Apple Foundation Models `LanguageModelSession` integration & availability check

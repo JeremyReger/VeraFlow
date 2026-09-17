@@ -8,12 +8,30 @@ public struct RecordingDetailView: View {
     
     @State private var selectedTab: DetailTab = .transcript
     @State private var playerService = AudioPlayerService()
-    private let transcriptionService: TranscriptionServiceProtocol = SpeechTranscriptionService()
     
+    private let transcriptionService: TranscriptionServiceProtocol = SpeechTranscriptionService()
+    private let diarizationService: DiarizationServiceProtocol = FluidDiarizationService()
+    private let aligner: TranscriptAlignerProtocol = TranscriptAligner()
+    
+    // Transcription State
     @State private var isTranscribing: Bool = false
     @State private var transcriptionProgress: Double = 0
     @State private var transcriptionError: String? = nil
     
+    // Diarization State (§10)
+    @State private var isDiarizing: Bool = false
+    @State private var diarizationError: String? = nil
+    
+    // Speaker Editing & Renaming (§10.3)
+    @State private var speakerToRename: Speaker? = nil
+    @State private var renameSpeakerNameText: String = ""
+    @State private var isRenameSpeakerAlertPresented: Bool = false
+    
+    // Speaker Merge Sheet (§10.3)
+    @State private var speakerToMerge: Speaker? = nil
+    @State private var isMergeSheetPresented: Bool = false
+    
+    // Transcript UI State
     @State private var isEditMode: Bool = false
     @State private var transcriptSearchText: String = ""
     
@@ -58,14 +76,54 @@ public struct RecordingDetailView: View {
         .toolbar {
             if selectedTab == .transcript && !recording.segments.isEmpty {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button(isEditMode ? "Done" : "Edit") {
-                        isEditMode.toggle()
-                        if !isEditMode {
-                            try? modelContext.save()
+                    HStack(spacing: 12) {
+                        // Label Speakers Action (§10)
+                        if recording.speakers.isEmpty {
+                            Button {
+                                runSpeakerDiarization()
+                            } label: {
+                                Label("Label Speakers", systemImage: "person.2")
+                            }
+                            .disabled(isDiarizing)
                         }
+                        
+                        // Edit Mode Button
+                        Button(isEditMode ? "Done" : "Edit") {
+                            isEditMode.toggle()
+                            if !isEditMode {
+                                try? modelContext.save()
+                            }
+                        }
+                        .fontWeight(isEditMode ? .bold : .regular)
                     }
-                    .fontWeight(isEditMode ? .bold : .regular)
                 }
+            }
+        }
+        .alert("Rename Speaker", isPresented: $isRenameSpeakerAlertPresented) {
+            TextField("Speaker Name", text: $renameSpeakerNameText)
+            Button("Cancel", role: .cancel) {
+                speakerToRename = nil
+            }
+            Button("Save") {
+                applySpeakerRename()
+            }
+        } message: {
+            Text("Enter a new display name for this speaker.")
+        }
+        .confirmationDialog(
+            "Merge \(speakerToMerge?.displayName ?? "Speaker") into...",
+            isPresented: $isMergeSheetPresented,
+            titleVisibility: .visible
+        ) {
+            ForEach(otherSpeakers(than: speakerToMerge)) { target in
+                Button(target.displayName) {
+                    if let source = speakerToMerge {
+                        mergeSpeaker(source: source, into: target)
+                    }
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                speakerToMerge = nil
             }
         }
         .task {
@@ -76,11 +134,11 @@ public struct RecordingDetailView: View {
         }
     }
     
-    // MARK: - Transcript Tab (§4.4, §16 M3)
+    // MARK: - Transcript Tab (§4.4, §10, §16 M4)
     
     private var transcriptTab: some View {
         VStack(spacing: 0) {
-            // Transcription In-Progress Banner
+            // Status Banners
             if isTranscribing {
                 VStack(spacing: 8) {
                     HStack {
@@ -99,7 +157,17 @@ public struct RecordingDetailView: View {
                 }
                 .padding()
                 .background(Color.blue.opacity(0.08))
-            } else if let error = transcriptionError {
+            } else if isDiarizing {
+                HStack(spacing: 12) {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                    Text("Identifying and labeling speakers on-device...")
+                        .font(.subheadline)
+                    Spacer()
+                }
+                .padding()
+                .background(Color.purple.opacity(0.08))
+            } else if let error = transcriptionError ?? diarizationError {
                 HStack {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundColor(.red)
@@ -112,7 +180,7 @@ public struct RecordingDetailView: View {
                 .background(Color.red.opacity(0.08))
             }
             
-            // Search Bar within Transcript (§4.4)
+            // Search Bar within Transcript
             if !recording.segments.isEmpty {
                 HStack {
                     Image(systemName: "magnifyingglass")
@@ -135,7 +203,7 @@ public struct RecordingDetailView: View {
                 .padding(.vertical, 6)
             }
             
-            // Transcript List or Empty Prompt
+            // Transcript List or Empty State
             if recording.segments.isEmpty && !isTranscribing {
                 VStack(spacing: 16) {
                     Spacer()
@@ -169,19 +237,87 @@ public struct RecordingDetailView: View {
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 14) {
+                            // "Label Speakers" Banner if not yet diarized
+                            if recording.speakers.isEmpty && !isDiarizing {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("Speaker Labels Available")
+                                            .font(.caption)
+                                            .fontWeight(.bold)
+                                        Text("Distinguish who spoke each sentence.")
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    Spacer()
+                                    Button("Label Speakers") {
+                                        runSpeakerDiarization()
+                                    }
+                                    .font(.caption)
+                                    .buttonStyle(.borderedProminent)
+                                    .tint(.purple)
+                                }
+                                .padding(10)
+                                .background(Color.purple.opacity(0.08))
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                            }
+                            
                             let displayedSegments = filteredSegments()
                             ForEach(displayedSegments) { segment in
                                 let isActive = isSegmentActive(segment)
+                                let speakerObj = speaker(for: segment.speakerKey)
                                 
-                                VStack(alignment: .leading, spacing: 4) {
-                                    HStack {
-                                        // Speaker label or key
-                                        Text(displaySpeakerName(for: segment.speakerKey))
-                                            .font(.caption)
-                                            .fontWeight(.bold)
-                                            .foregroundColor(.blue)
+                                VStack(alignment: .leading, spacing: 5) {
+                                    HStack(spacing: 8) {
+                                        // Interactive Speaker Chip with Rename & Merge Menu (§10.3)
+                                        Menu {
+                                            if let speakerObj {
+                                                Button {
+                                                    promptSpeakerRename(speakerObj)
+                                                } label: {
+                                                    Label("Rename \(speakerObj.displayName)", systemImage: "pencil")
+                                                }
+                                                
+                                                if recording.speakers.count > 1 {
+                                                    Button {
+                                                        speakerToMerge = speakerObj
+                                                        isMergeSheetPresented = true
+                                                    } label: {
+                                                        Label("Merge into another speaker...", systemImage: "arrow.triangle.merge")
+                                                    }
+                                                }
+                                                
+                                                Divider()
+                                            }
+                                            
+                                            // Reassign Turn Menu (§10.3)
+                                            Menu("Reassign Turn Speaker") {
+                                                ForEach(recording.speakers) { sp in
+                                                    Button(sp.displayName) {
+                                                        segment.speakerKey = sp.key
+                                                        try? modelContext.save()
+                                                    }
+                                                }
+                                            }
+                                        } label: {
+                                            HStack(spacing: 4) {
+                                                Circle()
+                                                    .fill(speakerColor(for: speakerObj?.colorIndex ?? 0))
+                                                    .frame(width: 8, height: 8)
+                                                Text(speakerObj?.displayName ?? "Speaker")
+                                                    .font(.caption)
+                                                    .fontWeight(.bold)
+                                                    .foregroundColor(.primary)
+                                                Image(systemName: "chevron.down")
+                                                    .font(.system(size: 8))
+                                                    .foregroundColor(.secondary)
+                                            }
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 3)
+                                            .background(speakerColor(for: speakerObj?.colorIndex ?? 0).opacity(0.15))
+                                            .clipShape(Capsule())
+                                        }
                                         
-                                        // Clickable timestamp link to seek audio (§4.4)
+                                        // Clickable Timestamp Chip (§4.4)
                                         Button {
                                             playerService.seek(to: segment.start)
                                             playerService.play()
@@ -234,7 +370,6 @@ public struct RecordingDetailView: View {
                         .padding()
                     }
                     .onChange(of: playerService.currentTime) { _, newTime in
-                        // Auto-scroll to active segment
                         if let active = recording.segments.first(where: { newTime >= $0.start && newTime <= $0.end }) {
                             withAnimation(.easeInOut(duration: 0.2)) {
                                 proxy.scrollTo(active.id, anchor: .center)
@@ -277,8 +412,9 @@ public struct RecordingDetailView: View {
                                     Text(item.task)
                                         .font(.subheadline)
                                     HStack {
-                                        if !item.owner.isEmpty {
-                                            Text(item.owner)
+                                        let ownerName = displaySpeakerName(for: item.speakerKey) ?? item.owner
+                                        if !ownerName.isEmpty {
+                                            Text(ownerName)
                                                 .font(.caption)
                                                 .foregroundColor(.blue)
                                         }
@@ -368,7 +504,6 @@ public struct RecordingDetailView: View {
         VStack(spacing: 6) {
             Divider()
             
-            // Scrubber Slider
             HStack(spacing: 8) {
                 Text(formatTime(playerService.currentTime))
                     .font(.caption2)
@@ -393,9 +528,7 @@ public struct RecordingDetailView: View {
             }
             .padding(.horizontal, 16)
             
-            // Player Controls
             HStack(spacing: 32) {
-                // Seek -15s
                 Button {
                     playerService.seek(to: playerService.currentTime - 15)
                 } label: {
@@ -403,7 +536,6 @@ public struct RecordingDetailView: View {
                         .font(.title3)
                 }
                 
-                // Play / Pause Button
                 Button {
                     playerService.togglePlayPause()
                 } label: {
@@ -412,7 +544,6 @@ public struct RecordingDetailView: View {
                         .foregroundColor(.blue)
                 }
                 
-                // Seek +15s
                 Button {
                     playerService.seek(to: playerService.currentTime + 15)
                 } label: {
@@ -420,7 +551,6 @@ public struct RecordingDetailView: View {
                         .font(.title3)
                 }
                 
-                // Playback Speed Button (§4.4)
                 Button {
                     playerService.cyclePlaybackRate()
                 } label: {
@@ -439,7 +569,7 @@ public struct RecordingDetailView: View {
         .background(Color(uiColor: .systemBackground).opacity(0.95))
     }
     
-    // MARK: - Actions & Helpers
+    // MARK: - Actions & Diarization Logic (§10)
     
     private func loadAudioPlayer() {
         let audioFileURL = AppConstants.recordingsDirectoryURL
@@ -494,6 +624,115 @@ public struct RecordingDetailView: View {
         }
     }
     
+    private func runSpeakerDiarization() {
+        let audioFileURL = AppConstants.recordingsDirectoryURL
+            .appendingPathComponent(recording.id.uuidString)
+            .appendingPathComponent(recording.audioFileName)
+        
+        isDiarizing = true
+        diarizationError = nil
+        
+        Task {
+            do {
+                // 1. Run diarization pipeline
+                let turns = try await diarizationService.diarize(
+                    audioFileURL: audioFileURL,
+                    expectedSpeakers: nil
+                )
+                
+                // 2. Gather all words in chronological order
+                let allWords = recording.segments.flatMap(\.words).sorted(by: { $0.start < $1.start })
+                
+                // 3. Align with pure Swift TranscriptAligner (§10.2)
+                let alignment = aligner.align(words: allWords, turns: turns)
+                
+                await MainActor.run {
+                    // Update speakers
+                    recording.speakers.removeAll()
+                    for sp in alignment.speakers {
+                        recording.speakers.append(Speaker(
+                            key: sp.key,
+                            displayName: sp.displayName,
+                            colorIndex: sp.colorIndex
+                        ))
+                    }
+                    
+                    // Replace segments with aligned speaker segments
+                    recording.segments.removeAll()
+                    for seg in alignment.segments {
+                        recording.segments.append(TranscriptSegment(
+                            index: seg.index,
+                            start: seg.start,
+                            end: seg.end,
+                            text: seg.text,
+                            speakerKey: seg.speakerKey,
+                            words: seg.words
+                        ))
+                    }
+                    
+                    recording.stage = .diarized
+                    try? modelContext.save()
+                    isDiarizing = false
+                }
+            } catch {
+                await MainActor.run {
+                    self.diarizationError = error.localizedDescription
+                    self.isDiarizing = false
+                }
+            }
+        }
+    }
+    
+    // MARK: - Speaker Management (§10.3)
+    
+    private func promptSpeakerRename(_ speaker: Speaker) {
+        speakerToRename = speaker
+        renameSpeakerNameText = speaker.displayName
+        isRenameSpeakerAlertPresented = true
+    }
+    
+    private func applySpeakerRename() {
+        guard let speaker = speakerToRename else { return }
+        let trimmed = renameSpeakerNameText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty {
+            speaker.displayName = trimmed
+            try? modelContext.save()
+        }
+        speakerToRename = nil
+        renameSpeakerNameText = ""
+    }
+    
+    private func mergeSpeaker(source: Speaker, into target: Speaker) {
+        // Reassign all segments with source key to target key
+        for seg in recording.segments where seg.speakerKey == source.key {
+            seg.speakerKey = target.key
+        }
+        // Remove source speaker
+        recording.speakers.removeAll(where: { $0.key == source.key })
+        try? modelContext.save()
+        speakerToMerge = nil
+    }
+    
+    private func otherSpeakers(than current: Speaker?) -> [Speaker] {
+        guard let current else { return [] }
+        return recording.speakers.filter { $0.key != current.key }
+    }
+    
+    private func speaker(for key: String?) -> Speaker? {
+        guard let key else { return nil }
+        return recording.speakers.first(where: { $0.key == key })
+    }
+    
+    private func displaySpeakerName(for key: String?) -> String? {
+        guard let key else { return nil }
+        return recording.speakers.first(where: { $0.key == key })?.displayName ?? key
+    }
+    
+    private func speakerColor(for index: Int) -> Color {
+        let colors: [Color] = [.blue, .purple, .orange, .teal, .indigo, .pink]
+        return colors[index % colors.count]
+    }
+    
     private func isSegmentActive(_ segment: TranscriptSegment) -> Bool {
         let t = playerService.currentTime
         return t >= segment.start && t <= segment.end
@@ -506,14 +745,6 @@ public struct RecordingDetailView: View {
         return recording.segments.filter {
             $0.text.localizedCaseInsensitiveContains(transcriptSearchText)
         }.sorted(by: { $0.start < $1.start })
-    }
-    
-    private func displaySpeakerName(for key: String?) -> String {
-        guard let key else { return "Speaker" }
-        if let speaker = recording.speakers.first(where: { $0.key == key }) {
-            return speaker.displayName
-        }
-        return key
     }
     
     private func highlightText(_ text: String, query: String) -> AttributedString {

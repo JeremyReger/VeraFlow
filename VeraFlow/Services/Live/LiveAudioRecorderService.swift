@@ -1,5 +1,6 @@
 import AVFAudio
 import Foundation
+import os
 
 /// Records the microphone to a crash-safe CAF file (AAC, mono, 44.1 kHz, ~64 kbps) with
 /// `AVAudioEngine` (SPEC §8). Handles interruptions, route changes, and disk space.
@@ -12,6 +13,8 @@ actor LiveAudioRecorderService: AudioRecorderService {
 
     static let sampleRate: Double = 44_100
     static let bitRate = 64_000
+
+    private static let log = Logger(subsystem: "com.jeremyreger.veraflow", category: "recorder")
 
     private let capacityProvider: CapacityProvider
     private let diskCheckInterval: Duration
@@ -103,6 +106,7 @@ actor LiveAudioRecorderService: AudioRecorderService {
         engine.attach(mixer)
 
         let inputFormat = engine.inputNode.outputFormat(forBus: 0)
+        Self.log.info("start: input \(inputFormat.sampleRate, privacy: .public) Hz \(inputFormat.channelCount, privacy: .public) ch; route \(session.currentRoute.inputs.map(\.portName).joined(separator: ","), privacy: .public) -> \(session.currentRoute.outputs.map(\.portName).joined(separator: ","), privacy: .public)")
         guard inputFormat.sampleRate > 0, inputFormat.channelCount > 0 else {
             try? session.setActive(false, options: .notifyOthersOnDeactivation)
             throw AudioRecorderError.sessionFailed("No microphone is available")
@@ -120,6 +124,7 @@ actor LiveAudioRecorderService: AudioRecorderService {
         engine.prepare()
         do {
             try engine.start()
+            Self.log.info("engine running; file \(file.fileFormat.description, privacy: .public); processing \(file.processingFormat.description, privacy: .public)")
         } catch {
             mixer.removeTap(onBus: 0)
             writer.close()
@@ -315,12 +320,22 @@ actor LiveAudioRecorderService: AudioRecorderService {
     private func startMeter() {
         meterTask?.cancel()
         meterTask = Task.detached { [weak self] in
+            var ticks = 0
             while !Task.isCancelled {
                 try? await Task.sleep(for: .milliseconds(100))
                 guard let self else { return }
                 await self.publishSnapshot()
+                ticks += 1
+                if ticks % 50 == 0 {
+                    await self.logProgress()
+                }
             }
         }
+    }
+
+    private func logProgress() {
+        guard let writer else { return }
+        Self.log.info("recording: \(writer.elapsed, format: .fixed(precision: 1), privacy: .public)s written, level \(writer.level, format: .fixed(precision: 2), privacy: .public), peak so far \(writer.maxPeak, format: .fixed(precision: 3), privacy: .public)")
     }
 
     private func startDiskWatch() {
@@ -411,6 +426,7 @@ private final class TapWriter: @unchecked Sendable {
     private let lock = NSLock()
     private var framesWritten: AVAudioFramePosition = 0
     private var peak: Float = 0
+    private var largestPeak: Float = 0
     private var isClosed = false
 
     init(file: AVAudioFile, sampleRate: Double) {
@@ -439,6 +455,14 @@ private final class TapWriter: @unchecked Sendable {
             // Keep going; the next buffer may succeed. Disk-full is caught by the disk watch.
         }
         peak = bufferPeak
+        largestPeak = max(largestPeak, bufferPeak)
+    }
+
+    /// Largest sample seen since start; 0 means the file is silent.
+    var maxPeak: Float {
+        lock.lock()
+        defer { lock.unlock() }
+        return largestPeak
     }
 
     /// Seconds of audio written so far. Paused time never reaches the tap, so it's excluded.

@@ -11,6 +11,8 @@ final class AudioPlayerController {
     private(set) var currentTime: TimeInterval = 0
     private(set) var duration: TimeInterval = 0
     private(set) var errorMessage: String?
+    /// e.g. "4.6 MB · 44100 Hz · 1 ch · aac" for the Status section (diagnostic).
+    private(set) var fileDescription: String?
 
     private var player: AVAudioPlayer?
     private var ticker: Task<Void, Never>?
@@ -27,6 +29,7 @@ final class AudioPlayerController {
             player.prepareToPlay()
             self.player = player
             duration = player.duration
+            fileDescription = Self.describe(url: url, player: player)
             currentTime = 0
             errorMessage = nil
             isLoaded = true
@@ -34,6 +37,19 @@ final class AudioPlayerController {
             errorMessage = "This recording can't be played: \(error.localizedDescription)"
             isLoaded = false
         }
+    }
+
+    private static func describe(url: URL, player: AVAudioPlayer) -> String {
+        let bytes = (try? FileManager.default.attributesOfItem(atPath: url.path(percentEncoded: false))[.size] as? Int64) ?? 0
+        let size = ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+        let format = player.format
+        let codec = (player.settings[AVFormatIDKey] as? UInt32).map { fourCharCode($0) } ?? "?"
+        return "\(size) · \(Int(format.sampleRate)) Hz · \(format.channelCount) ch · \(codec)"
+    }
+
+    private static func fourCharCode(_ value: UInt32) -> String {
+        let bytes = [24, 16, 8, 0].map { UInt8((value >> UInt32($0)) & 0xFF) }
+        return String(bytes: bytes, encoding: .ascii)?.trimmingCharacters(in: .whitespaces) ?? "?"
     }
 
     func togglePlayPause() {

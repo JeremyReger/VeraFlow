@@ -37,6 +37,9 @@ struct RecordingDetailView: View {
                 LabeledContent("Duration") {
                     Text(Duration.seconds(recording.duration), format: .time(pattern: .minuteSecond))
                 }
+                if let file = player.fileDescription {
+                    LabeledContent("File", value: file)
+                }
             }
             if !recording.speakers.isEmpty {
                 Section("Speakers") {

@@ -54,16 +54,18 @@ if [[ -z "$UDID" ]]; then
 fi
 echo "==> Using simulator $UDID"
 
-ONLY_TESTING=()
+# macOS ships bash 3.2, where an empty array trips `set -u`, so build the flag as a string.
+ONLY_TESTING=""
 if [[ "$UNIT_ONLY" == "1" ]]; then
-  ONLY_TESTING=(-only-testing:VeraFlowTests)
+  ONLY_TESTING="-only-testing:VeraFlowTests"
 fi
 
 set -x
+# shellcheck disable=SC2086  # ONLY_TESTING is intentionally unquoted so an empty value adds no argument
 xcodebuild test \
   -project VeraFlow.xcodeproj \
   -scheme VeraFlow \
   -destination "platform=iOS Simulator,id=$UDID" \
   -configuration Debug \
-  "${ONLY_TESTING[@]}" \
+  $ONLY_TESTING \
   | { if command -v xcbeautify >/dev/null 2>&1; then xcbeautify; else cat; fi; }

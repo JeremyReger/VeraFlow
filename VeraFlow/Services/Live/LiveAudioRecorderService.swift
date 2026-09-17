@@ -31,6 +31,13 @@ actor LiveAudioRecorderService: AudioRecorderService {
     private var didWarnLowDisk = false
     /// Set after a media-services reset: the old engine is dead and `resume()` must build a new one.
     private var engineNeedsRebuild = false
+    /// True while `restartCapture(retrying:)` is mid-retry, so overlapping configuration-change
+    /// notifications don't start a second restart.
+    private var isRestarting = false
+
+    /// Thrown by `restartCapture` when the mic's reported format hasn't caught up with the hardware
+    /// yet (seen for a moment after a headset disconnects). Retried, never shown as is.
+    private struct InputFormatSettling: Error {}
 
     private var meterTask: Task<Void, Never>?
     private var diskTask: Task<Void, Never>?
@@ -158,7 +165,7 @@ actor LiveAudioRecorderService: AudioRecorderService {
 
     func resume() async throws {
         guard status == .paused, let writer, let recordFormat else { throw AudioRecorderError.notRecording }
-        try restartCapture(writer: writer, recordFormat: recordFormat)
+        try await restartCaptureRetrying(writer: writer, recordFormat: recordFormat)
         status = .recording
         publishSnapshot()
     }
@@ -342,11 +349,11 @@ actor LiveAudioRecorderService: AudioRecorderService {
 
     /// The engine stops itself when the input hardware changes; re-tap the input in its new format.
     /// While paused nothing happens here: `resume()` always re-taps, so the change is picked up then.
-    private func handleConfigurationChange() {
-        guard status == .recording, let writer, let recordFormat else { return }
+    private func handleConfigurationChange() async {
+        guard status == .recording, !isRestarting, let writer, let recordFormat else { return }
         Self.log.info("configuration change while recording")
         do {
-            try restartCapture(writer: writer, recordFormat: recordFormat)
+            try await restartCaptureRetrying(writer: writer, recordFormat: recordFormat)
         } catch {
             Self.log.error("could not resume after configuration change: \(error.localizedDescription, privacy: .public)")
             status = .paused
@@ -354,6 +361,27 @@ actor LiveAudioRecorderService: AudioRecorderService {
             emit(.began)
             emit(.ended(shouldResume: false))
         }
+    }
+
+    /// `restartCapture` with a few short retries while the mic's format settles after a route change.
+    private func restartCaptureRetrying(writer: TapWriter, recordFormat: AVAudioFormat) async throws {
+        isRestarting = true
+        defer { isRestarting = false }
+        let attempts = 6
+        for attempt in 1...attempts {
+            do {
+                try restartCapture(writer: writer, recordFormat: recordFormat)
+                return
+            } catch is InputFormatSettling {
+                Self.log.info("restart attempt \(attempt, privacy: .public): input format still settling")
+                if attempt < attempts {
+                    try? await Task.sleep(for: .milliseconds(250))
+                    // Stop may have run while we slept.
+                    guard status != .idle else { throw AudioRecorderError.notRecording }
+                }
+            }
+        }
+        throw AudioRecorderError.sessionFailed("The microphone is still switching. Try Resume again.")
     }
 
     /// Discards the engine, builds a new one, installs a tap against the microphone's *current*
@@ -392,7 +420,7 @@ actor LiveAudioRecorderService: AudioRecorderService {
         // A tap whose format disagrees with the hardware is what `installTap` throws on.
         guard inputFormat.sampleRate == hardwareFormat.sampleRate,
               inputFormat.channelCount == hardwareFormat.channelCount else {
-            throw AudioRecorderError.sessionFailed("The microphone is still changing; try Resume again")
+            throw InputFormatSettling()
         }
         try Self.installInputTap(on: engine, inputFormat: inputFormat, recordFormat: recordFormat, writer: writer)
         engine.prepare()

@@ -25,6 +25,14 @@ struct SettingsView: View {
                     LabeledContent("Version", value: AppInfo.versionString)
                     LabeledContent("Build", value: AppInfo.buildName)
                 }
+                #if DEBUG
+                Section("Developer") {
+                    NavigationLink("Transcription benchmark") {
+                        TranscriptionBenchmarkView()
+                    }
+                    .accessibilityIdentifier("settings.benchmark")
+                }
+                #endif
             }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)

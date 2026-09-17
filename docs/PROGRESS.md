@@ -40,7 +40,23 @@ Update this file at the end of every session. Check an item only when its "Done 
   - [x] `scripts/test.sh` green on Jeremy's Mac (84 unit tests + 3 XCUITests, Xcode 26.6, widget extension included)
   - [ ] Device: share a Voice Memo into VeraFlow; it appears with the correct duration and plays
   - [ ] Device: Import from Files picks an m4a/wav and it plays
-- [ ] M3 — Transcription (+ SpeechAnalyzer vs Parakeet benchmark)
+- [ ] M3 — Transcription (+ SpeechAnalyzer vs Parakeet benchmark) — code written; needs Jeremy's compile run and the device checks below
+  - [x] `LiveTranscriptionService`: `SpeechTranscriber` with `.audioTimeRange`, `DictationTranscriber` fallback (engine recorded on the row), `AssetInventory` download with progress, file read + resample to the analyzer's format, `insufficientResources` retry
+  - [x] `LivePipelineCoordinator`: FIFO queue on its own `ModelContext`, `.recorded`/`.transcribing` resumed on launch, cancel on delete, expiry puts the row back to `.recorded`, failure keeps `failedStage` for Retry
+  - [x] `LiveBackgroundProcessing`: `BGContinuedProcessingTaskRequest` per drain with inline fallback (Simulator has no BG tasks)
+  - [x] `Paragrapher` (gap > 1.2 s, sentence end past 25 words, > 45 s), `TranscriptCursor` (paragraph + word under the playhead), `WordErrorRate`
+  - [x] `ParakeetTranscriptionService` (FluidAudio 0.15.7, Core ML, one-time model download) behind `EngineSelectingTranscriptionService`; Apple Speech is the default
+  - [x] Detail screen tabs: Summary (placeholder) / Transcript / Audio. Transcript: timestamps, synced paragraph + word highlight, tap-to-seek, context menu "Play from here", Edit mode (original text kept, per-paragraph revert), search with match count, status banner (Transcribe / progress / model download / Retry), "Standard accuracy" badge
+  - [x] Library rows show a progress bar while a stage runs; `AppState.pipelineProgress` fed by the coordinator's events
+  - [x] DEBUG Settings → Developer → Transcription benchmark: pick a recording, paste a reference, run both engines, see time / speed / words / WER, share a Markdown report, choose the engine for new transcripts
+  - [x] Tests: paragrapher (5), coordinator (6), cursor (4), WER (4), benchmark (4), transcript text (4), app-state progress (1); UI test opens a seeded transcript, searches, toggles Edit
+  - [ ] `scripts/test.sh` green on Jeremy's Mac
+  - [ ] Fixtures in `TestAudio/` (2-min monologue + 10-min two-person with reference text; 30-min, 60-min optional)
+  - [ ] Device: a new recording transcribes automatically; the Library row shows progress; the transcript appears with timestamps and follows playback
+  - [ ] Device: the first transcription downloads the speech assets with progress (or reports "Standard accuracy" on a device without `SpeechTranscriber`)
+  - [ ] Device: lock the phone during transcription; it finishes (or resumes on next launch from `.recorded`)
+  - [ ] Device: the 60-minute fixture transcribes without a crash or memory warning
+  - [ ] Device: benchmark on the 10-minute fixture; WER + time for both engines recorded in `docs/DECISIONS.md`, engine choice decided
 - [ ] M4 — Speaker labels
 - [ ] M5 — Summaries and templates
 - [ ] M6 — Exports

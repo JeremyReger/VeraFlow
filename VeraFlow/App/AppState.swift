@@ -2,6 +2,15 @@ import Foundation
 import Observation
 import SwiftData
 
+/// Live progress of one recording's processing, for banners and rows (SPEC §4.3).
+struct PipelineProgress: Equatable, Sendable {
+    var stage: PipelineStage
+    /// 0...1 within the stage.
+    var fraction: Double
+    /// A one-time model download is running before the stage proper.
+    var isPreparingAssets: Bool
+}
+
 /// App-wide state the UI reads: device capabilities, the unlock entitlement, and launch recovery.
 @Observable
 @MainActor
@@ -15,10 +24,13 @@ final class AppState {
     private(set) var lastRecovery: RecordingRecoveryOutcome?
     /// Audio files handed to the app via the share sheet / "Open in", waiting for the Library to import them.
     private(set) var pendingImportURLs: [URL] = []
+    /// Processing progress by recording id; absent when nothing is running for it.
+    private(set) var pipelineProgress: [UUID: PipelineProgress] = [:]
 
     private let services: AppServices
     private let modelContext: ModelContext?
     private var entitlementTask: Task<Void, Never>?
+    private var pipelineTask: Task<Void, Never>?
 
     /// `modelContext` enables crash recovery of interrupted recordings; pass `nil` to skip it.
     init(services: AppServices, modelContext: ModelContext? = nil) {
@@ -32,9 +44,39 @@ final class AppState {
         isUnlocked = await services.purchases.isUnlocked()
         freeSummariesUsed = await services.purchases.freeSummariesUsed()
         recoverInterruptedRecordings()
+        await observePipeline()
         await services.pipeline.resumePendingWork()
         didFinishStartup = true
         observeEntitlement()
+    }
+
+    /// Feeds `pipelineProgress` from the coordinator's events. The subscription is made before
+    /// this returns, so nothing emitted by `resumePendingWork()` is missed.
+    private func observePipeline() async {
+        pipelineTask?.cancel()
+        let events = await services.pipeline.events()
+        pipelineTask = Task {
+            for await event in events {
+                self.apply(event)
+            }
+        }
+    }
+
+    private func apply(_ event: PipelineEvent) {
+        switch event {
+        case .stageChanged(let id, let stage):
+            if stage.isProcessing {
+                pipelineProgress[id] = PipelineProgress(stage: stage, fraction: 0, isPreparingAssets: false)
+            } else {
+                pipelineProgress[id] = nil
+            }
+        case .progress(let id, let stage, let fraction):
+            pipelineProgress[id] = PipelineProgress(stage: stage, fraction: fraction, isPreparingAssets: false)
+        case .preparingAssets(let id, let stage, let fraction):
+            pipelineProgress[id] = PipelineProgress(stage: stage, fraction: fraction, isPreparingAssets: true)
+        case .failed(let id, _, _), .recoveredInterruptedRecording(let id):
+            pipelineProgress[id] = nil
+        }
     }
 
     func dismissRecoveryMessage() {

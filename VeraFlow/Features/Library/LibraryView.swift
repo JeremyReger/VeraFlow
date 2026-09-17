@@ -115,7 +115,7 @@ struct LibraryView: View {
                 }
                 ForEach(visibleRecordings) { recording in
                     NavigationLink(value: recording.id) {
-                        LibraryRow(recording: recording)
+                        LibraryRow(recording: recording, progress: appState.pipelineProgress[recording.id])
                     }
                     .swipeActions(edge: .trailing) {
                         Button("Delete", systemImage: "trash", role: .destructive) {
@@ -237,6 +237,8 @@ struct LibraryView: View {
 /// One row in the library list.
 struct LibraryRow: View {
     let recording: Recording
+    /// Live processing progress from `AppState`, when a stage is running for this recording.
+    var progress: PipelineProgress? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -272,6 +274,12 @@ struct LibraryRow: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+            }
+            if let progress {
+                ProgressView(value: progress.fraction)
+                    .progressViewStyle(.linear)
+                    .tint(progress.isPreparingAssets ? .secondary : .accentColor)
+                    .accessibilityLabel(progress.isPreparingAssets ? "Downloading speech model" : progress.stage.displayName)
             }
         }
         .padding(.vertical, 2)

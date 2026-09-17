@@ -18,14 +18,18 @@ struct AppServices: Sendable {
     var capabilities: any CapabilityService
     var purchases: any PurchaseService
     var storage: RecordingStorage
+    /// Every speech engine the debug benchmark can compare (SPEC §9.4). Release builds still
+    /// carry the list; only the screen that uses it is DEBUG-only.
+    var benchmarkEngines: [TranscriptionBenchmark.Engine]
 
     /// All fakes. Used by tests, previews, and (until each milestone lands its real service) the app itself.
     static func fakes(storage: RecordingStorage? = nil) -> AppServices {
-        AppServices(
+        let transcription = FakeTranscriptionService()
+        return AppServices(
             recorder: FakeAudioRecorderService(),
             activity: FakeRecordingActivityService(),
             importer: FakeAudioImportService(),
-            transcription: FakeTranscriptionService(),
+            transcription: transcription,
             diarization: FakeDiarizationService(),
             aligner: FakeTranscriptAligner(),
             summarization: FakeSummarizationService(),
@@ -35,7 +39,8 @@ struct AppServices: Sendable {
             background: FakeBackgroundProcessing(),
             capabilities: FakeCapabilityService(),
             purchases: FakePurchaseService(),
-            storage: storage ?? RecordingStorage(rootDirectory: FileManager.default.temporaryDirectory.appending(path: "Recordings"))
+            storage: storage ?? RecordingStorage(rootDirectory: FileManager.default.temporaryDirectory.appending(path: "Recordings")),
+            benchmarkEngines: [.init(name: "Sample", service: transcription)]
         )
     }
 
@@ -48,7 +53,11 @@ struct AppServices: Sendable {
         services.recorder = LiveAudioRecorderService(capacityProvider: { storage.availableCapacity() })
         services.activity = LiveRecordingActivityService()
         services.importer = LiveAudioImportService()
-        services.transcription = LiveTranscriptionService()
+        // Apple's engine by default; the debug benchmark screen can switch to Parakeet (SPEC §9.4).
+        let apple = LiveTranscriptionService()
+        let parakeet = ParakeetTranscriptionService()
+        services.transcription = EngineSelectingTranscriptionService(apple: apple, parakeet: parakeet)
+        services.benchmarkEngines = [.init(name: "Apple Speech", service: apple), .init(name: "Parakeet", service: parakeet)]
         services.background = LiveBackgroundProcessing()
         services.pipeline = LivePipelineCoordinator(
             container: container,

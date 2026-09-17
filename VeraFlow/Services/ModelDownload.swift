@@ -6,10 +6,12 @@ import Foundation
 // Allowed traffic: Apple speech assets (AssetInventory, OS-managed), the one-time FluidAudio
 // Core ML model download, and StoreKit. Nothing here ever sends user data.
 //
-// M4 evaluates bundling the diarization models in the app so this file can stay empty.
+// FluidAudio 0.15.7 downloads its Core ML models itself (Parakeet v3 for the M3 benchmark, the
+// offline diarizer in M4) from Hugging Face into Application Support/FluidAudio/Models.
+// M4 evaluates bundling those models in the app so this file can stay empty.
 
 enum ModelDownload {
     /// Where FluidAudio fetches its models from. Shown in Settings → About (SPEC §14.1).
-    /// Verify against the pinned FluidAudio release before M4.
+    /// Verified against FluidAudio 0.15.7 (`ModelRegistry.baseURL`, repos `FluidInference/…-coreml`).
     static let diarizationModelSourceDescription = "Hugging Face (FluidInference), downloaded once by FluidAudio"
 }

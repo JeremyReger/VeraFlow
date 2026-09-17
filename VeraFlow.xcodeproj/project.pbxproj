@@ -6,158 +6,166 @@
 	objectVersion = 60;
 	objects = {
 /* Begin PBXBuildFile section */
-		31097A3BFE214BEFB3F7EC00 /* VeraFlowApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76D59207C5B844F7B9E3D1D7 /* VeraFlowApp.swift */; };
-		362084D48CAA4B5CB3504EAB /* AppConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9054B48BFDE345F69472BD43 /* AppConstants.swift */; };
-		33CF5F75247E4B68969636C4 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DBE910EDE59463A97EEA1BA /* SettingsView.swift */; };
-		819320133C874A1F949F76A5 /* LibraryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0E860D3E48E4F17AF239138 /* LibraryViewModel.swift */; };
-		BCA41CCDC2634A5698254F12 /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 508B7D9BAB5E4677ABB6C424 /* LibraryView.swift */; };
-		E2CCCF0B2F554D39A3821C65 /* RecordingDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3454271CC4B046FCBC9F8595 /* RecordingDetailView.swift */; };
-		9FCBF52784AA4433AF3927CE /* ConsentReminderSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6522C739BA5F414A818BC276 /* ConsentReminderSheet.swift */; };
-		4FC046DD3FCF48878F0FE372 /* RecorderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5651901B29AE4BCDBAA06B40 /* RecorderView.swift */; };
-		18BEE70766B64958915767D5 /* ExportSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B190A77B6C24140B624F365 /* ExportSheet.swift */; };
-		383B20637AB849899CBB448E /* MailComposeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABE23D77B1034CDEB71C8226 /* MailComposeView.swift */; };
-		5D6D2D2A5951495B8C1B31BA /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B927F476E3845A2BB586EBF /* OnboardingView.swift */; };
-		F69A86AF2C994C0C925BD214 /* TimedWord.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51211F0F9F774D7FA804D22A /* TimedWord.swift */; };
-		8BE6849B4A944E4F8D731C7B /* PipelineStage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B3C1FC0D22442F0AFDAE719 /* PipelineStage.swift */; };
-		12DA6CAD2FBE455491AE5447 /* RecordingSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5935EE3190804C88858A4F1C /* RecordingSource.swift */; };
-		13470006342E40E595E8A505 /* TemplateID.swift in Sources */ = {isa = PBXBuildFile; fileRef = A060A0CA6309446E9608F263 /* TemplateID.swift */; };
-		6B0AFF27E3134B0381D8D468 /* TemplateOutputs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 353CC48D9D0340988B39B920 /* TemplateOutputs.swift */; };
-		9077C81247CD4874B9098315 /* Speaker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CF625B857E94C2A9EEDE8F7 /* Speaker.swift */; };
-		DBC78EF9EC8840BC9A277A13 /* Recording.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2767ED5FD8CD440AB8D1564C /* Recording.swift */; };
-		852CE034FDC94475AAF5B17D /* SummaryRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95AA53395C1A4A88B67BA937 /* SummaryRecord.swift */; };
-		9997552233A349D08B065D20 /* Bookmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45AC82055D8B415685F2574E /* Bookmark.swift */; };
-		0102FBA25F724AE7AB031AF7 /* TranscriptSegment.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC1B0D5D3ECF47809A83AC46 /* TranscriptSegment.swift */; };
-		C56DEAACA3DA4AA4920F9DAB /* DueDateResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97F30A51157C45E1B07C5FBD /* DueDateResolver.swift */; };
-		56924F0F05E84AA9809CC08B /* SummarizationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BB445C554DC4DE8A5EDD450 /* SummarizationService.swift */; };
-		8AD79DE0C39649D6958C6292 /* SpeechTranscriptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEB91F560B9443FAB8478DFA /* SpeechTranscriptionService.swift */; };
-		DF2ACC317E9E420F9D4A8A39 /* ExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D02926FC63124E6FA3C8D030 /* ExportService.swift */; };
-		3A0B246ED33A4A2FADE70F2E /* FluidDiarizationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5800FAF6FE24F6CB16C7976 /* FluidDiarizationService.swift */; };
-		6EE750FC49C44E77AE260CE5 /* ParagraphingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 637C41E5EE5E456689699D18 /* ParagraphingService.swift */; };
-		3915DC146A2F4EDA8C919E98 /* AudioPlayerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 408D09DEEBE54A23B24730C4 /* AudioPlayerService.swift */; };
-		1D845D5EDC0D4A6FA0733E29 /* CrashRecoveryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CEB9D963CA84BEBA428DB85 /* CrashRecoveryService.swift */; };
-		3C12B54D29E244539E985D17 /* AudioImportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7DFA48B62D145CE8D7B4429 /* AudioImportService.swift */; };
-		24CD2E6860CB4AAAB1CBD2E6 /* AudioRecorderService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBB9A48C5F594BD59F063036 /* AudioRecorderService.swift */; };
-		12E2CFF20857415A8579DF4D /* TranscriptAligner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58874D65969144679EE215DA /* TranscriptAligner.swift */; };
-		5850C67F2CE34F55A18B8870 /* CapabilityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEA0D284B9344FEBAD4878DA /* CapabilityService.swift */; };
-		4A155E5E7AF54E12934A78CA /* BiometricLockService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6FE430863954106AD258573 /* BiometricLockService.swift */; };
-		6BF0003E6F1E419F95065D82 /* ActionItemProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5D7399A62194A1A9C7A1F3A /* ActionItemProcessor.swift */; };
-		C5EC1CF2181F40E88DDAF4EF /* FakeAudioImportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E07483C2995046C88A9BC1B2 /* FakeAudioImportService.swift */; };
-		F143C23AC848431E991485B0 /* PreviewData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00BAAF3A11B349768C637B80 /* PreviewData.swift */; };
-		862BD733A9B64BA5AEB6C5A0 /* FakeCapabilityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4EDEBA7B40C4D00989DDCEC /* FakeCapabilityService.swift */; };
-		70F43693580344CB9DE1C480 /* FakeTranscriptAligner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08BE6F97732B439591E18162 /* FakeTranscriptAligner.swift */; };
-		A6BBB59F1EE249B1BA5B484B /* FakeSummarizationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34D3FD754D2344CFBB2B83CE /* FakeSummarizationService.swift */; };
-		7476A3A92B184D0CB28F157F /* FakeDueDateResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70305BADD5FB4A83B1965A16 /* FakeDueDateResolver.swift */; };
-		EBCF1002517C42CDA021E05B /* FakeDiarizationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6715ECBF70404C1C87893C8A /* FakeDiarizationService.swift */; };
-		B20CEFA6A117467BA9B9BE84 /* FakeExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF1EC08D72334637937088DF /* FakeExportService.swift */; };
-		807EB35BCCCA4B9FB301C419 /* FakePurchaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21B57DAC08614EF5AC3D86E6 /* FakePurchaseService.swift */; };
-		0CC3A07645D049CE849AA696 /* FakeTranscriptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C90BC379E4A04D71AB4CEF3D /* FakeTranscriptionService.swift */; };
-		15536163C27A4379AB40DE43 /* FakeAudioRecorderService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28B02A802DC3472B9FFAC26B /* FakeAudioRecorderService.swift */; };
-		10D5AAD20DBD477F9789CF17 /* FakePipelineCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF39A25AA12B425D85B4E5A2 /* FakePipelineCoordinator.swift */; };
-		8CCDD169796A443AB36A2C81 /* DueDateResolverProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 296F8DFABE884D558543A939 /* DueDateResolverProtocol.swift */; };
-		6FB39F925D134ED8A7C84DDA /* PurchaseServiceProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 826EE97CB8A04721BEA9F18E /* PurchaseServiceProtocol.swift */; };
-		6086BCDE2F6A44D2B4C052BA /* AudioRecorderServiceProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8140D961B91A4BF69074393E /* AudioRecorderServiceProtocol.swift */; };
-		8EE6B3178EFA403E88ED7DA4 /* CapabilityServiceProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B20E987B0284B5E8CFDA890 /* CapabilityServiceProtocol.swift */; };
-		D680A09C28E64E8EBE8B06C3 /* ExportServiceProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37146DBA384248C2ACD8DE9A /* ExportServiceProtocol.swift */; };
-		20120CFB5D084BF6B4A727C5 /* SummarizationServiceProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = B89B2E2B9A15478DA42C30AD /* SummarizationServiceProtocol.swift */; };
-		73C09ED3AC824AACA27DE765 /* TranscriptAlignerProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44D4474596054DCBAE30DC25 /* TranscriptAlignerProtocol.swift */; };
-		31B2DDBBB24149A48F42B4C5 /* DiarizationServiceProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27CE8C0FAB9645458E9C01E3 /* DiarizationServiceProtocol.swift */; };
-		AB7F79D691D443A28F9C2523 /* PipelineCoordinatorProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1807E37F1EA145FAB8E2F30C /* PipelineCoordinatorProtocol.swift */; };
-		0D321D58AEE640DA8B69F0A8 /* AudioImportServiceProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 918F7A8CC2144F188FCC014B /* AudioImportServiceProtocol.swift */; };
-		ED0C29D663444132822F495F /* TranscriptionServiceProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 631E3574B36249C5BC36CE0A /* TranscriptionServiceProtocol.swift */; };
-		41CE62EAFC58411985BDB8AB /* AudioImportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A585E218A8D54C56BAF9B657 /* AudioImportTests.swift */; };
-		2D367A257B3940809BE65CA9 /* DueDateResolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48C4AF0FB5BA446F9D084025 /* DueDateResolverTests.swift */; };
-		85A7D7B8DD5F460AA409E0F5 /* SummarizationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19709FF7FE104E5BB338CA00 /* SummarizationTests.swift */; };
-		63F0863D49FF4CE9B4370AAA /* TranscriptionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AF9326D3ABD44B7BA4ECE6F /* TranscriptionTests.swift */; };
-		ED412DECB06E4BF6BF7BA265 /* ServiceFakesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E831BE6767B84E639BFC0F0C /* ServiceFakesTests.swift */; };
-		079CE899891B497EAD41040A /* NetworkPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9176532F19E47C5BF42923B /* NetworkPolicyTests.swift */; };
-		6B7DE67DD46E40C8BBE86334 /* ExportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F72DDE6A52E64C6CBD8682BB /* ExportTests.swift */; };
-		67CE31BB291D4744975127C2 /* DataModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A8A1E05B3E84BF9AD50B450 /* DataModelTests.swift */; };
-		44B545EFC576433E89D295F0 /* AudioRecordingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A709B6B682E4E2DB7DFA6AB /* AudioRecordingTests.swift */; };
-		E2CED33D741044F98AFDECD5 /* CapabilityAndPrivacyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB7A3FBFEF5C42D2AD65D782 /* CapabilityAndPrivacyTests.swift */; };
-		B414EFA9458A419B946F50EA /* TranscriptAlignerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69DAB1FCD36047F0BD40AB93 /* TranscriptAlignerTests.swift */; };
+		9E2A75AC582B49AC95C9F3C1 /* VeraFlowApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 371F48D1F4EF4E3D9CFD40B2 /* VeraFlowApp.swift */; };
+		DC45BE3FB4A14677B316898D /* AppConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = C176881DECCE495B9A522790 /* AppConstants.swift */; };
+		3EC5FB0320644810BCD26C41 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6829519FF4C34D049F8480C2 /* SettingsView.swift */; };
+		286D23D580DD4CE8B230D560 /* LibraryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FB68376C37D49208C900C99 /* LibraryViewModel.swift */; };
+		B84EA8951AF34A1DA2878928 /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D29871E5F964416AC8AA1FD /* LibraryView.swift */; };
+		E2042C99A6BB435DBF94E8FA /* RecordingDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F827E09A3C74C95B3D555F4 /* RecordingDetailView.swift */; };
+		D843CD2E570E46989BD7A332 /* ConsentReminderSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9C7F58275944925860E5B93 /* ConsentReminderSheet.swift */; };
+		A89F84A6A511414EACE7FEEC /* RecorderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 929BBC9C163C4EE693A6AFA4 /* RecorderView.swift */; };
+		124E3CADF70F40FAB8675E0B /* ExportSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02A660E7D6384742A9CA44D8 /* ExportSheet.swift */; };
+		4C69C50CF3BC405A86BECED0 /* MailComposeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 877A0AEFA78A4A838192B707 /* MailComposeView.swift */; };
+		CCC19B27B8334680B749EC02 /* PaywallSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4969403FBCA464AAE2D4361 /* PaywallSheet.swift */; };
+		A255DC9293F34578A35656B4 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5132CDDE5AAB494AB2E4D147 /* OnboardingView.swift */; };
+		410A218288FE47AAA5EACCC1 /* TimedWord.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3BDC85D3C124BA7A6C85131 /* TimedWord.swift */; };
+		B44C639F083B4D96BAF4A08C /* PipelineStage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80C4C3B4A5D1467D8FFE0501 /* PipelineStage.swift */; };
+		BD1889116AFC45588AC0A89A /* RecordingSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 411BA072145D4C73BC61C7A2 /* RecordingSource.swift */; };
+		103ABA593F004D44AED342BC /* TemplateID.swift in Sources */ = {isa = PBXBuildFile; fileRef = 245C47191DC84A1D8D5A35C4 /* TemplateID.swift */; };
+		B5723FB359244E358E6D33BF /* TemplateOutputs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63EC3A9133244985BE438332 /* TemplateOutputs.swift */; };
+		FF6E09231F2049728D76FCF1 /* Speaker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83DB5D748D21404A9DC3B1E5 /* Speaker.swift */; };
+		CD3D5EFAFC6F4C92BCA0A62E /* Recording.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A38C24DB354494698784FE3 /* Recording.swift */; };
+		5097CB289FA64C9E80B2A037 /* SummaryRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31894B6646AD425DB128EFFD /* SummaryRecord.swift */; };
+		60F47F795CBD4AEB9321F76B /* Bookmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71C8BF48442B409F811848D5 /* Bookmark.swift */; };
+		442E6FE431284D6896304DE7 /* TranscriptSegment.swift in Sources */ = {isa = PBXBuildFile; fileRef = C637537743674DE5A17F6A87 /* TranscriptSegment.swift */; };
+		2EB7A538F54F47638D2DE8C7 /* DueDateResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C02D0140A4B4429810F8BA7 /* DueDateResolver.swift */; };
+		64A62EF4696148E697E76059 /* SummarizationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E7D469B4DE04F80914710F4 /* SummarizationService.swift */; };
+		40C7FB45349042649887F34B /* SpeechTranscriptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8373AA58E2444E59BB639453 /* SpeechTranscriptionService.swift */; };
+		EF9773AD574E4842BF121237 /* ExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 997E5BF1A29D46BA9ABD5EC8 /* ExportService.swift */; };
+		F80D79FB1929446BAB4DE554 /* FluidDiarizationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B2C1DD78FC448EFB304E1B8 /* FluidDiarizationService.swift */; };
+		E756675AFFCC4779B6C8E558 /* ParagraphingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E266196AE65F481A940457D0 /* ParagraphingService.swift */; };
+		2F0E0C1E0CD4494498895FC6 /* KeychainStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 241DF9BA7CCA4E8E82A29072 /* KeychainStorage.swift */; };
+		D2B348F218B34F6695CB4211 /* AudioPlayerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16EF783DC7CC461EA4CF6701 /* AudioPlayerService.swift */; };
+		69276F6107BD4A02AB4DAB95 /* CrashRecoveryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE0207BA947B423E8D4E5727 /* CrashRecoveryService.swift */; };
+		195F6FDBD2414E5FAA582453 /* AudioImportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB5302D4B8544EA49915301C /* AudioImportService.swift */; };
+		117166EA6F5C4DDDB971934F /* AudioRecorderService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D47B7797B4B4F208297D385 /* AudioRecorderService.swift */; };
+		5A5442942B7A455CBC800592 /* StoreKitPurchaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB995545AB644CA8AF5FF3E0 /* StoreKitPurchaseService.swift */; };
+		CADB18FAF6C04AD99B533E50 /* TranscriptAligner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1234932DEC794F29873C74C1 /* TranscriptAligner.swift */; };
+		F3B27B6B2A31499CA81937C7 /* CapabilityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7887129D355B4DD7A05AA96B /* CapabilityService.swift */; };
+		DC658A1ED7984E96BDDFE631 /* BiometricLockService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6307ABF96D7345CC86EA7FFC /* BiometricLockService.swift */; };
+		64A2DF0F08A64E7D8208C1CC /* ActionItemProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 541706CE520445038237ACD6 /* ActionItemProcessor.swift */; };
+		ABA4C022D617446F84C71440 /* FakeAudioImportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC37B0EC31EE43B792839F33 /* FakeAudioImportService.swift */; };
+		88636DD4F2BF41FDA40AB55E /* PreviewData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BB5F74C410E4892AB189EEE /* PreviewData.swift */; };
+		408032FA98844FCF90470CCF /* FakeCapabilityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B952E8580C7424A90670FA7 /* FakeCapabilityService.swift */; };
+		5BDDA702485D4003AFC8AB9A /* FakeTranscriptAligner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85F45D8A679F46E9AAC159D6 /* FakeTranscriptAligner.swift */; };
+		A33F36F038364D69B8A50707 /* FakeSummarizationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 909F8188F6B8439DB72B5A6A /* FakeSummarizationService.swift */; };
+		D6F86814EB2C41AF8AE3EFEF /* FakeDueDateResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 652F689743D74A47AADF2E7B /* FakeDueDateResolver.swift */; };
+		26277589486A4A21A8C7679C /* FakeDiarizationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC1248C36D714C4CBA470D71 /* FakeDiarizationService.swift */; };
+		239A4C30A6A34EE59DB95187 /* FakeExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DF4A8AFD0BB4802A3E637CA /* FakeExportService.swift */; };
+		CFBEDE8A904648179FCAEF40 /* FakePurchaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C11958AE2B364F4A8CA1CF45 /* FakePurchaseService.swift */; };
+		8979D845CB5D40F7B1208155 /* FakeTranscriptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C01FB8874AB0481C81B4F9D9 /* FakeTranscriptionService.swift */; };
+		127628B5FB83409A8EDD4CD4 /* FakeAudioRecorderService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DF7E972BA5345389CE1C106 /* FakeAudioRecorderService.swift */; };
+		A155D4C8796448D49153EB46 /* FakePipelineCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F411FD53ECED422BB6411D72 /* FakePipelineCoordinator.swift */; };
+		79739D85B17042E1AA829290 /* DueDateResolverProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44625C3A7550428AB7FC8D27 /* DueDateResolverProtocol.swift */; };
+		7F00CA35B29C4973834DE45D /* PurchaseServiceProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3725BF6E220445B4AA8097C4 /* PurchaseServiceProtocol.swift */; };
+		07CA983F70C44D0491D20BDE /* AudioRecorderServiceProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4535D931AE534876B4486681 /* AudioRecorderServiceProtocol.swift */; };
+		EF2C9533BB624F8981A35BC5 /* CapabilityServiceProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = E19AF937C75649419F8D4CEC /* CapabilityServiceProtocol.swift */; };
+		9EBC37543C964FBEBEF6712D /* ExportServiceProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 788E1C6412A04430AA8A894C /* ExportServiceProtocol.swift */; };
+		C8082953757B4E1B96A3836D /* SummarizationServiceProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F030E6C9E1347CE9B80E7B2 /* SummarizationServiceProtocol.swift */; };
+		BB0B4CA955584E2D9E8A113F /* TranscriptAlignerProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 056ED4D466F84DEBA5C1E43E /* TranscriptAlignerProtocol.swift */; };
+		A068A766520C449792C51748 /* DiarizationServiceProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD6F06734BB44B08B6B24361 /* DiarizationServiceProtocol.swift */; };
+		3D46AE6C1FE34746BC538365 /* PipelineCoordinatorProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 935C0A521F224CAA90A4C0FE /* PipelineCoordinatorProtocol.swift */; };
+		CE9B70E06DA74FE48E30A73A /* AudioImportServiceProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 357E373E447C4D0FB9E99401 /* AudioImportServiceProtocol.swift */; };
+		D8428159E5EF4E2BA35E6898 /* TranscriptionServiceProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93619CA72A5D419EA0669EEB /* TranscriptionServiceProtocol.swift */; };
+		48625FC179234E72B291B486 /* AudioImportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4ED63A72791E45F1B69A050A /* AudioImportTests.swift */; };
+		8295945B0C094EE0B61183E5 /* DueDateResolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC9A1034A5D4D70B887D083 /* DueDateResolverTests.swift */; };
+		0B9E94AEE3044DA8988B6536 /* SummarizationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B34F40D8607F4893849F0186 /* SummarizationTests.swift */; };
+		A3070FDA46A346C09B4BD207 /* TranscriptionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3FB9A2FE2BD4959B0422029 /* TranscriptionTests.swift */; };
+		D207CC61F0C14DE884470E20 /* ServiceFakesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB95129E72714F25BD2999CD /* ServiceFakesTests.swift */; };
+		2E8A29092E7C4BB686856C6E /* NetworkPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C87681F2724044FBA443B98E /* NetworkPolicyTests.swift */; };
+		7901D62268BF4CE4B80CF4E7 /* ExportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 471A080EAAA44FEAB00BCEFA /* ExportTests.swift */; };
+		416E769529AA4084B570EF8A /* DataModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 713E2FF0130A4CF3A91BF363 /* DataModelTests.swift */; };
+		49AB6F380C5E4957A21B4E0D /* AudioRecordingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61BDFAFBA8CF4142BDE4FA71 /* AudioRecordingTests.swift */; };
+		8326FC49A94A450086D62239 /* CapabilityAndPrivacyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 065156F29AE042EEA0AB6F60 /* CapabilityAndPrivacyTests.swift */; };
+		3DD0E7BA17B44F3BBBE58D30 /* TranscriptAlignerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC09DB3DF17B414C872417FE /* TranscriptAlignerTests.swift */; };
+		182C3F32577049B49719BC46 /* PurchaseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B66F8F773C94C71A21B9B38 /* PurchaseTests.swift */; };
 /* End PBXBuildFile section */
 /* Begin PBXFileReference section */
-		D1D95806DD8C4E2F811500D9 /* VeraFlow.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VeraFlow.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		EF830149232048B686C5C532 /* VeraFlowTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VeraFlowTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		76D59207C5B844F7B9E3D1D7 /* VeraFlowApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "VeraFlowApp.swift"; path = "VeraFlow/App/VeraFlowApp.swift"; sourceTree = "<group>"; };
-		9054B48BFDE345F69472BD43 /* AppConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "AppConstants.swift"; path = "VeraFlow/App/AppConstants.swift"; sourceTree = "<group>"; };
-		8DBE910EDE59463A97EEA1BA /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "SettingsView.swift"; path = "VeraFlow/Features/Settings/SettingsView.swift"; sourceTree = "<group>"; };
-		F0E860D3E48E4F17AF239138 /* LibraryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "LibraryViewModel.swift"; path = "VeraFlow/Features/Library/LibraryViewModel.swift"; sourceTree = "<group>"; };
-		508B7D9BAB5E4677ABB6C424 /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "LibraryView.swift"; path = "VeraFlow/Features/Library/LibraryView.swift"; sourceTree = "<group>"; };
-		3454271CC4B046FCBC9F8595 /* RecordingDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "RecordingDetailView.swift"; path = "VeraFlow/Features/RecordingDetail/RecordingDetailView.swift"; sourceTree = "<group>"; };
-		6522C739BA5F414A818BC276 /* ConsentReminderSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "ConsentReminderSheet.swift"; path = "VeraFlow/Features/Recorder/ConsentReminderSheet.swift"; sourceTree = "<group>"; };
-		5651901B29AE4BCDBAA06B40 /* RecorderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "RecorderView.swift"; path = "VeraFlow/Features/Recorder/RecorderView.swift"; sourceTree = "<group>"; };
-		0B190A77B6C24140B624F365 /* ExportSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "ExportSheet.swift"; path = "VeraFlow/Features/Export/ExportSheet.swift"; sourceTree = "<group>"; };
-		ABE23D77B1034CDEB71C8226 /* MailComposeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "MailComposeView.swift"; path = "VeraFlow/Features/Export/MailComposeView.swift"; sourceTree = "<group>"; };
-		8B927F476E3845A2BB586EBF /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "OnboardingView.swift"; path = "VeraFlow/Features/Onboarding/OnboardingView.swift"; sourceTree = "<group>"; };
-		51211F0F9F774D7FA804D22A /* TimedWord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "TimedWord.swift"; path = "VeraFlow/Data/Types/TimedWord.swift"; sourceTree = "<group>"; };
-		2B3C1FC0D22442F0AFDAE719 /* PipelineStage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "PipelineStage.swift"; path = "VeraFlow/Data/Types/PipelineStage.swift"; sourceTree = "<group>"; };
-		5935EE3190804C88858A4F1C /* RecordingSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "RecordingSource.swift"; path = "VeraFlow/Data/Types/RecordingSource.swift"; sourceTree = "<group>"; };
-		A060A0CA6309446E9608F263 /* TemplateID.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "TemplateID.swift"; path = "VeraFlow/Data/Types/TemplateID.swift"; sourceTree = "<group>"; };
-		353CC48D9D0340988B39B920 /* TemplateOutputs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "TemplateOutputs.swift"; path = "VeraFlow/Data/Types/TemplateOutputs.swift"; sourceTree = "<group>"; };
-		2CF625B857E94C2A9EEDE8F7 /* Speaker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "Speaker.swift"; path = "VeraFlow/Data/Models/Speaker.swift"; sourceTree = "<group>"; };
-		2767ED5FD8CD440AB8D1564C /* Recording.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "Recording.swift"; path = "VeraFlow/Data/Models/Recording.swift"; sourceTree = "<group>"; };
-		95AA53395C1A4A88B67BA937 /* SummaryRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "SummaryRecord.swift"; path = "VeraFlow/Data/Models/SummaryRecord.swift"; sourceTree = "<group>"; };
-		45AC82055D8B415685F2574E /* Bookmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "Bookmark.swift"; path = "VeraFlow/Data/Models/Bookmark.swift"; sourceTree = "<group>"; };
-		DC1B0D5D3ECF47809A83AC46 /* TranscriptSegment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "TranscriptSegment.swift"; path = "VeraFlow/Data/Models/TranscriptSegment.swift"; sourceTree = "<group>"; };
-		97F30A51157C45E1B07C5FBD /* DueDateResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "DueDateResolver.swift"; path = "VeraFlow/Services/DueDateResolver.swift"; sourceTree = "<group>"; };
-		3BB445C554DC4DE8A5EDD450 /* SummarizationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "SummarizationService.swift"; path = "VeraFlow/Services/SummarizationService.swift"; sourceTree = "<group>"; };
-		FEB91F560B9443FAB8478DFA /* SpeechTranscriptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "SpeechTranscriptionService.swift"; path = "VeraFlow/Services/SpeechTranscriptionService.swift"; sourceTree = "<group>"; };
-		D02926FC63124E6FA3C8D030 /* ExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "ExportService.swift"; path = "VeraFlow/Services/ExportService.swift"; sourceTree = "<group>"; };
-		C5800FAF6FE24F6CB16C7976 /* FluidDiarizationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "FluidDiarizationService.swift"; path = "VeraFlow/Services/FluidDiarizationService.swift"; sourceTree = "<group>"; };
-		637C41E5EE5E456689699D18 /* ParagraphingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "ParagraphingService.swift"; path = "VeraFlow/Services/ParagraphingService.swift"; sourceTree = "<group>"; };
-		408D09DEEBE54A23B24730C4 /* AudioPlayerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "AudioPlayerService.swift"; path = "VeraFlow/Services/AudioPlayerService.swift"; sourceTree = "<group>"; };
-		0CEB9D963CA84BEBA428DB85 /* CrashRecoveryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "CrashRecoveryService.swift"; path = "VeraFlow/Services/CrashRecoveryService.swift"; sourceTree = "<group>"; };
-		B7DFA48B62D145CE8D7B4429 /* AudioImportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "AudioImportService.swift"; path = "VeraFlow/Services/AudioImportService.swift"; sourceTree = "<group>"; };
-		EBB9A48C5F594BD59F063036 /* AudioRecorderService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "AudioRecorderService.swift"; path = "VeraFlow/Services/AudioRecorderService.swift"; sourceTree = "<group>"; };
-		58874D65969144679EE215DA /* TranscriptAligner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "TranscriptAligner.swift"; path = "VeraFlow/Services/TranscriptAligner.swift"; sourceTree = "<group>"; };
-		DEA0D284B9344FEBAD4878DA /* CapabilityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "CapabilityService.swift"; path = "VeraFlow/Services/CapabilityService.swift"; sourceTree = "<group>"; };
-		F6FE430863954106AD258573 /* BiometricLockService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "BiometricLockService.swift"; path = "VeraFlow/Services/BiometricLockService.swift"; sourceTree = "<group>"; };
-		A5D7399A62194A1A9C7A1F3A /* ActionItemProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "ActionItemProcessor.swift"; path = "VeraFlow/Services/ActionItemProcessor.swift"; sourceTree = "<group>"; };
-		E07483C2995046C88A9BC1B2 /* FakeAudioImportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "FakeAudioImportService.swift"; path = "VeraFlow/Services/Fakes/FakeAudioImportService.swift"; sourceTree = "<group>"; };
-		00BAAF3A11B349768C637B80 /* PreviewData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "PreviewData.swift"; path = "VeraFlow/Services/Fakes/PreviewData.swift"; sourceTree = "<group>"; };
-		E4EDEBA7B40C4D00989DDCEC /* FakeCapabilityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "FakeCapabilityService.swift"; path = "VeraFlow/Services/Fakes/FakeCapabilityService.swift"; sourceTree = "<group>"; };
-		08BE6F97732B439591E18162 /* FakeTranscriptAligner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "FakeTranscriptAligner.swift"; path = "VeraFlow/Services/Fakes/FakeTranscriptAligner.swift"; sourceTree = "<group>"; };
-		34D3FD754D2344CFBB2B83CE /* FakeSummarizationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "FakeSummarizationService.swift"; path = "VeraFlow/Services/Fakes/FakeSummarizationService.swift"; sourceTree = "<group>"; };
-		70305BADD5FB4A83B1965A16 /* FakeDueDateResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "FakeDueDateResolver.swift"; path = "VeraFlow/Services/Fakes/FakeDueDateResolver.swift"; sourceTree = "<group>"; };
-		6715ECBF70404C1C87893C8A /* FakeDiarizationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "FakeDiarizationService.swift"; path = "VeraFlow/Services/Fakes/FakeDiarizationService.swift"; sourceTree = "<group>"; };
-		CF1EC08D72334637937088DF /* FakeExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "FakeExportService.swift"; path = "VeraFlow/Services/Fakes/FakeExportService.swift"; sourceTree = "<group>"; };
-		21B57DAC08614EF5AC3D86E6 /* FakePurchaseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "FakePurchaseService.swift"; path = "VeraFlow/Services/Fakes/FakePurchaseService.swift"; sourceTree = "<group>"; };
-		C90BC379E4A04D71AB4CEF3D /* FakeTranscriptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "FakeTranscriptionService.swift"; path = "VeraFlow/Services/Fakes/FakeTranscriptionService.swift"; sourceTree = "<group>"; };
-		28B02A802DC3472B9FFAC26B /* FakeAudioRecorderService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "FakeAudioRecorderService.swift"; path = "VeraFlow/Services/Fakes/FakeAudioRecorderService.swift"; sourceTree = "<group>"; };
-		AF39A25AA12B425D85B4E5A2 /* FakePipelineCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "FakePipelineCoordinator.swift"; path = "VeraFlow/Services/Fakes/FakePipelineCoordinator.swift"; sourceTree = "<group>"; };
-		296F8DFABE884D558543A939 /* DueDateResolverProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "DueDateResolverProtocol.swift"; path = "VeraFlow/Services/Protocols/DueDateResolverProtocol.swift"; sourceTree = "<group>"; };
-		826EE97CB8A04721BEA9F18E /* PurchaseServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "PurchaseServiceProtocol.swift"; path = "VeraFlow/Services/Protocols/PurchaseServiceProtocol.swift"; sourceTree = "<group>"; };
-		8140D961B91A4BF69074393E /* AudioRecorderServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "AudioRecorderServiceProtocol.swift"; path = "VeraFlow/Services/Protocols/AudioRecorderServiceProtocol.swift"; sourceTree = "<group>"; };
-		2B20E987B0284B5E8CFDA890 /* CapabilityServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "CapabilityServiceProtocol.swift"; path = "VeraFlow/Services/Protocols/CapabilityServiceProtocol.swift"; sourceTree = "<group>"; };
-		37146DBA384248C2ACD8DE9A /* ExportServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "ExportServiceProtocol.swift"; path = "VeraFlow/Services/Protocols/ExportServiceProtocol.swift"; sourceTree = "<group>"; };
-		B89B2E2B9A15478DA42C30AD /* SummarizationServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "SummarizationServiceProtocol.swift"; path = "VeraFlow/Services/Protocols/SummarizationServiceProtocol.swift"; sourceTree = "<group>"; };
-		44D4474596054DCBAE30DC25 /* TranscriptAlignerProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "TranscriptAlignerProtocol.swift"; path = "VeraFlow/Services/Protocols/TranscriptAlignerProtocol.swift"; sourceTree = "<group>"; };
-		27CE8C0FAB9645458E9C01E3 /* DiarizationServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "DiarizationServiceProtocol.swift"; path = "VeraFlow/Services/Protocols/DiarizationServiceProtocol.swift"; sourceTree = "<group>"; };
-		1807E37F1EA145FAB8E2F30C /* PipelineCoordinatorProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "PipelineCoordinatorProtocol.swift"; path = "VeraFlow/Services/Protocols/PipelineCoordinatorProtocol.swift"; sourceTree = "<group>"; };
-		918F7A8CC2144F188FCC014B /* AudioImportServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "AudioImportServiceProtocol.swift"; path = "VeraFlow/Services/Protocols/AudioImportServiceProtocol.swift"; sourceTree = "<group>"; };
-		631E3574B36249C5BC36CE0A /* TranscriptionServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "TranscriptionServiceProtocol.swift"; path = "VeraFlow/Services/Protocols/TranscriptionServiceProtocol.swift"; sourceTree = "<group>"; };
-		A585E218A8D54C56BAF9B657 /* AudioImportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "AudioImportTests.swift"; path = "VeraFlowTests/AudioImportTests.swift"; sourceTree = "<group>"; };
-		48C4AF0FB5BA446F9D084025 /* DueDateResolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "DueDateResolverTests.swift"; path = "VeraFlowTests/DueDateResolverTests.swift"; sourceTree = "<group>"; };
-		19709FF7FE104E5BB338CA00 /* SummarizationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "SummarizationTests.swift"; path = "VeraFlowTests/SummarizationTests.swift"; sourceTree = "<group>"; };
-		6AF9326D3ABD44B7BA4ECE6F /* TranscriptionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "TranscriptionTests.swift"; path = "VeraFlowTests/TranscriptionTests.swift"; sourceTree = "<group>"; };
-		E831BE6767B84E639BFC0F0C /* ServiceFakesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "ServiceFakesTests.swift"; path = "VeraFlowTests/ServiceFakesTests.swift"; sourceTree = "<group>"; };
-		F9176532F19E47C5BF42923B /* NetworkPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "NetworkPolicyTests.swift"; path = "VeraFlowTests/NetworkPolicyTests.swift"; sourceTree = "<group>"; };
-		F72DDE6A52E64C6CBD8682BB /* ExportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "ExportTests.swift"; path = "VeraFlowTests/ExportTests.swift"; sourceTree = "<group>"; };
-		4A8A1E05B3E84BF9AD50B450 /* DataModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "DataModelTests.swift"; path = "VeraFlowTests/DataModelTests.swift"; sourceTree = "<group>"; };
-		0A709B6B682E4E2DB7DFA6AB /* AudioRecordingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "AudioRecordingTests.swift"; path = "VeraFlowTests/AudioRecordingTests.swift"; sourceTree = "<group>"; };
-		AB7A3FBFEF5C42D2AD65D782 /* CapabilityAndPrivacyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "CapabilityAndPrivacyTests.swift"; path = "VeraFlowTests/CapabilityAndPrivacyTests.swift"; sourceTree = "<group>"; };
-		69DAB1FCD36047F0BD40AB93 /* TranscriptAlignerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "TranscriptAlignerTests.swift"; path = "VeraFlowTests/TranscriptAlignerTests.swift"; sourceTree = "<group>"; };
+		B642544E14264777B1E0F873 /* VeraFlow.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VeraFlow.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E4799F99A8854F3A93CCB2E6 /* VeraFlowTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VeraFlowTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		371F48D1F4EF4E3D9CFD40B2 /* VeraFlowApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "VeraFlowApp.swift"; path = "VeraFlow/App/VeraFlowApp.swift"; sourceTree = "<group>"; };
+		C176881DECCE495B9A522790 /* AppConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "AppConstants.swift"; path = "VeraFlow/App/AppConstants.swift"; sourceTree = "<group>"; };
+		6829519FF4C34D049F8480C2 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "SettingsView.swift"; path = "VeraFlow/Features/Settings/SettingsView.swift"; sourceTree = "<group>"; };
+		8FB68376C37D49208C900C99 /* LibraryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "LibraryViewModel.swift"; path = "VeraFlow/Features/Library/LibraryViewModel.swift"; sourceTree = "<group>"; };
+		0D29871E5F964416AC8AA1FD /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "LibraryView.swift"; path = "VeraFlow/Features/Library/LibraryView.swift"; sourceTree = "<group>"; };
+		1F827E09A3C74C95B3D555F4 /* RecordingDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "RecordingDetailView.swift"; path = "VeraFlow/Features/RecordingDetail/RecordingDetailView.swift"; sourceTree = "<group>"; };
+		A9C7F58275944925860E5B93 /* ConsentReminderSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "ConsentReminderSheet.swift"; path = "VeraFlow/Features/Recorder/ConsentReminderSheet.swift"; sourceTree = "<group>"; };
+		929BBC9C163C4EE693A6AFA4 /* RecorderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "RecorderView.swift"; path = "VeraFlow/Features/Recorder/RecorderView.swift"; sourceTree = "<group>"; };
+		02A660E7D6384742A9CA44D8 /* ExportSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "ExportSheet.swift"; path = "VeraFlow/Features/Export/ExportSheet.swift"; sourceTree = "<group>"; };
+		877A0AEFA78A4A838192B707 /* MailComposeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "MailComposeView.swift"; path = "VeraFlow/Features/Export/MailComposeView.swift"; sourceTree = "<group>"; };
+		D4969403FBCA464AAE2D4361 /* PaywallSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "PaywallSheet.swift"; path = "VeraFlow/Features/Paywall/PaywallSheet.swift"; sourceTree = "<group>"; };
+		5132CDDE5AAB494AB2E4D147 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "OnboardingView.swift"; path = "VeraFlow/Features/Onboarding/OnboardingView.swift"; sourceTree = "<group>"; };
+		B3BDC85D3C124BA7A6C85131 /* TimedWord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "TimedWord.swift"; path = "VeraFlow/Data/Types/TimedWord.swift"; sourceTree = "<group>"; };
+		80C4C3B4A5D1467D8FFE0501 /* PipelineStage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "PipelineStage.swift"; path = "VeraFlow/Data/Types/PipelineStage.swift"; sourceTree = "<group>"; };
+		411BA072145D4C73BC61C7A2 /* RecordingSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "RecordingSource.swift"; path = "VeraFlow/Data/Types/RecordingSource.swift"; sourceTree = "<group>"; };
+		245C47191DC84A1D8D5A35C4 /* TemplateID.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "TemplateID.swift"; path = "VeraFlow/Data/Types/TemplateID.swift"; sourceTree = "<group>"; };
+		63EC3A9133244985BE438332 /* TemplateOutputs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "TemplateOutputs.swift"; path = "VeraFlow/Data/Types/TemplateOutputs.swift"; sourceTree = "<group>"; };
+		83DB5D748D21404A9DC3B1E5 /* Speaker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "Speaker.swift"; path = "VeraFlow/Data/Models/Speaker.swift"; sourceTree = "<group>"; };
+		3A38C24DB354494698784FE3 /* Recording.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "Recording.swift"; path = "VeraFlow/Data/Models/Recording.swift"; sourceTree = "<group>"; };
+		31894B6646AD425DB128EFFD /* SummaryRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "SummaryRecord.swift"; path = "VeraFlow/Data/Models/SummaryRecord.swift"; sourceTree = "<group>"; };
+		71C8BF48442B409F811848D5 /* Bookmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "Bookmark.swift"; path = "VeraFlow/Data/Models/Bookmark.swift"; sourceTree = "<group>"; };
+		C637537743674DE5A17F6A87 /* TranscriptSegment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "TranscriptSegment.swift"; path = "VeraFlow/Data/Models/TranscriptSegment.swift"; sourceTree = "<group>"; };
+		0C02D0140A4B4429810F8BA7 /* DueDateResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "DueDateResolver.swift"; path = "VeraFlow/Services/DueDateResolver.swift"; sourceTree = "<group>"; };
+		0E7D469B4DE04F80914710F4 /* SummarizationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "SummarizationService.swift"; path = "VeraFlow/Services/SummarizationService.swift"; sourceTree = "<group>"; };
+		8373AA58E2444E59BB639453 /* SpeechTranscriptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "SpeechTranscriptionService.swift"; path = "VeraFlow/Services/SpeechTranscriptionService.swift"; sourceTree = "<group>"; };
+		997E5BF1A29D46BA9ABD5EC8 /* ExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "ExportService.swift"; path = "VeraFlow/Services/ExportService.swift"; sourceTree = "<group>"; };
+		3B2C1DD78FC448EFB304E1B8 /* FluidDiarizationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "FluidDiarizationService.swift"; path = "VeraFlow/Services/FluidDiarizationService.swift"; sourceTree = "<group>"; };
+		E266196AE65F481A940457D0 /* ParagraphingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "ParagraphingService.swift"; path = "VeraFlow/Services/ParagraphingService.swift"; sourceTree = "<group>"; };
+		241DF9BA7CCA4E8E82A29072 /* KeychainStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "KeychainStorage.swift"; path = "VeraFlow/Services/KeychainStorage.swift"; sourceTree = "<group>"; };
+		16EF783DC7CC461EA4CF6701 /* AudioPlayerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "AudioPlayerService.swift"; path = "VeraFlow/Services/AudioPlayerService.swift"; sourceTree = "<group>"; };
+		DE0207BA947B423E8D4E5727 /* CrashRecoveryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "CrashRecoveryService.swift"; path = "VeraFlow/Services/CrashRecoveryService.swift"; sourceTree = "<group>"; };
+		BB5302D4B8544EA49915301C /* AudioImportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "AudioImportService.swift"; path = "VeraFlow/Services/AudioImportService.swift"; sourceTree = "<group>"; };
+		9D47B7797B4B4F208297D385 /* AudioRecorderService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "AudioRecorderService.swift"; path = "VeraFlow/Services/AudioRecorderService.swift"; sourceTree = "<group>"; };
+		AB995545AB644CA8AF5FF3E0 /* StoreKitPurchaseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "StoreKitPurchaseService.swift"; path = "VeraFlow/Services/StoreKitPurchaseService.swift"; sourceTree = "<group>"; };
+		1234932DEC794F29873C74C1 /* TranscriptAligner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "TranscriptAligner.swift"; path = "VeraFlow/Services/TranscriptAligner.swift"; sourceTree = "<group>"; };
+		7887129D355B4DD7A05AA96B /* CapabilityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "CapabilityService.swift"; path = "VeraFlow/Services/CapabilityService.swift"; sourceTree = "<group>"; };
+		6307ABF96D7345CC86EA7FFC /* BiometricLockService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "BiometricLockService.swift"; path = "VeraFlow/Services/BiometricLockService.swift"; sourceTree = "<group>"; };
+		541706CE520445038237ACD6 /* ActionItemProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "ActionItemProcessor.swift"; path = "VeraFlow/Services/ActionItemProcessor.swift"; sourceTree = "<group>"; };
+		CC37B0EC31EE43B792839F33 /* FakeAudioImportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "FakeAudioImportService.swift"; path = "VeraFlow/Services/Fakes/FakeAudioImportService.swift"; sourceTree = "<group>"; };
+		3BB5F74C410E4892AB189EEE /* PreviewData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "PreviewData.swift"; path = "VeraFlow/Services/Fakes/PreviewData.swift"; sourceTree = "<group>"; };
+		9B952E8580C7424A90670FA7 /* FakeCapabilityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "FakeCapabilityService.swift"; path = "VeraFlow/Services/Fakes/FakeCapabilityService.swift"; sourceTree = "<group>"; };
+		85F45D8A679F46E9AAC159D6 /* FakeTranscriptAligner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "FakeTranscriptAligner.swift"; path = "VeraFlow/Services/Fakes/FakeTranscriptAligner.swift"; sourceTree = "<group>"; };
+		909F8188F6B8439DB72B5A6A /* FakeSummarizationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "FakeSummarizationService.swift"; path = "VeraFlow/Services/Fakes/FakeSummarizationService.swift"; sourceTree = "<group>"; };
+		652F689743D74A47AADF2E7B /* FakeDueDateResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "FakeDueDateResolver.swift"; path = "VeraFlow/Services/Fakes/FakeDueDateResolver.swift"; sourceTree = "<group>"; };
+		AC1248C36D714C4CBA470D71 /* FakeDiarizationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "FakeDiarizationService.swift"; path = "VeraFlow/Services/Fakes/FakeDiarizationService.swift"; sourceTree = "<group>"; };
+		3DF4A8AFD0BB4802A3E637CA /* FakeExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "FakeExportService.swift"; path = "VeraFlow/Services/Fakes/FakeExportService.swift"; sourceTree = "<group>"; };
+		C11958AE2B364F4A8CA1CF45 /* FakePurchaseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "FakePurchaseService.swift"; path = "VeraFlow/Services/Fakes/FakePurchaseService.swift"; sourceTree = "<group>"; };
+		C01FB8874AB0481C81B4F9D9 /* FakeTranscriptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "FakeTranscriptionService.swift"; path = "VeraFlow/Services/Fakes/FakeTranscriptionService.swift"; sourceTree = "<group>"; };
+		8DF7E972BA5345389CE1C106 /* FakeAudioRecorderService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "FakeAudioRecorderService.swift"; path = "VeraFlow/Services/Fakes/FakeAudioRecorderService.swift"; sourceTree = "<group>"; };
+		F411FD53ECED422BB6411D72 /* FakePipelineCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "FakePipelineCoordinator.swift"; path = "VeraFlow/Services/Fakes/FakePipelineCoordinator.swift"; sourceTree = "<group>"; };
+		44625C3A7550428AB7FC8D27 /* DueDateResolverProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "DueDateResolverProtocol.swift"; path = "VeraFlow/Services/Protocols/DueDateResolverProtocol.swift"; sourceTree = "<group>"; };
+		3725BF6E220445B4AA8097C4 /* PurchaseServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "PurchaseServiceProtocol.swift"; path = "VeraFlow/Services/Protocols/PurchaseServiceProtocol.swift"; sourceTree = "<group>"; };
+		4535D931AE534876B4486681 /* AudioRecorderServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "AudioRecorderServiceProtocol.swift"; path = "VeraFlow/Services/Protocols/AudioRecorderServiceProtocol.swift"; sourceTree = "<group>"; };
+		E19AF937C75649419F8D4CEC /* CapabilityServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "CapabilityServiceProtocol.swift"; path = "VeraFlow/Services/Protocols/CapabilityServiceProtocol.swift"; sourceTree = "<group>"; };
+		788E1C6412A04430AA8A894C /* ExportServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "ExportServiceProtocol.swift"; path = "VeraFlow/Services/Protocols/ExportServiceProtocol.swift"; sourceTree = "<group>"; };
+		5F030E6C9E1347CE9B80E7B2 /* SummarizationServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "SummarizationServiceProtocol.swift"; path = "VeraFlow/Services/Protocols/SummarizationServiceProtocol.swift"; sourceTree = "<group>"; };
+		056ED4D466F84DEBA5C1E43E /* TranscriptAlignerProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "TranscriptAlignerProtocol.swift"; path = "VeraFlow/Services/Protocols/TranscriptAlignerProtocol.swift"; sourceTree = "<group>"; };
+		CD6F06734BB44B08B6B24361 /* DiarizationServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "DiarizationServiceProtocol.swift"; path = "VeraFlow/Services/Protocols/DiarizationServiceProtocol.swift"; sourceTree = "<group>"; };
+		935C0A521F224CAA90A4C0FE /* PipelineCoordinatorProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "PipelineCoordinatorProtocol.swift"; path = "VeraFlow/Services/Protocols/PipelineCoordinatorProtocol.swift"; sourceTree = "<group>"; };
+		357E373E447C4D0FB9E99401 /* AudioImportServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "AudioImportServiceProtocol.swift"; path = "VeraFlow/Services/Protocols/AudioImportServiceProtocol.swift"; sourceTree = "<group>"; };
+		93619CA72A5D419EA0669EEB /* TranscriptionServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "TranscriptionServiceProtocol.swift"; path = "VeraFlow/Services/Protocols/TranscriptionServiceProtocol.swift"; sourceTree = "<group>"; };
+		4ED63A72791E45F1B69A050A /* AudioImportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "AudioImportTests.swift"; path = "VeraFlowTests/AudioImportTests.swift"; sourceTree = "<group>"; };
+		2EC9A1034A5D4D70B887D083 /* DueDateResolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "DueDateResolverTests.swift"; path = "VeraFlowTests/DueDateResolverTests.swift"; sourceTree = "<group>"; };
+		B34F40D8607F4893849F0186 /* SummarizationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "SummarizationTests.swift"; path = "VeraFlowTests/SummarizationTests.swift"; sourceTree = "<group>"; };
+		A3FB9A2FE2BD4959B0422029 /* TranscriptionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "TranscriptionTests.swift"; path = "VeraFlowTests/TranscriptionTests.swift"; sourceTree = "<group>"; };
+		CB95129E72714F25BD2999CD /* ServiceFakesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "ServiceFakesTests.swift"; path = "VeraFlowTests/ServiceFakesTests.swift"; sourceTree = "<group>"; };
+		C87681F2724044FBA443B98E /* NetworkPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "NetworkPolicyTests.swift"; path = "VeraFlowTests/NetworkPolicyTests.swift"; sourceTree = "<group>"; };
+		471A080EAAA44FEAB00BCEFA /* ExportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "ExportTests.swift"; path = "VeraFlowTests/ExportTests.swift"; sourceTree = "<group>"; };
+		713E2FF0130A4CF3A91BF363 /* DataModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "DataModelTests.swift"; path = "VeraFlowTests/DataModelTests.swift"; sourceTree = "<group>"; };
+		61BDFAFBA8CF4142BDE4FA71 /* AudioRecordingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "AudioRecordingTests.swift"; path = "VeraFlowTests/AudioRecordingTests.swift"; sourceTree = "<group>"; };
+		065156F29AE042EEA0AB6F60 /* CapabilityAndPrivacyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "CapabilityAndPrivacyTests.swift"; path = "VeraFlowTests/CapabilityAndPrivacyTests.swift"; sourceTree = "<group>"; };
+		FC09DB3DF17B414C872417FE /* TranscriptAlignerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "TranscriptAlignerTests.swift"; path = "VeraFlowTests/TranscriptAlignerTests.swift"; sourceTree = "<group>"; };
+		0B66F8F773C94C71A21B9B38 /* PurchaseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "PurchaseTests.swift"; path = "VeraFlowTests/PurchaseTests.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 /* Begin PBXFrameworksBuildPhase section */
-		BA71ED20DE414BF3B60DC3E9 /* Frameworks */ = {
+		7CE622D7350E45B0B8B62C10 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		0A533665DBE0427C9803D96E /* Frameworks */ = {
+		69E701E834BE4326860C3063 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -166,115 +174,119 @@
 		};
 /* End PBXFrameworksBuildPhase section */
 /* Begin PBXGroup section */
-		36BD7FED01BB44E09BC1676C = {
+		7CA4EAE1701C4777AB17899B = {
 			isa = PBXGroup;
 			children = (
-				D16A126928124093AC886BD8 /* VeraFlow */,
-				08AD745DC03545809816365C /* VeraFlowTests */,
-				E311A0594D614F2994749B84 /* Products */,
+				2BA400BF34DF4EDE88082D97 /* VeraFlow */,
+				9BC047D8C7104D639EC566A5 /* VeraFlowTests */,
+				32EB0BB1D5B4409BA912FCC0 /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		D16A126928124093AC886BD8 /* VeraFlow */ = {
+		2BA400BF34DF4EDE88082D97 /* VeraFlow */ = {
 			isa = PBXGroup;
 			children = (
-				76D59207C5B844F7B9E3D1D7 /* VeraFlowApp.swift */,
-				9054B48BFDE345F69472BD43 /* AppConstants.swift */,
-				8DBE910EDE59463A97EEA1BA /* SettingsView.swift */,
-				F0E860D3E48E4F17AF239138 /* LibraryViewModel.swift */,
-				508B7D9BAB5E4677ABB6C424 /* LibraryView.swift */,
-				3454271CC4B046FCBC9F8595 /* RecordingDetailView.swift */,
-				6522C739BA5F414A818BC276 /* ConsentReminderSheet.swift */,
-				5651901B29AE4BCDBAA06B40 /* RecorderView.swift */,
-				0B190A77B6C24140B624F365 /* ExportSheet.swift */,
-				ABE23D77B1034CDEB71C8226 /* MailComposeView.swift */,
-				8B927F476E3845A2BB586EBF /* OnboardingView.swift */,
-				51211F0F9F774D7FA804D22A /* TimedWord.swift */,
-				2B3C1FC0D22442F0AFDAE719 /* PipelineStage.swift */,
-				5935EE3190804C88858A4F1C /* RecordingSource.swift */,
-				A060A0CA6309446E9608F263 /* TemplateID.swift */,
-				353CC48D9D0340988B39B920 /* TemplateOutputs.swift */,
-				2CF625B857E94C2A9EEDE8F7 /* Speaker.swift */,
-				2767ED5FD8CD440AB8D1564C /* Recording.swift */,
-				95AA53395C1A4A88B67BA937 /* SummaryRecord.swift */,
-				45AC82055D8B415685F2574E /* Bookmark.swift */,
-				DC1B0D5D3ECF47809A83AC46 /* TranscriptSegment.swift */,
-				97F30A51157C45E1B07C5FBD /* DueDateResolver.swift */,
-				3BB445C554DC4DE8A5EDD450 /* SummarizationService.swift */,
-				FEB91F560B9443FAB8478DFA /* SpeechTranscriptionService.swift */,
-				D02926FC63124E6FA3C8D030 /* ExportService.swift */,
-				C5800FAF6FE24F6CB16C7976 /* FluidDiarizationService.swift */,
-				637C41E5EE5E456689699D18 /* ParagraphingService.swift */,
-				408D09DEEBE54A23B24730C4 /* AudioPlayerService.swift */,
-				0CEB9D963CA84BEBA428DB85 /* CrashRecoveryService.swift */,
-				B7DFA48B62D145CE8D7B4429 /* AudioImportService.swift */,
-				EBB9A48C5F594BD59F063036 /* AudioRecorderService.swift */,
-				58874D65969144679EE215DA /* TranscriptAligner.swift */,
-				DEA0D284B9344FEBAD4878DA /* CapabilityService.swift */,
-				F6FE430863954106AD258573 /* BiometricLockService.swift */,
-				A5D7399A62194A1A9C7A1F3A /* ActionItemProcessor.swift */,
-				E07483C2995046C88A9BC1B2 /* FakeAudioImportService.swift */,
-				00BAAF3A11B349768C637B80 /* PreviewData.swift */,
-				E4EDEBA7B40C4D00989DDCEC /* FakeCapabilityService.swift */,
-				08BE6F97732B439591E18162 /* FakeTranscriptAligner.swift */,
-				34D3FD754D2344CFBB2B83CE /* FakeSummarizationService.swift */,
-				70305BADD5FB4A83B1965A16 /* FakeDueDateResolver.swift */,
-				6715ECBF70404C1C87893C8A /* FakeDiarizationService.swift */,
-				CF1EC08D72334637937088DF /* FakeExportService.swift */,
-				21B57DAC08614EF5AC3D86E6 /* FakePurchaseService.swift */,
-				C90BC379E4A04D71AB4CEF3D /* FakeTranscriptionService.swift */,
-				28B02A802DC3472B9FFAC26B /* FakeAudioRecorderService.swift */,
-				AF39A25AA12B425D85B4E5A2 /* FakePipelineCoordinator.swift */,
-				296F8DFABE884D558543A939 /* DueDateResolverProtocol.swift */,
-				826EE97CB8A04721BEA9F18E /* PurchaseServiceProtocol.swift */,
-				8140D961B91A4BF69074393E /* AudioRecorderServiceProtocol.swift */,
-				2B20E987B0284B5E8CFDA890 /* CapabilityServiceProtocol.swift */,
-				37146DBA384248C2ACD8DE9A /* ExportServiceProtocol.swift */,
-				B89B2E2B9A15478DA42C30AD /* SummarizationServiceProtocol.swift */,
-				44D4474596054DCBAE30DC25 /* TranscriptAlignerProtocol.swift */,
-				27CE8C0FAB9645458E9C01E3 /* DiarizationServiceProtocol.swift */,
-				1807E37F1EA145FAB8E2F30C /* PipelineCoordinatorProtocol.swift */,
-				918F7A8CC2144F188FCC014B /* AudioImportServiceProtocol.swift */,
-				631E3574B36249C5BC36CE0A /* TranscriptionServiceProtocol.swift */,
+				371F48D1F4EF4E3D9CFD40B2 /* VeraFlowApp.swift */,
+				C176881DECCE495B9A522790 /* AppConstants.swift */,
+				6829519FF4C34D049F8480C2 /* SettingsView.swift */,
+				8FB68376C37D49208C900C99 /* LibraryViewModel.swift */,
+				0D29871E5F964416AC8AA1FD /* LibraryView.swift */,
+				1F827E09A3C74C95B3D555F4 /* RecordingDetailView.swift */,
+				A9C7F58275944925860E5B93 /* ConsentReminderSheet.swift */,
+				929BBC9C163C4EE693A6AFA4 /* RecorderView.swift */,
+				02A660E7D6384742A9CA44D8 /* ExportSheet.swift */,
+				877A0AEFA78A4A838192B707 /* MailComposeView.swift */,
+				D4969403FBCA464AAE2D4361 /* PaywallSheet.swift */,
+				5132CDDE5AAB494AB2E4D147 /* OnboardingView.swift */,
+				B3BDC85D3C124BA7A6C85131 /* TimedWord.swift */,
+				80C4C3B4A5D1467D8FFE0501 /* PipelineStage.swift */,
+				411BA072145D4C73BC61C7A2 /* RecordingSource.swift */,
+				245C47191DC84A1D8D5A35C4 /* TemplateID.swift */,
+				63EC3A9133244985BE438332 /* TemplateOutputs.swift */,
+				83DB5D748D21404A9DC3B1E5 /* Speaker.swift */,
+				3A38C24DB354494698784FE3 /* Recording.swift */,
+				31894B6646AD425DB128EFFD /* SummaryRecord.swift */,
+				71C8BF48442B409F811848D5 /* Bookmark.swift */,
+				C637537743674DE5A17F6A87 /* TranscriptSegment.swift */,
+				0C02D0140A4B4429810F8BA7 /* DueDateResolver.swift */,
+				0E7D469B4DE04F80914710F4 /* SummarizationService.swift */,
+				8373AA58E2444E59BB639453 /* SpeechTranscriptionService.swift */,
+				997E5BF1A29D46BA9ABD5EC8 /* ExportService.swift */,
+				3B2C1DD78FC448EFB304E1B8 /* FluidDiarizationService.swift */,
+				E266196AE65F481A940457D0 /* ParagraphingService.swift */,
+				241DF9BA7CCA4E8E82A29072 /* KeychainStorage.swift */,
+				16EF783DC7CC461EA4CF6701 /* AudioPlayerService.swift */,
+				DE0207BA947B423E8D4E5727 /* CrashRecoveryService.swift */,
+				BB5302D4B8544EA49915301C /* AudioImportService.swift */,
+				9D47B7797B4B4F208297D385 /* AudioRecorderService.swift */,
+				AB995545AB644CA8AF5FF3E0 /* StoreKitPurchaseService.swift */,
+				1234932DEC794F29873C74C1 /* TranscriptAligner.swift */,
+				7887129D355B4DD7A05AA96B /* CapabilityService.swift */,
+				6307ABF96D7345CC86EA7FFC /* BiometricLockService.swift */,
+				541706CE520445038237ACD6 /* ActionItemProcessor.swift */,
+				CC37B0EC31EE43B792839F33 /* FakeAudioImportService.swift */,
+				3BB5F74C410E4892AB189EEE /* PreviewData.swift */,
+				9B952E8580C7424A90670FA7 /* FakeCapabilityService.swift */,
+				85F45D8A679F46E9AAC159D6 /* FakeTranscriptAligner.swift */,
+				909F8188F6B8439DB72B5A6A /* FakeSummarizationService.swift */,
+				652F689743D74A47AADF2E7B /* FakeDueDateResolver.swift */,
+				AC1248C36D714C4CBA470D71 /* FakeDiarizationService.swift */,
+				3DF4A8AFD0BB4802A3E637CA /* FakeExportService.swift */,
+				C11958AE2B364F4A8CA1CF45 /* FakePurchaseService.swift */,
+				C01FB8874AB0481C81B4F9D9 /* FakeTranscriptionService.swift */,
+				8DF7E972BA5345389CE1C106 /* FakeAudioRecorderService.swift */,
+				F411FD53ECED422BB6411D72 /* FakePipelineCoordinator.swift */,
+				44625C3A7550428AB7FC8D27 /* DueDateResolverProtocol.swift */,
+				3725BF6E220445B4AA8097C4 /* PurchaseServiceProtocol.swift */,
+				4535D931AE534876B4486681 /* AudioRecorderServiceProtocol.swift */,
+				E19AF937C75649419F8D4CEC /* CapabilityServiceProtocol.swift */,
+				788E1C6412A04430AA8A894C /* ExportServiceProtocol.swift */,
+				5F030E6C9E1347CE9B80E7B2 /* SummarizationServiceProtocol.swift */,
+				056ED4D466F84DEBA5C1E43E /* TranscriptAlignerProtocol.swift */,
+				CD6F06734BB44B08B6B24361 /* DiarizationServiceProtocol.swift */,
+				935C0A521F224CAA90A4C0FE /* PipelineCoordinatorProtocol.swift */,
+				357E373E447C4D0FB9E99401 /* AudioImportServiceProtocol.swift */,
+				93619CA72A5D419EA0669EEB /* TranscriptionServiceProtocol.swift */,
 			);
 			path = VeraFlow;
 			sourceTree = "<group>";
 		};
-		08AD745DC03545809816365C /* VeraFlowTests */ = {
+		9BC047D8C7104D639EC566A5 /* VeraFlowTests */ = {
 			isa = PBXGroup;
 			children = (
-				A585E218A8D54C56BAF9B657 /* AudioImportTests.swift */,
-				48C4AF0FB5BA446F9D084025 /* DueDateResolverTests.swift */,
-				19709FF7FE104E5BB338CA00 /* SummarizationTests.swift */,
-				6AF9326D3ABD44B7BA4ECE6F /* TranscriptionTests.swift */,
-				E831BE6767B84E639BFC0F0C /* ServiceFakesTests.swift */,
-				F9176532F19E47C5BF42923B /* NetworkPolicyTests.swift */,
-				F72DDE6A52E64C6CBD8682BB /* ExportTests.swift */,
-				4A8A1E05B3E84BF9AD50B450 /* DataModelTests.swift */,
-				0A709B6B682E4E2DB7DFA6AB /* AudioRecordingTests.swift */,
-				AB7A3FBFEF5C42D2AD65D782 /* CapabilityAndPrivacyTests.swift */,
-				69DAB1FCD36047F0BD40AB93 /* TranscriptAlignerTests.swift */,
+				4ED63A72791E45F1B69A050A /* AudioImportTests.swift */,
+				2EC9A1034A5D4D70B887D083 /* DueDateResolverTests.swift */,
+				B34F40D8607F4893849F0186 /* SummarizationTests.swift */,
+				A3FB9A2FE2BD4959B0422029 /* TranscriptionTests.swift */,
+				CB95129E72714F25BD2999CD /* ServiceFakesTests.swift */,
+				C87681F2724044FBA443B98E /* NetworkPolicyTests.swift */,
+				471A080EAAA44FEAB00BCEFA /* ExportTests.swift */,
+				713E2FF0130A4CF3A91BF363 /* DataModelTests.swift */,
+				61BDFAFBA8CF4142BDE4FA71 /* AudioRecordingTests.swift */,
+				065156F29AE042EEA0AB6F60 /* CapabilityAndPrivacyTests.swift */,
+				FC09DB3DF17B414C872417FE /* TranscriptAlignerTests.swift */,
+				0B66F8F773C94C71A21B9B38 /* PurchaseTests.swift */,
 			);
 			path = VeraFlowTests;
 			sourceTree = "<group>";
 		};
-		E311A0594D614F2994749B84 /* Products */ = {
+		32EB0BB1D5B4409BA912FCC0 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				D1D95806DD8C4E2F811500D9 /* VeraFlow.app */,
-				EF830149232048B686C5C532 /* VeraFlowTests.xctest */,
+				B642544E14264777B1E0F873 /* VeraFlow.app */,
+				E4799F99A8854F3A93CCB2E6 /* VeraFlowTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 /* Begin PBXNativeTarget section */
-		5512E2CE155F433792B9C6B3 /* VeraFlow */ = {
+		1B6DD43A45FC4616906078DD /* VeraFlow */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = A290C25B380C470CAA8C9342 /* Build configuration list for PBXNativeTarget "VeraFlow" */;
+			buildConfigurationList = 87A0F8BC967440668E337388 /* Build configuration list for PBXNativeTarget "VeraFlow" */;
 			buildPhases = (
-				72389EAA5D53456CA188DE2C /* Sources */,
-				BA71ED20DE414BF3B60DC3E9 /* Frameworks */,
+				6296E71BB38546B5B0A25C77 /* Sources */,
+				7CE622D7350E45B0B8B62C10 /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -282,15 +294,15 @@
 			);
 			name = VeraFlow;
 			productName = VeraFlow;
-			productReference = D1D95806DD8C4E2F811500D9 /* VeraFlow.app */;
+			productReference = B642544E14264777B1E0F873 /* VeraFlow.app */;
 			productType = "com.apple.product-type.application";
 		};
-		DD19421372654D34AEEA3743 /* VeraFlowTests */ = {
+		4EB6F96E7F4A4272A60C03B0 /* VeraFlowTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 86BD142A96D94BC298C281E1 /* Build configuration list for PBXNativeTarget "VeraFlowTests" */;
+			buildConfigurationList = 5E54B5CF502C4038941FFC4F /* Build configuration list for PBXNativeTarget "VeraFlowTests" */;
 			buildPhases = (
-				EA537BC7732F4E88960E34BC /* Sources */,
-				0A533665DBE0427C9803D96E /* Frameworks */,
+				60D91203F8B34395A2F3D534 /* Sources */,
+				69E701E834BE4326860C3063 /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -298,18 +310,18 @@
 			);
 			name = VeraFlowTests;
 			productName = VeraFlowTests;
-			productReference = EF830149232048B686C5C532 /* VeraFlowTests.xctest */;
+			productReference = E4799F99A8854F3A93CCB2E6 /* VeraFlowTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
 /* Begin PBXProject section */
-		B506DE2D650C42CB8B7F126A /* Project object */ = {
+		43A81AE3DC6B47AFA06A0181 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastUpgradeCheck = 1600;
 			};
-			buildConfigurationList = A1053016B05A41D3819ED466 /* Build configuration list for PBXProject "VeraFlow" */;
+			buildConfigurationList = 39253A10838F402AB6C32E1D /* Build configuration list for PBXProject "VeraFlow" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -317,103 +329,107 @@
 				en,
 				Base,
 			);
-			mainGroup = 36BD7FED01BB44E09BC1676C;
-			productRefGroup = E311A0594D614F2994749B84 /* Products */;
+			mainGroup = 7CA4EAE1701C4777AB17899B;
+			productRefGroup = 32EB0BB1D5B4409BA912FCC0 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				5512E2CE155F433792B9C6B3 /* VeraFlow */,
-				DD19421372654D34AEEA3743 /* VeraFlowTests */,
+				1B6DD43A45FC4616906078DD /* VeraFlow */,
+				4EB6F96E7F4A4272A60C03B0 /* VeraFlowTests */,
 			);
 		};
 /* End PBXProject section */
 /* Begin PBXSourcesBuildPhase section */
-		72389EAA5D53456CA188DE2C /* Sources */ = {
+		6296E71BB38546B5B0A25C77 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				31097A3BFE214BEFB3F7EC00 /* VeraFlowApp.swift in Sources */,
-				362084D48CAA4B5CB3504EAB /* AppConstants.swift in Sources */,
-				33CF5F75247E4B68969636C4 /* SettingsView.swift in Sources */,
-				819320133C874A1F949F76A5 /* LibraryViewModel.swift in Sources */,
-				BCA41CCDC2634A5698254F12 /* LibraryView.swift in Sources */,
-				E2CCCF0B2F554D39A3821C65 /* RecordingDetailView.swift in Sources */,
-				9FCBF52784AA4433AF3927CE /* ConsentReminderSheet.swift in Sources */,
-				4FC046DD3FCF48878F0FE372 /* RecorderView.swift in Sources */,
-				18BEE70766B64958915767D5 /* ExportSheet.swift in Sources */,
-				383B20637AB849899CBB448E /* MailComposeView.swift in Sources */,
-				5D6D2D2A5951495B8C1B31BA /* OnboardingView.swift in Sources */,
-				F69A86AF2C994C0C925BD214 /* TimedWord.swift in Sources */,
-				8BE6849B4A944E4F8D731C7B /* PipelineStage.swift in Sources */,
-				12DA6CAD2FBE455491AE5447 /* RecordingSource.swift in Sources */,
-				13470006342E40E595E8A505 /* TemplateID.swift in Sources */,
-				6B0AFF27E3134B0381D8D468 /* TemplateOutputs.swift in Sources */,
-				9077C81247CD4874B9098315 /* Speaker.swift in Sources */,
-				DBC78EF9EC8840BC9A277A13 /* Recording.swift in Sources */,
-				852CE034FDC94475AAF5B17D /* SummaryRecord.swift in Sources */,
-				9997552233A349D08B065D20 /* Bookmark.swift in Sources */,
-				0102FBA25F724AE7AB031AF7 /* TranscriptSegment.swift in Sources */,
-				C56DEAACA3DA4AA4920F9DAB /* DueDateResolver.swift in Sources */,
-				56924F0F05E84AA9809CC08B /* SummarizationService.swift in Sources */,
-				8AD79DE0C39649D6958C6292 /* SpeechTranscriptionService.swift in Sources */,
-				DF2ACC317E9E420F9D4A8A39 /* ExportService.swift in Sources */,
-				3A0B246ED33A4A2FADE70F2E /* FluidDiarizationService.swift in Sources */,
-				6EE750FC49C44E77AE260CE5 /* ParagraphingService.swift in Sources */,
-				3915DC146A2F4EDA8C919E98 /* AudioPlayerService.swift in Sources */,
-				1D845D5EDC0D4A6FA0733E29 /* CrashRecoveryService.swift in Sources */,
-				3C12B54D29E244539E985D17 /* AudioImportService.swift in Sources */,
-				24CD2E6860CB4AAAB1CBD2E6 /* AudioRecorderService.swift in Sources */,
-				12E2CFF20857415A8579DF4D /* TranscriptAligner.swift in Sources */,
-				5850C67F2CE34F55A18B8870 /* CapabilityService.swift in Sources */,
-				4A155E5E7AF54E12934A78CA /* BiometricLockService.swift in Sources */,
-				6BF0003E6F1E419F95065D82 /* ActionItemProcessor.swift in Sources */,
-				C5EC1CF2181F40E88DDAF4EF /* FakeAudioImportService.swift in Sources */,
-				F143C23AC848431E991485B0 /* PreviewData.swift in Sources */,
-				862BD733A9B64BA5AEB6C5A0 /* FakeCapabilityService.swift in Sources */,
-				70F43693580344CB9DE1C480 /* FakeTranscriptAligner.swift in Sources */,
-				A6BBB59F1EE249B1BA5B484B /* FakeSummarizationService.swift in Sources */,
-				7476A3A92B184D0CB28F157F /* FakeDueDateResolver.swift in Sources */,
-				EBCF1002517C42CDA021E05B /* FakeDiarizationService.swift in Sources */,
-				B20CEFA6A117467BA9B9BE84 /* FakeExportService.swift in Sources */,
-				807EB35BCCCA4B9FB301C419 /* FakePurchaseService.swift in Sources */,
-				0CC3A07645D049CE849AA696 /* FakeTranscriptionService.swift in Sources */,
-				15536163C27A4379AB40DE43 /* FakeAudioRecorderService.swift in Sources */,
-				10D5AAD20DBD477F9789CF17 /* FakePipelineCoordinator.swift in Sources */,
-				8CCDD169796A443AB36A2C81 /* DueDateResolverProtocol.swift in Sources */,
-				6FB39F925D134ED8A7C84DDA /* PurchaseServiceProtocol.swift in Sources */,
-				6086BCDE2F6A44D2B4C052BA /* AudioRecorderServiceProtocol.swift in Sources */,
-				8EE6B3178EFA403E88ED7DA4 /* CapabilityServiceProtocol.swift in Sources */,
-				D680A09C28E64E8EBE8B06C3 /* ExportServiceProtocol.swift in Sources */,
-				20120CFB5D084BF6B4A727C5 /* SummarizationServiceProtocol.swift in Sources */,
-				73C09ED3AC824AACA27DE765 /* TranscriptAlignerProtocol.swift in Sources */,
-				31B2DDBBB24149A48F42B4C5 /* DiarizationServiceProtocol.swift in Sources */,
-				AB7F79D691D443A28F9C2523 /* PipelineCoordinatorProtocol.swift in Sources */,
-				0D321D58AEE640DA8B69F0A8 /* AudioImportServiceProtocol.swift in Sources */,
-				ED0C29D663444132822F495F /* TranscriptionServiceProtocol.swift in Sources */,
+				9E2A75AC582B49AC95C9F3C1 /* VeraFlowApp.swift in Sources */,
+				DC45BE3FB4A14677B316898D /* AppConstants.swift in Sources */,
+				3EC5FB0320644810BCD26C41 /* SettingsView.swift in Sources */,
+				286D23D580DD4CE8B230D560 /* LibraryViewModel.swift in Sources */,
+				B84EA8951AF34A1DA2878928 /* LibraryView.swift in Sources */,
+				E2042C99A6BB435DBF94E8FA /* RecordingDetailView.swift in Sources */,
+				D843CD2E570E46989BD7A332 /* ConsentReminderSheet.swift in Sources */,
+				A89F84A6A511414EACE7FEEC /* RecorderView.swift in Sources */,
+				124E3CADF70F40FAB8675E0B /* ExportSheet.swift in Sources */,
+				4C69C50CF3BC405A86BECED0 /* MailComposeView.swift in Sources */,
+				CCC19B27B8334680B749EC02 /* PaywallSheet.swift in Sources */,
+				A255DC9293F34578A35656B4 /* OnboardingView.swift in Sources */,
+				410A218288FE47AAA5EACCC1 /* TimedWord.swift in Sources */,
+				B44C639F083B4D96BAF4A08C /* PipelineStage.swift in Sources */,
+				BD1889116AFC45588AC0A89A /* RecordingSource.swift in Sources */,
+				103ABA593F004D44AED342BC /* TemplateID.swift in Sources */,
+				B5723FB359244E358E6D33BF /* TemplateOutputs.swift in Sources */,
+				FF6E09231F2049728D76FCF1 /* Speaker.swift in Sources */,
+				CD3D5EFAFC6F4C92BCA0A62E /* Recording.swift in Sources */,
+				5097CB289FA64C9E80B2A037 /* SummaryRecord.swift in Sources */,
+				60F47F795CBD4AEB9321F76B /* Bookmark.swift in Sources */,
+				442E6FE431284D6896304DE7 /* TranscriptSegment.swift in Sources */,
+				2EB7A538F54F47638D2DE8C7 /* DueDateResolver.swift in Sources */,
+				64A62EF4696148E697E76059 /* SummarizationService.swift in Sources */,
+				40C7FB45349042649887F34B /* SpeechTranscriptionService.swift in Sources */,
+				EF9773AD574E4842BF121237 /* ExportService.swift in Sources */,
+				F80D79FB1929446BAB4DE554 /* FluidDiarizationService.swift in Sources */,
+				E756675AFFCC4779B6C8E558 /* ParagraphingService.swift in Sources */,
+				2F0E0C1E0CD4494498895FC6 /* KeychainStorage.swift in Sources */,
+				D2B348F218B34F6695CB4211 /* AudioPlayerService.swift in Sources */,
+				69276F6107BD4A02AB4DAB95 /* CrashRecoveryService.swift in Sources */,
+				195F6FDBD2414E5FAA582453 /* AudioImportService.swift in Sources */,
+				117166EA6F5C4DDDB971934F /* AudioRecorderService.swift in Sources */,
+				5A5442942B7A455CBC800592 /* StoreKitPurchaseService.swift in Sources */,
+				CADB18FAF6C04AD99B533E50 /* TranscriptAligner.swift in Sources */,
+				F3B27B6B2A31499CA81937C7 /* CapabilityService.swift in Sources */,
+				DC658A1ED7984E96BDDFE631 /* BiometricLockService.swift in Sources */,
+				64A2DF0F08A64E7D8208C1CC /* ActionItemProcessor.swift in Sources */,
+				ABA4C022D617446F84C71440 /* FakeAudioImportService.swift in Sources */,
+				88636DD4F2BF41FDA40AB55E /* PreviewData.swift in Sources */,
+				408032FA98844FCF90470CCF /* FakeCapabilityService.swift in Sources */,
+				5BDDA702485D4003AFC8AB9A /* FakeTranscriptAligner.swift in Sources */,
+				A33F36F038364D69B8A50707 /* FakeSummarizationService.swift in Sources */,
+				D6F86814EB2C41AF8AE3EFEF /* FakeDueDateResolver.swift in Sources */,
+				26277589486A4A21A8C7679C /* FakeDiarizationService.swift in Sources */,
+				239A4C30A6A34EE59DB95187 /* FakeExportService.swift in Sources */,
+				CFBEDE8A904648179FCAEF40 /* FakePurchaseService.swift in Sources */,
+				8979D845CB5D40F7B1208155 /* FakeTranscriptionService.swift in Sources */,
+				127628B5FB83409A8EDD4CD4 /* FakeAudioRecorderService.swift in Sources */,
+				A155D4C8796448D49153EB46 /* FakePipelineCoordinator.swift in Sources */,
+				79739D85B17042E1AA829290 /* DueDateResolverProtocol.swift in Sources */,
+				7F00CA35B29C4973834DE45D /* PurchaseServiceProtocol.swift in Sources */,
+				07CA983F70C44D0491D20BDE /* AudioRecorderServiceProtocol.swift in Sources */,
+				EF2C9533BB624F8981A35BC5 /* CapabilityServiceProtocol.swift in Sources */,
+				9EBC37543C964FBEBEF6712D /* ExportServiceProtocol.swift in Sources */,
+				C8082953757B4E1B96A3836D /* SummarizationServiceProtocol.swift in Sources */,
+				BB0B4CA955584E2D9E8A113F /* TranscriptAlignerProtocol.swift in Sources */,
+				A068A766520C449792C51748 /* DiarizationServiceProtocol.swift in Sources */,
+				3D46AE6C1FE34746BC538365 /* PipelineCoordinatorProtocol.swift in Sources */,
+				CE9B70E06DA74FE48E30A73A /* AudioImportServiceProtocol.swift in Sources */,
+				D8428159E5EF4E2BA35E6898 /* TranscriptionServiceProtocol.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		EA537BC7732F4E88960E34BC /* Sources */ = {
+		60D91203F8B34395A2F3D534 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				41CE62EAFC58411985BDB8AB /* AudioImportTests.swift in Sources */,
-				2D367A257B3940809BE65CA9 /* DueDateResolverTests.swift in Sources */,
-				85A7D7B8DD5F460AA409E0F5 /* SummarizationTests.swift in Sources */,
-				63F0863D49FF4CE9B4370AAA /* TranscriptionTests.swift in Sources */,
-				ED412DECB06E4BF6BF7BA265 /* ServiceFakesTests.swift in Sources */,
-				079CE899891B497EAD41040A /* NetworkPolicyTests.swift in Sources */,
-				6B7DE67DD46E40C8BBE86334 /* ExportTests.swift in Sources */,
-				67CE31BB291D4744975127C2 /* DataModelTests.swift in Sources */,
-				44B545EFC576433E89D295F0 /* AudioRecordingTests.swift in Sources */,
-				E2CED33D741044F98AFDECD5 /* CapabilityAndPrivacyTests.swift in Sources */,
-				B414EFA9458A419B946F50EA /* TranscriptAlignerTests.swift in Sources */,
+				48625FC179234E72B291B486 /* AudioImportTests.swift in Sources */,
+				8295945B0C094EE0B61183E5 /* DueDateResolverTests.swift in Sources */,
+				0B9E94AEE3044DA8988B6536 /* SummarizationTests.swift in Sources */,
+				A3070FDA46A346C09B4BD207 /* TranscriptionTests.swift in Sources */,
+				D207CC61F0C14DE884470E20 /* ServiceFakesTests.swift in Sources */,
+				2E8A29092E7C4BB686856C6E /* NetworkPolicyTests.swift in Sources */,
+				7901D62268BF4CE4B80CF4E7 /* ExportTests.swift in Sources */,
+				416E769529AA4084B570EF8A /* DataModelTests.swift in Sources */,
+				49AB6F380C5E4957A21B4E0D /* AudioRecordingTests.swift in Sources */,
+				8326FC49A94A450086D62239 /* CapabilityAndPrivacyTests.swift in Sources */,
+				3DD0E7BA17B44F3BBBE58D30 /* TranscriptAlignerTests.swift in Sources */,
+				182C3F32577049B49719BC46 /* PurchaseTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 /* Begin XCBuildConfiguration section */
-		05592EF342B044DBB40654E6 /* Debug */ = {
+		99126C30E1184FEDACE7E679 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -426,7 +442,7 @@
 			};
 			name = Debug;
 		};
-		100E91C9B6B748CFAA0786E4 /* Release */ = {
+		5D3CE212876348B1A610FAF2 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -438,7 +454,7 @@
 			};
 			name = Release;
 		};
-		217C6DF71B404A29845CC2C2 /* Debug */ = {
+		785FC51C978B4603BF921A57 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -454,7 +470,7 @@
 			};
 			name = Debug;
 		};
-		7F4AD1CA172946D9BD5B4D6F /* Release */ = {
+		2A206841081C4D77964E58F1 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -469,7 +485,7 @@
 			};
 			name = Release;
 		};
-		F6D987A0582C43539A0D31A4 /* Debug */ = {
+		546D0EEF01294356A6EB391B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
@@ -480,7 +496,7 @@
 			};
 			name = Debug;
 		};
-		CEC71A81DDC7413FB543F095 /* Release */ = {
+		CAEE4E03D2EE4252982E813D /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
@@ -493,34 +509,34 @@
 		};
 /* End XCBuildConfiguration section */
 /* Begin XCConfigurationList section */
-		A1053016B05A41D3819ED466 /* Build configuration list for PBXProject "VeraFlow" */ = {
+		39253A10838F402AB6C32E1D /* Build configuration list for PBXProject "VeraFlow" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				05592EF342B044DBB40654E6 /* Debug */,
-				100E91C9B6B748CFAA0786E4 /* Release */,
+				99126C30E1184FEDACE7E679 /* Debug */,
+				5D3CE212876348B1A610FAF2 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		A290C25B380C470CAA8C9342 /* Build configuration list for PBXNativeTarget "VeraFlow" */ = {
+		87A0F8BC967440668E337388 /* Build configuration list for PBXNativeTarget "VeraFlow" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				217C6DF71B404A29845CC2C2 /* Debug */,
-				7F4AD1CA172946D9BD5B4D6F /* Release */,
+				785FC51C978B4603BF921A57 /* Debug */,
+				2A206841081C4D77964E58F1 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		86BD142A96D94BC298C281E1 /* Build configuration list for PBXNativeTarget "VeraFlowTests" */ = {
+		5E54B5CF502C4038941FFC4F /* Build configuration list for PBXNativeTarget "VeraFlowTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				F6D987A0582C43539A0D31A4 /* Debug */,
-				CEC71A81DDC7413FB543F095 /* Release */,
+				546D0EEF01294356A6EB391B /* Debug */,
+				CAEE4E03D2EE4252982E813D /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
-	rootObject = B506DE2D650C42CB8B7F126A /* Project object */;
+	rootObject = 43A81AE3DC6B47AFA06A0181 /* Project object */;
 }

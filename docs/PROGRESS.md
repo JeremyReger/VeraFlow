@@ -75,11 +75,11 @@ Track the implementation of each milestone (§16 of `docs/SPEC.md`). Each milest
   - [x] "Delete all data" action
   - [x] Zero-network test validation
 
-- [ ] **M8: Purchases**
-  - [ ] StoreKit 2 non-consumable lifetime unlock (`veraflow.unlock.lifetime`)
-  - [ ] Free tier tracking (3 free AI summaries) backed by Keychain + UserDefaults
-  - [ ] Paywall sheet with clear disclosure on unsupported AI devices
-  - [ ] Restore purchases & Family Sharing support
+- [x] **M8: Purchases**
+  - [x] StoreKit 2 non-consumable lifetime unlock (`veraflow.unlock.lifetime`)
+  - [x] Free tier tracking (3 free AI summaries) backed by Keychain + UserDefaults
+  - [x] Paywall sheet with clear disclosure on unsupported AI devices
+  - [x] Restore purchases & Family Sharing support
 
 - [ ] **M9: Polish and Ship**
   - [ ] Dynamic Type & VoiceOver accessibility audit

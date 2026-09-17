@@ -18,12 +18,19 @@ public struct SettingsView: View {
     @State private var showFaceIDAuthError = false
     @State private var capabilities: DeviceCapabilities? = nil
     @State private var storageStats: (recordingCount: Int, totalSizeBytes: Int64) = (0, 0)
+    @State private var entitlement: UserEntitlementState? = nil
+    @State private var showPaywallSheet = false
     
     private let capabilityService: CapabilityServiceProtocol
+    private let purchaseService: PurchaseServiceProtocol
     private let biometricService = BiometricLockService()
     
-    public init(capabilityService: CapabilityServiceProtocol = CapabilityService()) {
+    public init(
+        capabilityService: CapabilityServiceProtocol = CapabilityService(),
+        purchaseService: PurchaseServiceProtocol = StoreKitPurchaseService()
+    ) {
         self.capabilityService = capabilityService
+        self.purchaseService = purchaseService
     }
     
     public var body: some View {
@@ -117,6 +124,50 @@ public struct SettingsView: View {
                     .padding(.vertical, 2)
                 }
                 
+                // MARK: - Monetization & Lifetime Unlock (§13)
+                Section("Membership & Purchases") {
+                    if entitlement?.isLifetimeUnlocked == true {
+                        HStack {
+                            Text("Status")
+                            Spacer()
+                            Label("Lifetime Unlocked", systemImage: "checkmark.seal.fill")
+                                .foregroundColor(.green)
+                                .font(.subheadline)
+                        }
+                    } else {
+                        HStack {
+                            Text("Status")
+                            Spacer()
+                            Text("Free Tier")
+                                .foregroundColor(.secondary)
+                                .font(.subheadline)
+                        }
+                        
+                        HStack {
+                            Text("Free Summaries Used")
+                            Spacer()
+                            Text("\(entitlement?.freeSummariesUsed ?? 0) of \(AppConstants.freeSummaryLimit)")
+                                .foregroundColor(.secondary)
+                                .font(.subheadline)
+                        }
+                        
+                        Button {
+                            showPaywallSheet = true
+                        } label: {
+                            HStack {
+                                Image(systemName: "sparkles")
+                                    .foregroundColor(.purple)
+                                Text("Unlock Lifetime Access")
+                                    .fontWeight(.semibold)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                }
+                
                 // MARK: - About & Secret Diagnostics (§15)
                 Section("About") {
                     HStack {
@@ -161,6 +212,10 @@ public struct SettingsView: View {
             .task {
                 capabilities = await capabilityService.currentCapabilities()
                 storageStats = capabilityService.calculateStorageUsage()
+                entitlement = await purchaseService.currentEntitlement()
+            }
+            .sheet(isPresented: $showPaywallSheet) {
+                PaywallSheet(purchaseService: purchaseService, capabilityService: capabilityService)
             }
             .alert("Biometric Authentication Required", isPresented: $showFaceIDAuthError) {
                 Button("OK", role: .cancel) {}

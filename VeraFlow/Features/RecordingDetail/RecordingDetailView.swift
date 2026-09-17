@@ -13,6 +13,11 @@ public struct RecordingDetailView: View {
     private let diarizationService: DiarizationServiceProtocol = FluidDiarizationService()
     private let aligner: TranscriptAlignerProtocol = TranscriptAligner()
     private let summarizationService: SummarizationServiceProtocol = SummarizationService()
+    private let purchaseService: PurchaseServiceProtocol = StoreKitPurchaseService()
+    
+    // Entitlement & Paywall State (§13)
+    @State private var userEntitlement: UserEntitlementState? = nil
+    @State private var isPaywallPresented: Bool = false
     
     // Transcription State
     @State private var isTranscribing: Bool = false
@@ -119,6 +124,9 @@ public struct RecordingDetailView: View {
         .sheet(isPresented: $isExportSheetPresented) {
             ExportSheet(recording: recording)
         }
+        .sheet(isPresented: $isPaywallPresented) {
+            PaywallSheet(purchaseService: purchaseService)
+        }
         .alert("Rename Speaker", isPresented: $isRenameSpeakerAlertPresented) {
             TextField("Speaker Name", text: $renameSpeakerNameText)
             Button("Cancel", role: .cancel) {
@@ -148,6 +156,7 @@ public struct RecordingDetailView: View {
         }
         .task {
             loadAudioPlayer()
+            userEntitlement = await purchaseService.currentEntitlement()
         }
         .onDisappear {
             playerService.stop()
@@ -528,6 +537,21 @@ public struct RecordingDetailView: View {
                             Text(selectedTemplate.subtitle)
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
+                            
+                            if userEntitlement?.isLifetimeUnlocked == false {
+                                HStack {
+                                    Text("Free Summaries: \(userEntitlement?.freeSummariesRemaining ?? 3) of \(AppConstants.freeSummaryLimit) remaining")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    Spacer()
+                                    Button("Upgrade") {
+                                        isPaywallPresented = true
+                                    }
+                                    .font(.caption)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.purple)
+                                }
+                            }
                             
                             Button {
                                 runSummarization(template: selectedTemplate)
@@ -1124,21 +1148,31 @@ public struct RecordingDetailView: View {
         return String(format: "%02d:%02d", mins, secs)
     }
     
-    // MARK: - Summarization Execution (§11)
+    // MARK: - Summarization Execution (§11, §13)
     
     private func runSummarization(template: TemplateID) {
         guard !recording.segments.isEmpty else { return }
         
-        isSummarizing = true
-        summarizationError = nil
-        summarizationProgress = nil
-        
-        let segments = recording.segments.sorted(by: { $0.start < $1.start })
-        let speakers = recording.speakers
-        let duration = recording.duration
-        let date = recording.createdAt
-        
         Task {
+            let canRun = await purchaseService.canGenerateSummary()
+            if !canRun {
+                await MainActor.run {
+                    isPaywallPresented = true
+                }
+                return
+            }
+            
+            await MainActor.run {
+                isSummarizing = true
+                summarizationError = nil
+                summarizationProgress = nil
+            }
+            
+            let segments = recording.segments.sorted(by: { $0.start < $1.start })
+            let speakers = recording.speakers
+            let duration = recording.duration
+            let date = recording.createdAt
+            
             do {
                 let summary = try await summarizationService.generateSummary(
                     for: segments,
@@ -1152,9 +1186,13 @@ public struct RecordingDetailView: View {
                     }
                 }
                 
+                await purchaseService.recordSummaryGeneration()
+                let entitlement = await purchaseService.currentEntitlement()
+                
                 await MainActor.run {
                     recording.summaries.append(summary)
                     recording.stage = .ready
+                    self.userEntitlement = entitlement
                     try? modelContext.save()
                     isSummarizing = false
                 }

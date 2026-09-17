@@ -8,7 +8,10 @@ public struct ExportSheet: View {
     let recording: Recording
     
     private let exportService: ExportServiceProtocol
+    private let purchaseService: PurchaseServiceProtocol
     
+    @State private var isUnlocked: Bool = false
+    @State private var isPaywallPresented: Bool = false
     @State private var includeTranscript: Bool = true
     @State private var toastMessage: String? = nil
     @State private var isSharingItem: ShareableFile? = nil
@@ -16,9 +19,14 @@ public struct ExportSheet: View {
     @State private var isExporting: Bool = false
     @State private var exportError: String? = nil
     
-    public init(recording: Recording, exportService: ExportServiceProtocol = ExportService()) {
+    public init(
+        recording: Recording,
+        exportService: ExportServiceProtocol = ExportService(),
+        purchaseService: PurchaseServiceProtocol = StoreKitPurchaseService()
+    ) {
         self.recording = recording
         self.exportService = exportService
+        self.purchaseService = purchaseService
     }
     
     public var body: some View {
@@ -121,6 +129,13 @@ public struct ExportSheet: View {
                 let body = exportService.exportPlainText(recording: recording, includeTranscript: includeTranscript)
                 MailComposeView(subject: "Meeting Summary: \(recording.title)", body: body)
             }
+            .sheet(isPresented: $isPaywallPresented) {
+                PaywallSheet(purchaseService: purchaseService)
+            }
+            .task {
+                let ent = await purchaseService.currentEntitlement()
+                isUnlocked = ent.isLifetimeUnlocked
+            }
             .overlay(alignment: .bottom) {
                 if let toast = toastMessage {
                     Text(toast)
@@ -141,6 +156,10 @@ public struct ExportSheet: View {
     // MARK: - Export Actions
     
     private func shareMarkdown() {
+        guard isUnlocked else {
+            isPaywallPresented = true
+            return
+        }
         let md = exportService.exportMarkdown(recording: recording, includeTranscript: includeTranscript)
         let sanitizedTitle = sanitizeFileName(recording.title)
         let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(sanitizedTitle).md")
@@ -154,6 +173,10 @@ public struct ExportSheet: View {
     }
     
     private func sharePDF() {
+        guard isUnlocked else {
+            isPaywallPresented = true
+            return
+        }
         isExporting = true
         exportError = nil
         
@@ -190,6 +213,10 @@ public struct ExportSheet: View {
     }
     
     private func syncToReminders() {
+        guard isUnlocked else {
+            isPaywallPresented = true
+            return
+        }
         guard let summary = recording.summaries.last,
               let items = try? JSONDecoder().decode([ActionItem].self, from: summary.actionItemsState),
               !items.isEmpty else {
@@ -217,6 +244,10 @@ public struct ExportSheet: View {
     }
     
     private func shareAudioM4A() {
+        guard isUnlocked else {
+            isPaywallPresented = true
+            return
+        }
         let audioFileURL = AppConstants.recordingsDirectoryURL
             .appendingPathComponent(recording.id.uuidString)
             .appendingPathComponent(recording.audioFileName)

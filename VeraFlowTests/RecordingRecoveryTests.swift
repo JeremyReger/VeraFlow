@@ -66,14 +66,14 @@ struct RecordingRecoveryTests {
         #expect(outcome.userMessage == "A recording was interrupted and its audio could not be recovered.")
     }
 
-    @Test("Real CAF file on disk is recovered end to end")
+    @Test("Real PCM CAF file on disk (pre-ADTS rows) is recovered end to end")
     func recoversRealFile() throws {
         let store = try makeStore()
         let context = store.context
         let storage = try makeStorage()
         defer { try? FileManager.default.removeItem(at: storage.rootDirectory) }
 
-        let interrupted = Recording(title: "Crashed", stage: .recording)
+        let interrupted = Recording(title: "Crashed", audioFileName: "audio.caf", stage: .recording)
         context.insert(interrupted)
         try context.save()
         try storage.folder(for: interrupted.id)

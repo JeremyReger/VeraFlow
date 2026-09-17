@@ -459,16 +459,15 @@ private final class BufferResampler: @unchecked Sendable {
     func convert(_ input: AVAudioPCMBuffer) -> AVAudioPCMBuffer? {
         let capacity = AVAudioFrameCount(Double(input.frameLength) * ratio) + 64
         guard let output = AVAudioPCMBuffer(pcmFormat: outputFormat, frameCapacity: capacity) else { return nil }
-        var consumed = false
+        let pending = PendingInput(input)
         var error: NSError?
         let status = converter.convert(to: output, error: &error) { _, outStatus in
-            if consumed {
-                outStatus.pointee = .noDataNow
-                return nil
+            if let buffer = pending.take() {
+                outStatus.pointee = .haveData
+                return buffer
             }
-            consumed = true
-            outStatus.pointee = .haveData
-            return input
+            outStatus.pointee = .noDataNow
+            return nil
         }
         switch status {
         case .haveData, .inputRanDry:
@@ -478,6 +477,21 @@ private final class BufferResampler: @unchecked Sendable {
         @unknown default:
             return nil
         }
+    }
+}
+
+/// Hands one input buffer to an `AVAudioConverter` input block exactly once. The block is
+/// `@Sendable`, so the buffer travels in this box; it is only touched on the render thread.
+private final class PendingInput: @unchecked Sendable {
+    private var buffer: AVAudioPCMBuffer?
+
+    init(_ buffer: AVAudioPCMBuffer) {
+        self.buffer = buffer
+    }
+
+    func take() -> AVAudioPCMBuffer? {
+        defer { buffer = nil }
+        return buffer
     }
 }
 

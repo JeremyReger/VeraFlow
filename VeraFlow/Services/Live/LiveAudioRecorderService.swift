@@ -29,6 +29,8 @@ actor LiveAudioRecorderService: AudioRecorderService {
     private var status: RecorderSnapshot.Status = .idle
     private var fileURL: URL?
     private var didWarnLowDisk = false
+    /// Set after a media-services reset: the old engine is dead and `resume()` must build a new one.
+    private var engineNeedsRebuild = false
 
     private var meterTask: Task<Void, Never>?
     private var diskTask: Task<Void, Never>?
@@ -148,30 +150,35 @@ actor LiveAudioRecorderService: AudioRecorderService {
     }
 
     func pause() async throws {
-        guard status == .recording, let engine else { throw AudioRecorderError.notRecording }
-        engine.pause()
+        guard status == .recording else { throw AudioRecorderError.notRecording }
+        engine?.pause()
         status = .paused
         publishSnapshot()
     }
 
     func resume() async throws {
-        guard status == .paused, let engine else { throw AudioRecorderError.notRecording }
+        guard status == .paused, let writer, let recordFormat else { throw AudioRecorderError.notRecording }
         do {
-            try AVAudioSession.sharedInstance().setActive(true)
-            try engine.start()
+            let session = AVAudioSession.sharedInstance()
+            try Self.configureSession(session)
+            try session.setActive(true)
         } catch {
             throw AudioRecorderError.sessionFailed(error.localizedDescription)
         }
+        try restartCapture(writer: writer, recordFormat: recordFormat)
         status = .recording
         publishSnapshot()
     }
 
     func stop() async throws -> RecorderResult {
-        guard status != .idle, let engine, let writer, let fileURL else {
+        guard status != .idle, let writer, let fileURL else {
             throw AudioRecorderError.notRecording
         }
-        engine.inputNode.removeTap(onBus: 0)
-        engine.stop()
+        // After a media-services reset the old engine is an orphan; leave it alone.
+        if let engine, !engineNeedsRebuild {
+            engine.inputNode.removeTap(onBus: 0)
+            engine.stop()
+        }
         writer.close()
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
 
@@ -260,7 +267,16 @@ actor LiveAudioRecorderService: AudioRecorderService {
                   let type = AVAudioSession.InterruptionType(rawValue: rawType) else { return }
             let rawOptions = notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
             let shouldResume = AVAudioSession.InterruptionOptions(rawValue: rawOptions).contains(.shouldResume)
-            Task { await self?.handleInterruption(type, shouldResume: shouldResume) }
+            let rawReason = notification.userInfo?[AVAudioSessionInterruptionReasonKey] as? UInt
+            Task { await self?.handleInterruption(type, shouldResume: shouldResume, rawReason: rawReason) }
+        })
+
+        observers.append(center.addObserver(
+            forName: AVAudioSession.mediaServicesWereResetNotification,
+            object: session,
+            queue: nil
+        ) { [weak self] _ in
+            Task { await self?.handleMediaServicesReset() }
         })
 
         observers.append(center.addObserver(
@@ -282,20 +298,46 @@ actor LiveAudioRecorderService: AudioRecorderService {
         })
     }
 
-    private func handleInterruption(_ type: AVAudioSession.InterruptionType, shouldResume: Bool) {
+    private func handleInterruption(_ type: AVAudioSession.InterruptionType, shouldResume: Bool, rawReason: UInt?) {
         switch type {
         case .began:
+            Self.log.info("interruption began (reason \(Self.describeInterruptionReason(rawReason), privacy: .public)) at \(self.writer?.elapsed ?? 0, format: .fixed(precision: 1), privacy: .public)s")
             guard status == .recording, let engine else { return }
             engine.pause()
             status = .paused
             publishSnapshot()
             emit(.began)
         case .ended:
+            Self.log.info("interruption ended; shouldResume \(shouldResume, privacy: .public)")
             guard status == .paused else { return }
             emit(.ended(shouldResume: shouldResume))
         @unknown default:
             break
         }
+    }
+
+    /// Why the system interrupted us, for the device log (SPEC §8.3 troubleshooting).
+    private static func describeInterruptionReason(_ rawReason: UInt?) -> String {
+        guard let rawReason else { return "none" }
+        switch AVAudioSession.InterruptionReason(rawValue: rawReason) {
+        case .default?: return "default (call, alarm, Siri, or another app)"
+        case .builtInMicMuted?: return "built-in mic muted"
+        case .routeDisconnected?: return "route disconnected"
+        default: return "raw \(rawReason)"
+        }
+    }
+
+    /// The media server restarted underneath us: every engine and session object is now invalid.
+    /// Treat it like an interruption; `resume()` builds a fresh engine.
+    private func handleMediaServicesReset() {
+        guard status != .idle else { return }
+        Self.log.error("media services were reset at \(self.writer?.elapsed ?? 0, format: .fixed(precision: 1), privacy: .public)s; engine will be rebuilt on resume")
+        engineNeedsRebuild = true
+        guard status == .recording else { return }
+        status = .paused
+        publishSnapshot()
+        emit(.began)
+        emit(.ended(shouldResume: true))
     }
 
     private func handleRouteChange(_ reason: AVAudioSession.RouteChangeReason) {
@@ -306,19 +348,53 @@ actor LiveAudioRecorderService: AudioRecorderService {
     }
 
     /// The engine stops itself when the input hardware changes; re-tap the input in its new format.
+    /// While paused nothing happens here: `resume()` always re-taps, so the change is picked up then.
     private func handleConfigurationChange() {
-        guard status == .recording, let engine, let writer, let recordFormat else { return }
-        engine.inputNode.removeTap(onBus: 0)
-        let inputFormat = engine.inputNode.outputFormat(forBus: 0)
-        Self.log.info("configuration change: input now \(inputFormat.sampleRate, privacy: .public) Hz \(inputFormat.channelCount, privacy: .public) ch")
-        guard inputFormat.sampleRate > 0, inputFormat.channelCount > 0 else { return }
+        guard status == .recording, let writer, let recordFormat else { return }
+        Self.log.info("configuration change while recording")
         do {
-            try Self.installInputTap(on: engine, inputFormat: inputFormat, recordFormat: recordFormat, writer: writer)
-            if !engine.isRunning {
-                try engine.start()
-            }
+            try restartCapture(writer: writer, recordFormat: recordFormat)
         } catch {
             Self.log.error("could not resume after configuration change: \(error.localizedDescription, privacy: .public)")
+            status = .paused
+            publishSnapshot()
+            emit(.began)
+            emit(.ended(shouldResume: false))
+        }
+    }
+
+    /// Tears down the input tap and installs a new one against the microphone's *current* format,
+    /// then starts the engine. The hardware format can change during an interruption (a call
+    /// switches the mic to a voice rate, a headset comes or goes), and starting the engine with a
+    /// tap in the old format raises an Objective-C exception that Swift can't catch, so the app
+    /// crashed on Resume. After a media-services reset the engine object itself is replaced.
+    private func restartCapture(writer: TapWriter, recordFormat: AVAudioFormat) throws {
+        let engine: AVAudioEngine
+        if engineNeedsRebuild || self.engine == nil {
+            // Don't touch the old engine: after a reset its underlying objects are gone.
+            engine = AVAudioEngine()
+            self.engine = engine
+            engineNeedsRebuild = false
+            removeObservers()
+            installObservers(for: engine)
+        } else {
+            engine = self.engine!
+            engine.stop()
+            engine.inputNode.removeTap(onBus: 0)
+        }
+
+        let inputFormat = engine.inputNode.outputFormat(forBus: 0)
+        Self.log.info("restart: input \(inputFormat.sampleRate, privacy: .public) Hz \(inputFormat.channelCount, privacy: .public) ch")
+        guard inputFormat.sampleRate > 0, inputFormat.channelCount > 0 else {
+            throw AudioRecorderError.sessionFailed("No microphone is available")
+        }
+        try Self.installInputTap(on: engine, inputFormat: inputFormat, recordFormat: recordFormat, writer: writer)
+        engine.prepare()
+        do {
+            try engine.start()
+        } catch {
+            engine.inputNode.removeTap(onBus: 0)
+            throw AudioRecorderError.sessionFailed("Could not restart the audio engine: \(error.localizedDescription)")
         }
     }
 
@@ -424,14 +500,19 @@ actor LiveAudioRecorderService: AudioRecorderService {
         meterTask = nil
         diskTask?.cancel()
         diskTask = nil
+        removeObservers()
+        engine = nil
+        engineNeedsRebuild = false
+        writer = nil
+        recordFormat = nil
+        fileURL = nil
+    }
+
+    private func removeObservers() {
         for observer in observers {
             NotificationCenter.default.removeObserver(observer)
         }
         observers.removeAll()
-        engine = nil
-        writer = nil
-        recordFormat = nil
-        fileURL = nil
     }
 
     private func removeSnapshotContinuation(_ id: UUID) {

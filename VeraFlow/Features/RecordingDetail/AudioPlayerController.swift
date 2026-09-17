@@ -28,7 +28,9 @@ final class AudioPlayerController {
             let player = try AVAudioPlayer(contentsOf: url)
             player.prepareToPlay()
             self.player = player
-            duration = player.duration
+            // `AVAudioPlayer.duration` is an estimate for ADTS streams (no header carries the
+            // length) and ran over a minute short on a 44-minute recording; count the frames instead.
+            duration = (try? AudioFileInfo.duration(of: url)) ?? player.duration
             fileDescription = Self.describe(url: url, player: player)
             currentTime = 0
             errorMessage = nil
@@ -66,7 +68,7 @@ final class AudioPlayerController {
             errorMessage = "Playback couldn't start: \(error.localizedDescription)"
             return
         }
-        if player.currentTime >= player.duration {
+        if player.currentTime >= duration {
             player.currentTime = 0
         }
         guard player.play() else {
@@ -96,7 +98,7 @@ final class AudioPlayerController {
 
     func seek(to time: TimeInterval) {
         guard let player else { return }
-        let clamped = min(max(0, time), max(0, player.duration))
+        let clamped = min(max(0, time), max(0, duration))
         player.currentTime = clamped
         currentTime = clamped
     }
@@ -127,7 +129,7 @@ final class AudioPlayerController {
         if !player.isPlaying, isPlaying {
             // Reached the end (or the system stopped us).
             isPlaying = false
-            currentTime = player.currentTime >= player.duration - 0.05 ? player.duration : player.currentTime
+            currentTime = player.currentTime >= duration - 0.05 ? duration : player.currentTime
             stopTicker()
             try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         }

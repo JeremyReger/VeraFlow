@@ -48,3 +48,11 @@ All architectural, dependency, and design decisions are recorded here with conte
 - **Status:** Accepted
 - **Decision:** Claude Code acts as the primary builder (feature milestones M0–M9). Antigravity acts as PR reviewer, documentation maintainer, and parallel builder for isolated pure-Swift modules (`TranscriptAligner`, `DueDateResolver`, exporters).
 - **Rule:** Never touch the same git branch concurrently. All contributions merge via PRs after automated verification.
+
+---
+
+## ADR 005: Platform Roadmap — Native iOS First, Android in Phase 2
+- **Date:** 2026-09-17
+- **Status:** Accepted
+- **Decision:** Focus exclusively on native iOS (Swift 6, SwiftUI) for Milestones M0 through M9. Do not restructure the repository or introduce cross-platform framework abstractions (Flutter/KMP) at this time. Android will be implemented natively in Kotlin + Jetpack Compose as a distinct Phase 2 project (§17).
+- **Rationale:** Deep native iOS integration (`SpeechAnalyzer`, `Foundation Models`, `StoreKit 2`, `FluidAudio`) requires native Swift to achieve zero latency, privacy compliance, and strict concurrency safety. Protocol-driven service architecture (§6.1) maintains clean domain boundaries that will map directly to Kotlin services when Phase 2 begins.

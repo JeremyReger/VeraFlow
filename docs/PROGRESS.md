@@ -57,13 +57,13 @@ Track the implementation of each milestone (§16 of `docs/SPEC.md`). Each milest
   - [x] Re-run summary with alternative template
   - [x] Quality logging in `docs/EVALS.md`
 
-- [ ] **M6: Exports**
-  - [ ] Markdown export (`.md`)
-  - [ ] PDF export with clean typographic layout
-  - [ ] Plain text copy (`.txt`)
-  - [ ] Email draft pre-fill (`MFMailComposeViewController`)
-  - [ ] Apple Reminders sync via EventKit
-  - [ ] Audio export (`.m4a`)
+- [x] **M6: Exports**
+  - [x] Markdown export (`.md`)
+  - [x] PDF export with clean typographic layout
+  - [x] Plain text copy (`.txt`)
+  - [x] Email draft pre-fill (`MFMailComposeViewController`)
+  - [x] Apple Reminders sync via EventKit
+  - [x] Audio export (`.m4a`)
 
 - [ ] **M7: Onboarding, Settings, Capability Messaging, Privacy**
   - [ ] 3-screen onboarding flow with mic permission request

@@ -1,5 +1,6 @@
 import Foundation
 
+@MainActor
 public final class FakeExportService: ExportServiceProtocol, Sendable {
     public init() {}
     
@@ -40,7 +41,6 @@ public final class FakeExportService: ExportServiceProtocol, Sendable {
     }
     
     public func exportAudioM4A(recording: Recording, sourceAudioURL: URL, outputURL: URL) async throws {
-        // Fake export copies or creates empty placeholder
         try "fake audio".write(to: outputURL, atomically: true, encoding: .utf8)
     }
 }

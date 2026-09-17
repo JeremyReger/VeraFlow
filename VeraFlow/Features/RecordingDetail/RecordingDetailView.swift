@@ -42,6 +42,7 @@ public struct RecordingDetailView: View {
     // Transcript UI State
     @State private var isEditMode: Bool = false
     @State private var transcriptSearchText: String = ""
+    @State private var isExportSheetPresented: Bool = false
     
     public enum DetailTab: String, CaseIterable, Identifiable {
         case summary = "Summary"
@@ -82,9 +83,9 @@ public struct RecordingDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         #endif
         .toolbar {
-            if selectedTab == .transcript && !recording.segments.isEmpty {
-                ToolbarItem(placement: .topBarTrailing) {
-                    HStack(spacing: 12) {
+            ToolbarItem(placement: .topBarTrailing) {
+                HStack(spacing: 12) {
+                    if selectedTab == .transcript && !recording.segments.isEmpty {
                         // Label Speakers Action (§10)
                         if recording.speakers.isEmpty {
                             Button {
@@ -104,8 +105,19 @@ public struct RecordingDetailView: View {
                         }
                         .fontWeight(isEditMode ? .bold : .regular)
                     }
+                    
+                    // Export Action (§12, §16 M6)
+                    Button {
+                        isExportSheetPresented = true
+                    } label: {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                    .accessibilityLabel("Export Recording")
                 }
             }
+        }
+        .sheet(isPresented: $isExportSheetPresented) {
+            ExportSheet(recording: recording)
         }
         .alert("Rename Speaker", isPresented: $isRenameSpeakerAlertPresented) {
             TextField("Speaker Name", text: $renameSpeakerNameText)

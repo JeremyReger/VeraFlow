@@ -9,6 +9,7 @@ public enum ExportFormat: String, Sendable, CaseIterable {
     case audioM4A
 }
 
+@MainActor
 public protocol ExportServiceProtocol: Sendable {
     func exportMarkdown(recording: Recording, includeTranscript: Bool) -> String
     func exportPlainText(recording: Recording, includeTranscript: Bool) -> String

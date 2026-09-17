@@ -2,7 +2,7 @@
 
 Update this file at the end of every session. Check an item only when its "Done when" criteria (SPEC §16) pass on a real device.
 
-- [ ] M0 — Project foundation (code written; needs `scripts/test.sh` green on a Mac and a launch on a real device)
+- [x] M0 — Project foundation (2026-09-17: `scripts/test.sh` green on Jeremy's Mac; app launched on Jeremy's iPhone to the empty Library, Record placeholder, and Settings)
   - [x] `project.yml` (XcodeGen): iOS 26.0 min, Swift 6 strict concurrency, FluidAudio pinned to 0.15.7, `Alpha` config named "Riffle (alpha)"
   - [x] Folder structure per SPEC §6.1 (App / Features / Services / Persistence)
   - [x] SwiftData models per SPEC §7 and `PipelineStage` per §6.3
@@ -13,7 +13,7 @@ Update this file at the end of every session. Check an item only when its "Done 
   - [x] `scripts/test.sh`, `PrivacyInfo.xcprivacy`, `docs/DECISIONS.md`
   - [x] `xcodegen generate` + `scripts/test.sh --unit-only` pass on Jeremy's Mac (Xcode 26.6, 29 tests) with no strict-concurrency warnings
   - [x] `scripts/test.sh` (unit + UI) passes on Jeremy's Mac (29 unit tests + 1 XCUITest)
-  - [ ] App launches to an empty Library on a device
+  - [x] App launches to an empty Library on a device (Jeremy's iPhone, iOS 26)
 - [ ] M1 — Recording
 - [ ] M2 — Library and import
 - [ ] M3 — Transcription (+ SpeechAnalyzer vs Parakeet benchmark)

@@ -356,13 +356,14 @@ actor LiveAudioRecorderService: AudioRecorderService {
         }
     }
 
-    /// Stops the engine, tears down the input tap, installs a new one against the microphone's
-    /// *current* format, and starts again. The hardware format can change during an interruption
-    /// (a call switches the mic to a voice rate, a headset comes or goes). The 90-minute device
-    /// test crashed inside `installTap` because the configuration-change handler re-tapped an
-    /// engine that was still running; `installTap` reports problems as an Objective-C exception
-    /// Swift can't catch, so everything here is checked before that call and the engine is always
-    /// stopped first. After a media-services reset the engine object itself is replaced.
+    /// Discards the engine, builds a new one, installs a tap against the microphone's *current*
+    /// format, and starts it. Always a fresh engine: on device, after earbuds disconnected, the
+    /// old engine's input node kept reporting the earbuds' 16 kHz while the hardware was already
+    /// the iPhone mic at 48 kHz, and a tap in a stale format is what `installTap` raises an
+    /// uncatchable Objective-C exception for (the 90-minute-test crash). Everything is checked
+    /// before that call so a bad state degrades to "Paused" instead. The writer keeps the same
+    /// file, so the recording is continuous across restarts. After a media-services reset the old
+    /// engine is an orphan and is not touched.
     private func restartCapture(writer: TapWriter, recordFormat: AVAudioFormat) throws {
         let session = AVAudioSession.sharedInstance()
         do {
@@ -372,19 +373,15 @@ actor LiveAudioRecorderService: AudioRecorderService {
             throw AudioRecorderError.sessionFailed(error.localizedDescription)
         }
 
-        let engine: AVAudioEngine
-        if engineNeedsRebuild || self.engine == nil {
-            // Don't touch the old engine: after a reset its underlying objects are gone.
-            engine = AVAudioEngine()
-            self.engine = engine
-            engineNeedsRebuild = false
-            removeObservers()
-            installObservers(for: engine)
-        } else {
-            engine = self.engine!
-            engine.stop()
-            engine.inputNode.removeTap(onBus: 0)
+        if let old = self.engine, !engineNeedsRebuild {
+            old.inputNode.removeTap(onBus: 0)
+            old.stop()
         }
+        engineNeedsRebuild = false
+        let engine = AVAudioEngine()
+        self.engine = engine
+        removeObservers()
+        installObservers(for: engine)
 
         let inputFormat = engine.inputNode.outputFormat(forBus: 0)
         let hardwareFormat = engine.inputNode.inputFormat(forBus: 0)

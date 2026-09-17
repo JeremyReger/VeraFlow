@@ -14,15 +14,15 @@ Track the implementation of each milestone (§16 of `docs/SPEC.md`). Each milest
   - [x] FluidAudio package dependency integration
   - [x] Test script `scripts/test.sh` passing with zero concurrency warnings
 
-- [ ] **M1: Recording**
-  - [ ] `AVAudioSession` configuration (`.playAndRecord`, Bluetooth, speaker default)
-  - [ ] Crash-safe CAF container recording with `AVAudioEngine`
-  - [ ] Pause / resume / stop / bookmarks
-  - [ ] Live audio level metering
-  - [ ] Interruption handling (phone calls auto-pause with bookmark)
-  - [ ] Route change handling (headset disconnect)
-  - [ ] Disk space warnings (< 500 MB warning, < 100 MB stop)
-  - [ ] Launch crash-recovery scanner for in-progress recordings
+- [x] **M1: Recording**
+  - [x] `AVAudioSession` configuration (`.playAndRecord`, Bluetooth, speaker default)
+  - [x] Crash-safe CAF container recording with `AVAudioEngine`
+  - [x] Pause / resume / stop / bookmarks
+  - [x] Live audio level metering
+  - [x] Interruption handling (phone calls auto-pause with bookmark)
+  - [x] Route change handling (headset disconnect)
+  - [x] Disk space warnings (< 500 MB warning, < 100 MB stop)
+  - [x] Launch crash-recovery scanner for in-progress recordings
 
 - [ ] **M2: Library and Import**
   - [ ] SwiftData library list with search, sort, tags, favorites

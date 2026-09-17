@@ -184,7 +184,12 @@ actor LiveTranscriptionService: TranscriptionService {
                 return (.speech(transcriber), resolved)
             }
         }
-        if let resolved = await DictationTranscriber.supportedLocale(equivalentTo: locale) {
+        // `DictationTranscriber` publishes its locales as a set; match on the BCP-47 identifier
+        // first and fall back to the same language (SPEC §9.1: never compare `Locale` values).
+        let supported = await DictationTranscriber.supportedLocales
+        let wanted = locale.identifier(.bcp47)
+        let sameLanguage = supported.first { $0.language.languageCode == locale.language.languageCode }
+        if let resolved = supported.first(where: { $0.identifier(.bcp47) == wanted }) ?? sameLanguage {
             let transcriber = DictationTranscriber(
                 locale: resolved,
                 contentHints: [],

@@ -14,6 +14,14 @@ enum ModelContainerFactory {
 
     /// The on-disk container used by the app.
     static func makePersistent() throws -> ModelContainer {
+        // SwiftData puts its store in Application Support. On a fresh install that folder
+        // doesn't exist yet; CoreData recovers by creating it but logs a wall of errors first.
+        _ = try FileManager.default.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        )
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         return try ModelContainer(for: schema, configurations: [configuration])
     }

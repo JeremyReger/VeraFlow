@@ -5,8 +5,14 @@ import Testing
 
 @MainActor
 struct RecordingRecoveryTests {
-    private func makeContext() throws -> ModelContext {
-        try ModelContainerFactory.makeInMemory().mainContext
+    /// The container must outlive the context; the context does not retain it.
+    private struct Store {
+        let container: ModelContainer
+        var context: ModelContext { container.mainContext }
+    }
+
+    private func makeStore() throws -> Store {
+        Store(container: try ModelContainerFactory.makeInMemory())
     }
 
     private func makeStorage() throws -> RecordingStorage {
@@ -15,7 +21,8 @@ struct RecordingRecoveryTests {
 
     @Test("Interrupted recordings with a readable file become .recorded with the file's duration")
     func recoversReadableFile() throws {
-        let context = try makeContext()
+        let store = try makeStore()
+        let context = store.context
         let storage = try makeStorage()
         defer { try? FileManager.default.removeItem(at: storage.rootDirectory) }
 
@@ -40,7 +47,8 @@ struct RecordingRecoveryTests {
 
     @Test("Interrupted recordings with a missing file are marked failed")
     func marksMissingFileFailed() throws {
-        let context = try makeContext()
+        let store = try makeStore()
+        let context = store.context
         let storage = try makeStorage()
         defer { try? FileManager.default.removeItem(at: storage.rootDirectory) }
 
@@ -59,7 +67,8 @@ struct RecordingRecoveryTests {
 
     @Test("Real CAF file on disk is recovered end to end")
     func recoversRealFile() throws {
-        let context = try makeContext()
+        let store = try makeStore()
+        let context = store.context
         let storage = try makeStorage()
         defer { try? FileManager.default.removeItem(at: storage.rootDirectory) }
 
@@ -80,7 +89,8 @@ struct RecordingRecoveryTests {
 
     @Test("Nothing to recover leaves the store untouched and no message")
     func nothingToRecover() throws {
-        let context = try makeContext()
+        let store = try makeStore()
+        let context = store.context
         let storage = try makeStorage()
         defer { try? FileManager.default.removeItem(at: storage.rootDirectory) }
         context.insert(Recording(title: "Fine", stage: .ready))
@@ -93,7 +103,8 @@ struct RecordingRecoveryTests {
 
     @Test("AppState runs recovery on startup and surfaces the message")
     func appStateRunsRecovery() async throws {
-        let context = try makeContext()
+        let store = try makeStore()
+        let context = store.context
         let storage = try makeStorage()
         defer { try? FileManager.default.removeItem(at: storage.rootDirectory) }
         context.insert(Recording(title: "Crashed", stage: .recording))

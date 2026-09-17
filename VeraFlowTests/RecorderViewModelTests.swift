@@ -10,6 +10,8 @@ struct RecorderViewModelTests {
         let recorder: FakeAudioRecorderService
         let pipeline: FakePipelineCoordinator
         let storage: RecordingStorage
+        /// Kept alive for the test's duration; the context does not retain it.
+        let container: ModelContainer
         let context: ModelContext
 
         func cleanUp() {
@@ -24,10 +26,11 @@ struct RecorderViewModelTests {
         let pipeline = FakePipelineCoordinator()
         services.recorder = recorder
         services.pipeline = pipeline
-        let context = try ModelContainerFactory.makeInMemory().mainContext
+        let container = try ModelContainerFactory.makeInMemory()
+        let context = container.mainContext
         let fixedNow = Date(timeIntervalSince1970: 1_789_000_000)
         let viewModel = RecorderViewModel(services: services, context: context, now: { fixedNow })
-        return Harness(viewModel: viewModel, recorder: recorder, pipeline: pipeline, storage: storage, context: context)
+        return Harness(viewModel: viewModel, recorder: recorder, pipeline: pipeline, storage: storage, container: container, context: context)
     }
 
     /// Waits for an async condition driven by the fake's streams.

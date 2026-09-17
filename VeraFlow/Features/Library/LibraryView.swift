@@ -5,6 +5,8 @@ import UniformTypeIdentifiers
 public struct LibraryView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var recordings: [Recording]
+    @AppStorage("consentReminderEnabled") private var consentReminderEnabled = true
+    @State private var isConsentSheetPresented = false
     @State private var viewModel = LibraryViewModel()
     @State private var recoveryNotice: String? = nil
     
@@ -238,9 +240,13 @@ public struct LibraryView: View {
                         
                         Spacer()
                         
-                        // Record Button
+                        // Record Button (§4.2, §14.2)
                         Button {
-                            viewModel.isRecordingPresented = true
+                            if consentReminderEnabled {
+                                isConsentSheetPresented = true
+                            } else {
+                                viewModel.isRecordingPresented = true
+                            }
                         } label: {
                             HStack(spacing: 8) {
                                 Image(systemName: "record.circle.fill")
@@ -256,6 +262,11 @@ public struct LibraryView: View {
                         }
                     }
                 }
+            }
+            .sheet(isPresented: $isConsentSheetPresented) {
+                ConsentReminderSheet(onConfirm: {
+                    viewModel.isRecordingPresented = true
+                })
             }
             .sheet(isPresented: $viewModel.isSettingsPresented) {
                 SettingsView()

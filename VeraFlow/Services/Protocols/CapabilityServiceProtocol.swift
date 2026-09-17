@@ -8,6 +8,16 @@ public struct DeviceCapabilities: Sendable {
     public var supportsBackgroundProcessing: Bool
     public var estimatedTokenContextLimit: Int
     
+    public var honestCapabilityMessage: String {
+        if hasAppleIntelligence {
+            return "This iPhone supports on-device speech transcription and local Apple Intelligence summaries."
+        } else if isAppleIntelligenceDownloading {
+            return "Apple Intelligence models are currently downloading on this device."
+        } else {
+            return "Transcripts work on this iPhone; AI summaries need an Apple Intelligence–capable iPhone."
+        }
+    }
+    
     public init(
         hasSpeechTranscriber: Bool = true,
         hasAppleIntelligence: Bool = true,
@@ -28,4 +38,5 @@ public struct DeviceCapabilities: Sendable {
 public protocol CapabilityServiceProtocol: Sendable {
     func currentCapabilities() async -> DeviceCapabilities
     func checkSpeechLocaleAvailability(locale: Locale) async -> Bool
+    func calculateStorageUsage() -> (recordingCount: Int, totalSizeBytes: Int64)
 }

@@ -14,4 +14,8 @@ public final class FakeCapabilityService: CapabilityServiceProtocol, Sendable {
     public func checkSpeechLocaleAvailability(locale: Locale) async -> Bool {
         return true
     }
+    
+    public func calculateStorageUsage() -> (recordingCount: Int, totalSizeBytes: Int64) {
+        return (recordingCount: 3, totalSizeBytes: 15_420_000)
+    }
 }

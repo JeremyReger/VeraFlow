@@ -65,15 +65,15 @@ Track the implementation of each milestone (§16 of `docs/SPEC.md`). Each milest
   - [x] Apple Reminders sync via EventKit
   - [x] Audio export (`.m4a`)
 
-- [ ] **M7: Onboarding, Settings, Capability Messaging, Privacy**
-  - [ ] 3-screen onboarding flow with mic permission request
-  - [ ] Honest capability messaging for devices without Apple Intelligence
-  - [ ] Recording consent reminder sheet with "Don't show again"
-  - [ ] Settings screen with consent toggle, disk usage, model status
-  - [ ] Hidden Diagnostics screen (tap version number 7×)
-  - [ ] Face ID lock (`LocalAuthentication`)
-  - [ ] "Delete all data" action
-  - [ ] Zero-network test validation
+- [x] **M7: Onboarding, Settings, Capability Messaging, Privacy**
+  - [x] 3-screen onboarding flow with mic permission request
+  - [x] Honest capability messaging for devices without Apple Intelligence
+  - [x] Recording consent reminder sheet with "Don't show again"
+  - [x] Settings screen with consent toggle, disk usage, model status
+  - [x] Hidden Diagnostics screen (tap version number 7×)
+  - [x] Face ID lock (`LocalAuthentication`)
+  - [x] "Delete all data" action
+  - [x] Zero-network test validation
 
 - [ ] **M8: Purchases**
   - [ ] StoreKit 2 non-consumable lifetime unlock (`veraflow.unlock.lifetime`)

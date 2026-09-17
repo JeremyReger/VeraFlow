@@ -186,10 +186,10 @@ public struct RecorderView: View {
                 }
             }
             .sheet(isPresented: $showConsentSheet) {
-                ConsentReminderSheet {
+                ConsentReminderSheet(onConfirm: {
                     showConsentSheet = false
                     startRecording()
-                }
+                })
             }
         }
     }
@@ -367,61 +367,6 @@ public struct RecorderView: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMM d, h:mm a"
         return "Meeting · \(formatter.string(from: Date()))"
-    }
-}
-
-/// Pre-record legal and courtesy consent reminder sheet (§14.2)
-public struct ConsentReminderSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    @AppStorage("dontShowConsentAgain") private var dontShowConsentAgain = false
-    let onContinue: () -> Void
-    
-    public var body: some View {
-        NavigationStack {
-            VStack(spacing: 24) {
-                Image(systemName: "hand.raised.fill")
-                    .font(.system(size: 56))
-                    .foregroundColor(.blue)
-                    .padding(.top, 24)
-                
-                VStack(spacing: 10) {
-                    Text("Recording Notice")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                    
-                    Text("Recording laws vary. Some states and jurisdictions require everyone's permission. Be sure to inform attendees before recording.")
-                        .font(.body)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal)
-                }
-                
-                Spacer()
-                
-                Toggle("Don't show this reminder again", isOn: $dontShowConsentAgain)
-                    .font(.subheadline)
-                    .padding(.horizontal)
-                
-                Button {
-                    dismiss()
-                    onContinue()
-                } label: {
-                    Text("Start Recording")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.red)
-                .padding(.horizontal)
-                .padding(.bottom, 16)
-            }
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-            }
-        }
     }
 }
 

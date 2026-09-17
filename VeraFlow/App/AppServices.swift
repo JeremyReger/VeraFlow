@@ -4,6 +4,7 @@ import SwiftUI
 /// Every injectable service, bundled so views and view models get them from the environment (SPEC §6.2).
 struct AppServices: Sendable {
     var recorder: any AudioRecorderService
+    var activity: any RecordingActivityService
     var importer: any AudioImportService
     var transcription: any TranscriptionService
     var diarization: any DiarizationService
@@ -20,6 +21,7 @@ struct AppServices: Sendable {
     static func fakes(storage: RecordingStorage? = nil) -> AppServices {
         AppServices(
             recorder: FakeAudioRecorderService(),
+            activity: FakeRecordingActivityService(),
             importer: FakeAudioImportService(),
             transcription: FakeTranscriptionService(),
             diarization: FakeDiarizationService(),
@@ -41,6 +43,7 @@ struct AppServices: Sendable {
         let storage = try RecordingStorage.appDefault()
         var services = fakes(storage: storage)
         services.recorder = LiveAudioRecorderService(capacityProvider: { storage.availableCapacity() })
+        services.activity = LiveRecordingActivityService()
         services.importer = LiveAudioImportService()
         return services
     }

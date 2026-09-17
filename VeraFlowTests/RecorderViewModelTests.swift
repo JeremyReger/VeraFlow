@@ -9,6 +9,7 @@ struct RecorderViewModelTests {
         let viewModel: RecorderViewModel
         let recorder: FakeAudioRecorderService
         let pipeline: FakePipelineCoordinator
+        let activity: FakeRecordingActivityService
         let storage: RecordingStorage
         /// Kept alive for the test's duration; the context does not retain it.
         let container: ModelContainer
@@ -24,13 +25,15 @@ struct RecorderViewModelTests {
         var services = AppServices.fakes(storage: storage)
         let recorder = FakeAudioRecorderService(permissionGranted: permissionGranted)
         let pipeline = FakePipelineCoordinator()
+        let activity = FakeRecordingActivityService()
         services.recorder = recorder
         services.pipeline = pipeline
+        services.activity = activity
         let container = try ModelContainerFactory.makeInMemory()
         let context = container.mainContext
         let fixedNow = Date(timeIntervalSince1970: 1_789_000_000)
         let viewModel = RecorderViewModel(services: services, context: context, now: { fixedNow })
-        return Harness(viewModel: viewModel, recorder: recorder, pipeline: pipeline, storage: storage, container: container, context: context)
+        return Harness(viewModel: viewModel, recorder: recorder, pipeline: pipeline, activity: activity, storage: storage, container: container, context: context)
     }
 
     /// Waits for an async condition driven by the fake's streams.
@@ -266,5 +269,59 @@ struct RecorderViewModelTests {
         await viewModel.selectInput(id: "missing")
         #expect(viewModel.errorMessage != nil)
         #expect(viewModel.selectedInputID == "airpods")
+    }
+
+    @Test("The Live Activity follows start, pause, bookmark, resume, and stop")
+    func liveActivity() async throws {
+        let harness = try makeHarness()
+        defer { harness.cleanUp() }
+        let viewModel = harness.viewModel
+        let activity = harness.activity
+        let fixedNow = Date(timeIntervalSince1970: 1_789_000_000)
+
+        await viewModel.start()
+        let recording = try #require(viewModel.recording)
+        #expect(await activity.startedRecordingID == recording.id)
+        #expect(await activity.startedTitle == recording.title)
+        let initial = try #require(await activity.latestState)
+        #expect(initial.startedAt == fixedNow)
+        #expect(!initial.isPaused)
+        #expect(initial.bookmarkCount == 0)
+
+        await harness.recorder.advance(by: 30)
+        await waitUntil { viewModel.snapshot.elapsed >= 30 }
+        await viewModel.addBookmark()
+        let afterBookmark = try #require(await activity.latestState)
+        #expect(afterBookmark.bookmarkCount == 1)
+        #expect(afterBookmark.startedAt == fixedNow.addingTimeInterval(-30))
+
+        await viewModel.pause()
+        let paused = try #require(await activity.latestState)
+        #expect(paused.isPaused)
+        #expect(paused.pausedAt == fixedNow)
+
+        await viewModel.resume()
+        let resumed = try #require(await activity.latestState)
+        #expect(!resumed.isPaused)
+
+        await viewModel.stop()
+        #expect(await activity.endCount == 1)
+        #expect(await activity.isActive == false)
+    }
+
+    @Test("An interruption pauses the Live Activity too")
+    func liveActivityInterruption() async throws {
+        let harness = try makeHarness()
+        defer { harness.cleanUp() }
+        let viewModel = harness.viewModel
+
+        await viewModel.start()
+        await harness.recorder.simulate(.began)
+        await waitUntil { viewModel.phase == .paused }
+        await waitUntil { viewModel.bookmarkCount == 1 }
+
+        let state = try #require(await harness.activity.latestState)
+        #expect(state.isPaused)
+        #expect(state.bookmarkCount == 1)
     }
 }

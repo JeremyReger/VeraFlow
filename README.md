@@ -31,6 +31,7 @@ Milestones are built in order (SPEC §16), one branch and PR each. `docs/PROGRES
 
 - `project.yml` — XcodeGen project definition (the `.xcodeproj` is generated and gitignored)
 - `VeraFlow/` — app sources: `App/`, `Features/`, `Services/`, `Persistence/`, `Preview/`, `Resources/`
+- `VeraFlowWidgets/`, `Shared/` — widget extension for the recording Live Activity and the types it shares with the app
 - `VeraFlowTests/`, `VeraFlowUITests/` — Swift Testing unit tests and XCUITest flows
 - `TestAudio/` — audio fixtures (gitignored; see its README)
 - `scripts/test.sh` — the test entry point agents and CI use

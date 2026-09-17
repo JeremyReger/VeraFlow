@@ -113,6 +113,7 @@ final class RecorderViewModel {
         notice = nil
         phase = .recording
         observe(snapshots: snapshots, interruptions: interruptions)
+        await services.activity.start(recordingID: recording.id, title: recording.title, state: activityState())
     }
 
     func pause() async {
@@ -120,6 +121,7 @@ final class RecorderViewModel {
         do {
             try await services.recorder.pause()
             phase = .paused
+            await syncActivity()
         } catch {
             errorMessage = Self.message(for: error)
         }
@@ -132,6 +134,7 @@ final class RecorderViewModel {
             try await services.recorder.resume()
             phase = .recording
             notice = nil
+            await syncActivity()
         } catch {
             errorMessage = Self.message(for: error)
         }
@@ -141,6 +144,7 @@ final class RecorderViewModel {
     func stop() async {
         guard isActive, let recording else { return }
         isAskingToResume = false
+        await services.activity.end()
         do {
             let result = try await services.recorder.stop()
             recording.duration = result.duration
@@ -157,7 +161,7 @@ final class RecorderViewModel {
     func addBookmark(note: String? = nil) async {
         guard isActive, let recording else { return }
         let time = await services.recorder.currentTime()
-        insertBookmark(time: time, note: note, into: recording)
+        await insertBookmark(time: time, note: note, into: recording)
     }
 
     /// Answer to the "Resume recording?" prompt after an interruption.
@@ -199,7 +203,7 @@ final class RecorderViewModel {
         streamTasks.append(Task { @MainActor [weak self] in
             for await snapshot in snapshots {
                 guard let self else { return }
-                self.apply(snapshot)
+                await self.apply(snapshot)
             }
         })
         streamTasks.append(Task { @MainActor [weak self] in
@@ -210,15 +214,17 @@ final class RecorderViewModel {
         })
     }
 
-    private func apply(_ snapshot: RecorderSnapshot) {
+    private func apply(_ snapshot: RecorderSnapshot) async {
         guard isActive else { return }
         self.snapshot = snapshot
         appendLevel(snapshot.status == .recording ? snapshot.level : 0)
         switch snapshot.status {
         case .recording where phase == .paused:
             phase = .recording
+            await syncActivity()
         case .paused where phase == .recording:
             phase = .paused
+            await syncActivity()
         default:
             break
         }
@@ -230,7 +236,7 @@ final class RecorderViewModel {
         case .began:
             phase = .paused
             let time = await services.recorder.currentTime()
-            insertBookmark(time: time, note: "Interrupted", into: recording)
+            await insertBookmark(time: time, note: "Interrupted", into: recording)
             notice = "Paused by a call or another app."
         case .ended(let shouldResume):
             if shouldResume {
@@ -265,7 +271,7 @@ final class RecorderViewModel {
         }
     }
 
-    private func insertBookmark(time: TimeInterval, note: String?, into recording: Recording) {
+    private func insertBookmark(time: TimeInterval, note: String?, into recording: Recording) async {
         let bookmark = Bookmark(time: time, note: note)
         context.insert(bookmark)
         bookmark.recording = recording
@@ -276,6 +282,20 @@ final class RecorderViewModel {
         }
         bookmarkCount = recording.bookmarks.count
         markBookmarkOnWaveform()
+        await syncActivity()
+    }
+
+    // MARK: Live Activity
+
+    /// Lock Screen / Dynamic Island state derived from what the recorder has written so far.
+    private func activityState() -> RecordingActivityAttributes.ContentState {
+        .make(elapsed: snapshot.elapsed, isPaused: phase == .paused, bookmarkCount: bookmarkCount, now: now())
+    }
+
+    /// Called on every transition (pause, resume, bookmark). The timer ticks by itself between calls.
+    private func syncActivity() async {
+        guard isActive else { return }
+        await services.activity.update(activityState())
     }
 
     private func cancelStreams() {

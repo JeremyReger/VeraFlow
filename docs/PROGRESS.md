@@ -44,18 +44,18 @@ Track the implementation of each milestone (§16 of `docs/SPEC.md`). Each milest
   - [x] Speaker merge and turn reassignment
   - [x] Non-fatal failure fallback (single speaker + retry)
 
-- [ ] **M5: Summaries and Templates**
-  - [ ] Apple Foundation Models `LanguageModelSession` integration & availability check
-  - [ ] Token budgeting and chunking (4K / 8K context)
-  - [ ] Map-reduce pipeline for long recordings
-  - [ ] 3 templates: General Meeting, Client/Consulting, Contractor Walk-Through
-  - [ ] Action item extraction (`task`, `owner`, `dueText`, `timestamp`)
-  - [ ] Pure Swift deterministic post-processing:
-    - [ ] Deduplication
-    - [ ] `DueDateResolver` (`NSDataDetector` + rules)
-    - [ ] Speaker key resolution and audio timestamp clamping
-  - [ ] Re-run summary with alternative template
-  - [ ] Quality logging in `docs/EVALS.md`
+- [x] **M5: Summaries and Templates**
+  - [x] Apple Foundation Models `LanguageModelSession` integration & availability check
+  - [x] Token budgeting and chunking (4K / 8K context)
+  - [x] Map-reduce pipeline for long recordings
+  - [x] 3 templates: General Meeting, Client/Consulting, Contractor Walk-Through
+  - [x] Action item extraction (`task`, `owner`, `dueText`, `timestamp`)
+  - [x] Pure Swift deterministic post-processing:
+    - [x] Deduplication
+    - [x] `DueDateResolver` (`NSDataDetector` + rules)
+    - [x] Speaker key resolution and audio timestamp clamping
+  - [x] Re-run summary with alternative template
+  - [x] Quality logging in `docs/EVALS.md`
 
 - [ ] **M6: Exports**
   - [ ] Markdown export (`.md`)

@@ -6,6 +6,7 @@ import Testing
 @MainActor
 struct RecordingRecoveryTests {
     /// The container must outlive the context; the context does not retain it.
+    @MainActor
     private struct Store {
         let container: ModelContainer
         var context: ModelContext { container.mainContext }

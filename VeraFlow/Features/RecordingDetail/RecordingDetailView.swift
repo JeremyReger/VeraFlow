@@ -10,6 +10,11 @@ struct RecordingDetailView: View {
     @State private var player = AudioPlayerController()
     @State private var controller: RecordingActionsController?
 
+    /// Explicit because `@Query` makes the synthesized initializer private.
+    init(recording: Recording) {
+        self.recording = recording
+    }
+
     var body: some View {
         List {
             Section("Audio") {

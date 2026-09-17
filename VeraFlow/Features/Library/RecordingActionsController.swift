@@ -26,8 +26,9 @@ final class RecordingActionsController {
         renameTarget = recording
     }
 
-    func commitRename() {
-        guard let recording = renameTarget else { return }
+    /// Takes the recording explicitly: SwiftUI dismisses the alert (which clears `renameTarget`)
+    /// before it runs the Save action, so the target can't be read back here.
+    func commitRename(_ recording: Recording) {
         renameTarget = nil
         do {
             try actions.rename(recording, to: renameDraft)
@@ -66,8 +67,8 @@ final class RecordingActionsController {
         deleteTarget = recording
     }
 
-    func confirmDelete() async {
-        guard let recording = deleteTarget else { return }
+    /// Same as `commitRename`: the dialog is already dismissed when this runs.
+    func confirmDelete(_ recording: Recording) async {
         deleteTarget = nil
         do {
             try await actions.delete(recording)
@@ -111,10 +112,10 @@ struct RecordingActionsModifier: ViewModifier {
             .alert("Rename recording", isPresented: Binding(
                 get: { controller.renameTarget != nil },
                 set: { if !$0 { controller.cancelRename() } }
-            )) {
+            ), presenting: controller.renameTarget) { recording in
                 TextField("Title", text: $controller.renameDraft)
                     .accessibilityIdentifier("rename.field")
-                Button("Save") { controller.commitRename() }
+                Button("Save") { controller.commitRename(recording) }
                 Button("Cancel", role: .cancel) { controller.cancelRename() }
             }
             .sheet(item: $controller.tagTarget) { recording in
@@ -125,12 +126,12 @@ struct RecordingActionsModifier: ViewModifier {
             .confirmationDialog("Delete this recording?", isPresented: Binding(
                 get: { controller.deleteTarget != nil },
                 set: { if !$0 { controller.deleteTarget = nil } }
-            ), titleVisibility: .visible) {
+            ), titleVisibility: .visible, presenting: controller.deleteTarget) { recording in
                 Button("Delete", role: .destructive) {
-                    Task { await controller.confirmDelete() }
+                    Task { await controller.confirmDelete(recording) }
                 }
                 Button("Cancel", role: .cancel) { controller.deleteTarget = nil }
-            } message: {
+            } message: { _ in
                 Text("This removes the audio and everything made from it.")
             }
             .alert("Something went wrong", isPresented: Binding(

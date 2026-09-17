@@ -203,7 +203,7 @@ final class RecorderViewModel {
         streamTasks.append(Task { @MainActor [weak self] in
             for await snapshot in snapshots {
                 guard let self else { return }
-                await self.apply(snapshot)
+                self.apply(snapshot)
             }
         })
         streamTasks.append(Task { @MainActor [weak self] in
@@ -214,20 +214,12 @@ final class RecorderViewModel {
         })
     }
 
-    private func apply(_ snapshot: RecorderSnapshot) async {
+    /// Timer and level only. Snapshots are buffered, so a stale one can arrive after Pause;
+    /// phase changes come from our own calls and from interruption events, never from here.
+    private func apply(_ snapshot: RecorderSnapshot) {
         guard isActive else { return }
         self.snapshot = snapshot
-        appendLevel(snapshot.status == .recording ? snapshot.level : 0)
-        switch snapshot.status {
-        case .recording where phase == .paused:
-            phase = .recording
-            await syncActivity()
-        case .paused where phase == .recording:
-            phase = .paused
-            await syncActivity()
-        default:
-            break
-        }
+        appendLevel(phase == .recording ? snapshot.level : 0)
     }
 
     private func handle(_ interruption: RecorderInterruption) async {

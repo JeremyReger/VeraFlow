@@ -20,10 +20,14 @@ final class LibraryManagementTests: XCTestCase {
         XCTAssertTrue(rename.waitForExistence(timeout: 5))
         rename.tap()
 
-        let field = app.textFields["rename.field"]
+        // Alert text fields don't surface their accessibility identifier to XCUITest.
+        let alert = app.alerts.firstMatch
+        XCTAssertTrue(alert.waitForExistence(timeout: 5))
+        let field = alert.textFields.firstMatch
         XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
         field.typeText(" edited")
-        app.buttons["Save"].tap()
+        alert.buttons["Save"].tap()
 
         XCTAssertTrue(app.staticTexts["Kitchen remodel walk-through edited"].waitForExistence(timeout: 5))
 

@@ -158,13 +158,6 @@ actor LiveAudioRecorderService: AudioRecorderService {
 
     func resume() async throws {
         guard status == .paused, let writer, let recordFormat else { throw AudioRecorderError.notRecording }
-        do {
-            let session = AVAudioSession.sharedInstance()
-            try Self.configureSession(session)
-            try session.setActive(true)
-        } catch {
-            throw AudioRecorderError.sessionFailed(error.localizedDescription)
-        }
         try restartCapture(writer: writer, recordFormat: recordFormat)
         status = .recording
         publishSnapshot()
@@ -363,12 +356,22 @@ actor LiveAudioRecorderService: AudioRecorderService {
         }
     }
 
-    /// Tears down the input tap and installs a new one against the microphone's *current* format,
-    /// then starts the engine. The hardware format can change during an interruption (a call
-    /// switches the mic to a voice rate, a headset comes or goes), and starting the engine with a
-    /// tap in the old format raises an Objective-C exception that Swift can't catch, so the app
-    /// crashed on Resume. After a media-services reset the engine object itself is replaced.
+    /// Stops the engine, tears down the input tap, installs a new one against the microphone's
+    /// *current* format, and starts again. The hardware format can change during an interruption
+    /// (a call switches the mic to a voice rate, a headset comes or goes). The 90-minute device
+    /// test crashed inside `installTap` because the configuration-change handler re-tapped an
+    /// engine that was still running; `installTap` reports problems as an Objective-C exception
+    /// Swift can't catch, so everything here is checked before that call and the engine is always
+    /// stopped first. After a media-services reset the engine object itself is replaced.
     private func restartCapture(writer: TapWriter, recordFormat: AVAudioFormat) throws {
+        let session = AVAudioSession.sharedInstance()
+        do {
+            try Self.configureSession(session)
+            try session.setActive(true)
+        } catch {
+            throw AudioRecorderError.sessionFailed(error.localizedDescription)
+        }
+
         let engine: AVAudioEngine
         if engineNeedsRebuild || self.engine == nil {
             // Don't touch the old engine: after a reset its underlying objects are gone.
@@ -384,9 +387,15 @@ actor LiveAudioRecorderService: AudioRecorderService {
         }
 
         let inputFormat = engine.inputNode.outputFormat(forBus: 0)
-        Self.log.info("restart: input \(inputFormat.sampleRate, privacy: .public) Hz \(inputFormat.channelCount, privacy: .public) ch")
+        let hardwareFormat = engine.inputNode.inputFormat(forBus: 0)
+        Self.log.info("restart: tap \(inputFormat.sampleRate, privacy: .public) Hz \(inputFormat.channelCount, privacy: .public) ch; hardware \(hardwareFormat.sampleRate, privacy: .public) Hz \(hardwareFormat.channelCount, privacy: .public) ch; route \(session.currentRoute.inputs.map(\.portName).joined(separator: ","), privacy: .public)")
         guard inputFormat.sampleRate > 0, inputFormat.channelCount > 0 else {
             throw AudioRecorderError.sessionFailed("No microphone is available")
+        }
+        // A tap whose format disagrees with the hardware is what `installTap` throws on.
+        guard inputFormat.sampleRate == hardwareFormat.sampleRate,
+              inputFormat.channelCount == hardwareFormat.channelCount else {
+            throw AudioRecorderError.sessionFailed("The microphone is still changing; try Resume again")
         }
         try Self.installInputTap(on: engine, inputFormat: inputFormat, recordFormat: recordFormat, writer: writer)
         engine.prepare()

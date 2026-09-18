@@ -368,10 +368,11 @@ actor LivePipelineCoordinator: PipelineCoordinating {
             recording.summaries.append(record)
             recording.stage = .ready
             rateLimitStrikes[id] = nil
-            save()
             if !unlocked {
+                // Counted before the stage is saved, so a "ready" row never precedes its count.
                 await purchases.recordFreeSummaryUsed()
             }
+            save()
             events.emit(.stageChanged(recordingID: id, stage: .ready))
             Self.log.info("summarized \(id.uuidString, privacy: .public) with \(payload.templateID.rawValue, privacy: .public): \(payload.actionItems.count, privacy: .public) action items")
         } catch is CancellationError {

@@ -94,6 +94,9 @@ struct LibraryView: View {
                 Task { await importPendingURLs() }
             }
         }
+        // A real container: without this the identifier would be pushed down onto every child
+        // of the VStack and replace the buttons' own identifiers.
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("library")
     }
 

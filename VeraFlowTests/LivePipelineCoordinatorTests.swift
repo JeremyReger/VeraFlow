@@ -186,6 +186,8 @@ struct LivePipelineCoordinatorTests {
         let third = try harness.insert(title: "third")
 
         await harness.coordinator.enqueue(recordingID: first)
+        // Let `first` actually start so the test checks "next", not "now".
+        try await waitUntil { try harness.stage(of: first) == .transcribing }
         await harness.coordinator.enqueue(recordingID: second)
         await harness.coordinator.enqueue(recordingID: third)
         await harness.coordinator.prioritize(recordingID: third)

@@ -3,7 +3,9 @@ import Security
 
 /// The free-summary count (SPEC §13.2), kept in the Keychain so it survives a reinstall, mirrored
 /// in `UserDefaults`. The larger of the two wins, so neither store can be used to reset it.
-struct FreeSummaryCounter: Sendable {
+// `@unchecked`: `UserDefaults` is documented thread-safe and the Keychain calls are too; the
+// compiler just can't see that.
+struct FreeSummaryCounter: @unchecked Sendable {
     var service = "com.jeremyreger.veraflow.freeSummaries"
     var account = "count"
     var defaults: UserDefaults = .standard

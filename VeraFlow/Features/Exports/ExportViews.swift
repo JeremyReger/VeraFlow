@@ -141,6 +141,8 @@ struct MailComposeView: UIViewControllerRepresentable {
 
     func updateUIViewController(_ uiViewController: MFMailComposeViewController, context: Context) {}
 
+    // Main-actor bound like the delegate protocol, so it can call the SwiftUI dismiss action.
+    @MainActor
     final class Coordinator: NSObject, MFMailComposeViewControllerDelegate {
         let dismiss: DismissAction
 

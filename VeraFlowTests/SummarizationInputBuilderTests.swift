@@ -23,7 +23,7 @@ struct SummarizationInputBuilderTests {
     }
 
     @Test("Post-processing a payload resolves owners, due dates, and measurement timestamps")
-    func postProcessesPayload() {
+    func postProcessesPayload() throws {
         let recording = PreviewData.sampleRecording()
         let processor = ActionItemPostProcessor(dueDates: FakeDueDateResolver(), calendar: Calendar(identifier: .gregorian))
         let payload = SummaryPayload.walkthrough(WalkthroughSummary(

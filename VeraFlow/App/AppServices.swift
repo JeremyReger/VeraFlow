@@ -46,7 +46,7 @@ struct AppServices: Sendable {
 
     /// The services the shipping app uses. Real implementations replace fakes milestone by milestone:
     /// M1 recorder, M2 importer, M3 transcription + pipeline, M4 diarization + aligner (done),
-    /// M5 summarization + due dates, M6 exporter, M7 capabilities, M8 purchases.
+    /// M5 summarization + due dates (done), M6 exporter, M7 capabilities, M8 purchases.
     static func live(container: ModelContainer) throws -> AppServices {
         let storage = try RecordingStorage.appDefault()
         var services = fakes(storage: storage)
@@ -61,8 +61,7 @@ struct AppServices: Sendable {
         services.diarization = LiveDiarizationService()
         services.aligner = LiveTranscriptAligner()
         services.dueDates = LiveDueDateResolver()
-        // `summarization` stays the fake until the Foundation Models service lands (M5 half B,
-        // docs/plans/2026-09-17-m5-summaries.md); the fake reports itself as available.
+        services.summarization = LiveSummarizationService()
         services.background = LiveBackgroundProcessing()
         services.pipeline = LivePipelineCoordinator(
             container: container,

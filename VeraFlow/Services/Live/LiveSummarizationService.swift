@@ -191,7 +191,7 @@ actor LiveSummarizationService: SummarizationService {
         let session = LanguageModelSession(instructions: Prompts.instructions(Prompts.followUpEmail))
         do {
             let response = try await session.respond(
-                to: Prompt(Self.render(summary)),
+                to: Prompt { Self.render(summary) },
                 generating: FollowUpEmailGenerable.self,
                 options: Self.options
             )
@@ -266,13 +266,13 @@ actor LiveSummarizationService: SummarizationService {
 
     private func mapChunk(_ text: String) async throws -> ChunkNotesGenerable {
         let session = LanguageModelSession(instructions: Prompts.instructions(Prompts.map))
-        return try await session.respond(to: Prompt(text), generating: ChunkNotesGenerable.self, options: Self.options).content
+        return try await session.respond(to: Prompt { text }, generating: ChunkNotesGenerable.self, options: Self.options).content
     }
 
     private func final(from text: String, template: TemplateID, fromTranscript: Bool) async throws -> SummaryPayload {
         let step = fromTranscript ? Prompts.finalFromTranscript(for: template) : Prompts.final(for: template)
         let session = LanguageModelSession(instructions: Prompts.instructions(step))
-        let prompt = Prompt(text)
+        let prompt = Prompt { text }
         switch template {
         case .general:
             let content = try await session.respond(to: prompt, generating: GeneralSummaryGenerable.self, options: Self.options).content
@@ -328,7 +328,7 @@ actor LiveSummarizationService: SummarizationService {
         var instructionTokens = TranscriptChunker.estimateTokens(instructions)
         var schemaTokens = Self.schemaOverheadEstimate
         if #available(iOS 26.4, *) {
-            if let counted = try? await model.tokenCount(for: Instructions(instructions)) {
+            if let counted = try? await model.tokenCount(for: Instructions { instructions }) {
                 instructionTokens = counted
             }
             let schemas: [GenerationSchema] = [ChunkNotesGenerable.generationSchema, Self.finalSchema(for: template)]
@@ -357,7 +357,7 @@ actor LiveSummarizationService: SummarizationService {
     /// can count tokens, so chunking stays synchronous but tracks the real tokenizer.
     private func tokenCounter(calibratedOn sample: String) async -> @Sendable (String) -> Int {
         var ratio = 1.0
-        if #available(iOS 26.4, *), !sample.isEmpty, let counted = try? await model.tokenCount(for: Prompt(sample)) {
+        if #available(iOS 26.4, *), !sample.isEmpty, let counted = try? await model.tokenCount(for: Prompt { sample }) {
             let estimated = TranscriptChunker.estimateTokens(sample)
             if estimated > 0, counted > 0 {
                 ratio = Double(counted) / Double(estimated)

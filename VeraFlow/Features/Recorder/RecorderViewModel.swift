@@ -129,6 +129,7 @@ final class RecorderViewModel {
             try await services.recorder.selectInput(id: effective)
             appliedInputID = .some(effective)
         } catch {
+            Self.log.error("mic choice \(effective ?? "automatic", privacy: .public) failed: \(error.localizedDescription, privacy: .public)")
             errorMessage = Self.message(for: error)
         }
     }

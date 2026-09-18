@@ -248,9 +248,9 @@ actor LiveAudioRecorderService: AudioRecorderService {
         if status == .idle {
             try? Self.configureSession(session)
         }
-        if let id, !(session.availableInputs ?? []).contains(where: { $0.uid == id }) {
-            throw AudioRecorderError.sessionFailed("That microphone is no longer available")
-        }
+        // Never refuse a choice: right after a route change the list can be missing a port for
+        // a moment (on device the phone mic vanished briefly after switching to Bluetooth), and
+        // `applyWantedInput` waits for it. A port that never returns is simply not applied.
         wantedInputID = id
         guard status != .idle else { return }
         await applyWantedInput(to: session)
@@ -259,19 +259,31 @@ actor LiveAudioRecorderService: AudioRecorderService {
     /// Applies `wantedInputID` to an *active* session and waits briefly for the route to follow,
     /// so the engine built next taps the mic in the right format.
     private func applyWantedInput(to session: AVAudioSession) async {
-        let available = (session.availableInputs ?? [])
-        let action = AudioInputRouting.action(
+        var available = session.availableInputs ?? []
+        var action = AudioInputRouting.action(
             wanted: wantedInputID,
             available: available.map(\.uid),
             sessionPreferred: session.preferredInput?.uid
         )
+        // The input list settles a moment after a route change; wait up to a second for the port.
+        var settleAttempts = 0
+        while case .unavailable = action, settleAttempts < 10 {
+            settleAttempts += 1
+            try? await Task.sleep(for: .milliseconds(100))
+            available = session.availableInputs ?? []
+            action = AudioInputRouting.action(
+                wanted: wantedInputID,
+                available: available.map(\.uid),
+                sessionPreferred: session.preferredInput?.uid
+            )
+        }
         do {
             switch action {
             case .unchanged:
                 Self.log.info("input \(self.wantedInputID ?? "automatic", privacy: .public) already preferred; route \(Self.describeRoute(session), privacy: .public)")
                 return
             case .unavailable:
-                Self.log.info("input \(self.wantedInputID ?? "-", privacy: .public) not available; keeping \(Self.describeRoute(session), privacy: .public)")
+                Self.log.info("input \(self.wantedInputID ?? "-", privacy: .public) not listed after \(settleAttempts, privacy: .public) checks; keeping \(Self.describeRoute(session), privacy: .public)")
                 return
             case .clear:
                 try session.setPreferredInput(nil)

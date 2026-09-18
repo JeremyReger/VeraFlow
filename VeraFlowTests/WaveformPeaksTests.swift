@@ -34,7 +34,8 @@ struct WaveformPeaksTests {
         #expect(bars.count == 20)
         #expect(bars.max() == 1)
         // The encoder's first frames are quiet; every bar after the priming has signal.
-        #expect(bars.dropFirst(2).allSatisfy { $0 > 0.5 })
+        // The encoder pads the tail too, so the last bar may be partly silence.
+        #expect(bars.dropFirst(2).dropLast(1).allSatisfy { $0 > 0.5 })
 
         let silent = directory.appending(path: "silent.caf")
         try TestAudioFiles.writeSilentCAF(to: silent, seconds: 1)

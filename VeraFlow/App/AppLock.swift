@@ -58,31 +58,35 @@ final class AppLock {
 /// Full-screen cover while the app is locked.
 struct LockScreenView: View {
     let lock: AppLock
-    @ScaledMetric(relativeTo: .largeTitle) private var iconSize: CGFloat = 56
 
     var body: some View {
         VStack(spacing: 20) {
             Spacer()
-            Image(systemName: "lock.fill")
-                .font(.system(size: iconSize))
-                .foregroundStyle(.tint)
+            VFWaveformMark(height: 44)
                 .accessibilityHidden(true)
             Text("VeraFlow is locked")
-                .font(.title2.bold())
+                .vfText(VFText.recordingTitle)
+                .multilineTextAlignment(.center)
+                .accessibilityAddTraits(.isHeader)
             if let error = lock.lastError {
-                Text(error).font(.footnote).foregroundStyle(.secondary)
+                Text(error)
+                    .vfText(VFText.snippet, color: VFColor.textSecondary)
+                    .multilineTextAlignment(.center)
             }
             Button(lock.isAuthenticating ? "Unlocking…" : "Unlock") {
                 Task { await lock.unlock() }
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(VFPrimaryPillStyle())
             .disabled(lock.isAuthenticating)
+            .padding(.top, 8)
             .accessibilityIdentifier("lock.unlock")
             Spacer()
+            VFReassurance()
+                .padding(.bottom, VFSpace.bottomInset)
         }
-        .padding()
+        .padding(.horizontal, VFSpace.gutter + 8)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(.background)
+        .background(VFColor.background.ignoresSafeArea())
         // VoiceOver stays inside the cover (A-1).
         .accessibilityAddTraits(.isModal)
         .task { await lock.unlock() }
@@ -92,19 +96,15 @@ struct LockScreenView: View {
 /// Opaque cover shown while the scene is inactive and the app lock is on, so the app-switcher
 /// snapshot and any glance over the shoulder show nothing (security review S-1).
 struct PrivacyShieldView: View {
-    @ScaledMetric(relativeTo: .largeTitle) private var iconSize: CGFloat = 56
-
     var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "waveform")
-                .font(.system(size: iconSize))
-                .foregroundStyle(.tint)
+        VStack(spacing: 16) {
+            VFWaveformMark(height: 44)
                 .accessibilityHidden(true)
             Text("VeraFlow")
-                .font(.title2.bold())
+                .vfText(VFText.cardTitle)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(.background)
+        .background(VFColor.background.ignoresSafeArea())
         .accessibilityAddTraits(.isModal)
     }
 }

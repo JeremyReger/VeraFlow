@@ -66,8 +66,11 @@ struct TranscriptTab: View {
                 }
                 .accessibilityIdentifier("transcript.transcribe")
             }
-        case .transcribing:
+        case .transcribing where !segments.isEmpty:
             progressBanner(working: "Transcribing…", downloading: "Downloading the speech model (one time)…", systemImage: "waveform")
+        case .transcribing:
+            // The processing card below carries the progress while there is nothing to read.
+            EmptyView()
         case .diarizing:
             progressBanner(working: "Labeling speakers…", downloading: "Downloading the speaker-label models (one time)…", systemImage: "person.2.wave.2")
         case .failed where recording.failedStage == .transcribing || recording.failedStage == nil:
@@ -420,13 +423,31 @@ struct TranscriptTab: View {
         Group {
             switch recording.stage {
             case .recording, .recorded, .transcribing, .failed:
-                Spacer()
+                ScrollView {
+                    ProcessingCard(
+                        recording: recording,
+                        progress: appState?.pipelineProgress[recording.id],
+                        canSummarize: appState?.capabilities?.canSummarize ?? true
+                    )
+                    .padding(.horizontal, VFSpace.gutterTight)
+                    .padding(.vertical, VFSpace.sectionGap)
+                }
             default:
-                ContentUnavailableView(
-                    "No speech detected",
-                    systemImage: "waveform.slash",
-                    description: Text("The recording was transcribed but no words were found.")
-                )
+                VStack(spacing: 12) {
+                    Spacer()
+                    Image(systemName: "waveform.slash")
+                        .font(.system(size: 34))
+                        .foregroundStyle(VFColor.textTertiary)
+                        .accessibilityHidden(true)
+                    Text("No speech detected")
+                        .vfText(VFText.cardTitle)
+                        .accessibilityAddTraits(.isHeader)
+                    Text("The recording was transcribed but no words were found.")
+                        .vfText(VFText.body, color: VFColor.textSecondary)
+                        .multilineTextAlignment(.center)
+                    Spacer()
+                }
+                .padding(.horizontal, VFSpace.gutter + 8)
             }
         }
     }

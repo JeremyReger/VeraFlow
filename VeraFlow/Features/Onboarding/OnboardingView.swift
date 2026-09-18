@@ -31,11 +31,12 @@ struct OnboardingView: View {
                     onFinish()
                 }
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .padding()
+            .buttonStyle(VFPrimaryPillStyle())
+            .padding(.horizontal, VFSpace.gutter)
+            .padding(.bottom, VFSpace.bottomInset)
             .accessibilityIdentifier("onboarding.continue")
         }
+        .background(VFColor.background.ignoresSafeArea())
         .task {
             await appState?.refreshCapabilities()
         }
@@ -46,22 +47,20 @@ struct OnboardingView: View {
     private var whatItDoes: some View {
         OnboardingPage(systemImage: "waveform.circle.fill", title: "Your meetings, turned into a to-do list.") {
             VStack(alignment: .leading, spacing: 14) {
-                Label("Record a meeting, lecture, or site walk-through", systemImage: "record.circle")
-                Label("Get a transcript with speaker labels", systemImage: "text.alignleft")
-                Label("Get a summary and action items you can send to Reminders", systemImage: "checklist")
+                point("Record a meeting, lecture, or site walk-through", systemImage: "record.circle")
+                point("Get a transcript with speaker labels", systemImage: "text.alignleft")
+                point("Get a summary and action items you can send to Reminders", systemImage: "checklist")
             }
-            .font(.body)
         }
     }
 
     private var privacy: some View {
         OnboardingPage(systemImage: "lock.iphone", title: "Everything stays on your iPhone.") {
             VStack(alignment: .leading, spacing: 14) {
-                Label("No account, no cloud, no subscription", systemImage: "person.crop.circle.badge.xmark")
-                Label("Transcripts and summaries are written on this iPhone", systemImage: "cpu")
-                Label("The only downloads are Apple's speech model and the speaker-label model, once", systemImage: "arrow.down.circle")
+                point("No account, no cloud, no subscription", systemImage: "person.crop.circle.badge.xmark")
+                point("Transcripts and summaries are written on this iPhone", systemImage: "cpu")
+                point("The only downloads are Apple's speech model and the speaker-label model, once", systemImage: "arrow.down.circle")
             }
-            .font(.body)
         }
     }
 
@@ -69,21 +68,27 @@ struct OnboardingView: View {
         OnboardingPage(systemImage: "mic.circle.fill", title: "VeraFlow needs the microphone to record.") {
             VStack(spacing: 16) {
                 Text("Audio is saved only on this iPhone.")
-                    .foregroundStyle(.secondary)
+                    .vfText(VFText.body, color: VFColor.textSecondary)
+                    .multilineTextAlignment(.center)
                 switch microphoneGranted {
                 case nil:
                     Button("Allow microphone access") {
                         Task { microphoneGranted = await services.recorder.requestPermission() }
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(VFSecondaryPillStyle())
                     .accessibilityIdentifier("onboarding.microphone")
                 case true?:
-                    Label("Microphone access allowed", systemImage: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
+                    HStack(spacing: 8) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(VFColor.success)
+                            .accessibilityHidden(true)
+                        Text("Microphone access allowed")
+                            .vfText(VFText.rowLabel)
+                    }
+                    .accessibilityElement(children: .combine)
                 case false?:
                     Text("Microphone access was not allowed. You can turn it on later in Settings → Privacy & Security → Microphone.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .vfText(VFText.snippet, color: VFColor.textSecondary)
                         .multilineTextAlignment(.center)
                 }
             }
@@ -112,9 +117,23 @@ struct OnboardingView: View {
                     }
                 } else {
                     ProgressView("Checking…")
+                        .tint(VFColor.accent)
                 }
             }
         }
+    }
+
+    /// One bullet of an onboarding page: accent glyph, sans body.
+    private func point(_ text: String, systemImage: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Image(systemName: systemImage)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(VFColor.accent)
+                .frame(width: 24)
+                .accessibilityHidden(true)
+            Text(text).vfText(VFText.body, color: VFColor.textPrimary)
+        }
+        .accessibilityElement(children: .combine)
     }
 
     @ViewBuilder
@@ -122,18 +141,19 @@ struct OnboardingView: View {
         if let assetProgress {
             ProgressView(value: assetProgress) {
                 Text(assetProgress < 1 ? "Downloading the speech model…" : "Speech model installed")
+                    .vfText(VFText.snippet, color: VFColor.textSecondary)
             }
+            .tint(VFColor.accent)
         } else {
             Button("Download the speech model now") {
                 Task { await downloadAssets() }
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(VFSecondaryPillStyle())
             Text("Otherwise it downloads with your first recording.")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+                .vfText(VFText.snippet, color: VFColor.textTertiary)
         }
         if let assetMessage {
-            Text(assetMessage).font(.footnote).foregroundStyle(VFColor.danger)
+            Text(assetMessage).vfText(VFText.snippet, color: VFColor.danger)
         }
     }
 
@@ -179,12 +199,12 @@ private struct OnboardingPage<Content: View>: View {
         ScrollView {
             VStack(spacing: 24) {
                 Image(systemName: systemImage)
-                    .font(.system(size: iconSize))
-                    .foregroundStyle(.tint)
+                    .font(.system(size: iconSize, weight: .light))
+                    .foregroundStyle(VFColor.accent)
                     .accessibilityHidden(true)
                     .padding(.top, 48)
                 Text(title)
-                    .font(.title2.bold())
+                    .vfText(VFText.recordingTitle)
                     .multilineTextAlignment(.center)
                     .accessibilityAddTraits(.isHeader)
                 content
@@ -201,13 +221,16 @@ private struct CapabilityRow: View {
     let text: String
 
     var body: some View {
-        Label {
-            Text(text)
-        } icon: {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
             Image(systemName: ok ? "checkmark.circle.fill" : "info.circle.fill")
-                .foregroundStyle(ok ? .green : .orange)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(ok ? VFColor.success : VFColor.textTertiary)
+                .frame(width: 24)
+                .accessibilityHidden(true)
+            Text(text).vfText(VFText.body, color: VFColor.textPrimary)
         }
-        // The icon colour carries the state for sighted users; the label carries it for VoiceOver (A-21).
+        // The icon carries the state for sighted users; the label carries it for VoiceOver (A-21).
+        .accessibilityElement(children: .ignore)
         .accessibilityLabel((ok ? "Available: " : "Note: ") + text)
     }
 }

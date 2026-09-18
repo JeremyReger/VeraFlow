@@ -1,8 +1,10 @@
 import SwiftData
 import SwiftUI
 
-/// Settings (SPEC §14.2, §14.4, §15): recording, speaker labels, privacy and data controls,
-/// About with the hidden Diagnostics screen (7 taps on the version), and DEBUG developer tools.
+/// Settings (SPEC §14.2, §14.4, §15): what this iPhone can do, recording defaults, privacy and
+/// data controls, About with the hidden Diagnostics screen (7 taps on the version), and DEBUG
+/// developer tools. Laid out per the design spec §4 Settings: serif title, Done pill, hairline
+/// card groups, italic privacy footer.
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.services) private var services
@@ -10,6 +12,7 @@ struct SettingsView: View {
     @Environment(AppState.self) private var appState: AppState?
     @Environment(AppLock.self) private var appLock: AppLock?
     @State private var expectedSpeakers = DiarizationPreference.expectedSpeakers()
+    @State private var defaultTemplate = AppPreferences.defaultTemplate()
     @State private var consentReminder = AppPreferences.showsConsentReminder()
     @State private var appLockEnabled = AppPreferences.appLockEnabled()
     @State private var diagnosticsUnlocked = AppPreferences.diagnosticsUnlocked()
@@ -19,93 +22,21 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                Section("This iPhone") {
-                    if let capabilities = appState?.capabilities {
-                        LabeledContent("Transcription", value: capabilities.transcriptionEngine == .dictationTranscriber ? "Standard accuracy" : capabilities.canTranscribe ? "Available" : "Not available")
-                        LabeledContent("AI summaries", value: capabilities.canSummarize ? "Available" : "Not available")
-                        LabeledContent("Speaker labels", value: capabilities.diarizationModelsReady ? "Ready" : "Downloads when first needed")
-                        if !capabilities.canSummarize {
-                            Text(OnboardingView.summaryMessage(capabilities.summarization))
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                        }
-                    } else {
-                        Text("Checking…").foregroundStyle(.secondary)
-                    }
+            ScrollView {
+                VStack(alignment: .leading, spacing: VFSpace.sectionGap) {
+                    header
+                    deviceGroup
+                    recordingGroup
+                    privacyGroup
+                    aboutGroup
+                    footer
                 }
-                Section {
-                    Toggle("Consent reminder before recording", isOn: $consentReminder)
-                        .onChange(of: consentReminder) { _, value in
-                            AppPreferences.setShowsConsentReminder(value)
-                        }
-                        .accessibilityIdentifier("settings.consentReminder")
-                } header: {
-                    Text("Recording")
-                } footer: {
-                    Text(ConsentSheet.message)
-                }
-                Section {
-                    Picker("Expected speakers", selection: $expectedSpeakers) {
-                        ForEach(DiarizationPreference.ExpectedSpeakers.allCases, id: \.self) { choice in
-                            Text(choice.displayName).tag(choice)
-                        }
-                    }
-                    .onChange(of: expectedSpeakers) { _, choice in
-                        DiarizationPreference.setExpectedSpeakers(choice)
-                    }
-                } header: {
-                    Text("Speaker labels")
-                } footer: {
-                    Text("A hint for the next recording whose speakers are labeled. Labels can be wrong when people talk over each other.")
-                }
-                Section {
-                    Toggle("Require Face ID or passcode", isOn: $appLockEnabled)
-                        .disabled(!AppLock.canAuthenticate)
-                        .onChange(of: appLockEnabled) { _, value in
-                            appLock?.isEnabled = value
-                            AppPreferences.setAppLockEnabled(value)
-                        }
-                        .accessibilityIdentifier("settings.appLock")
-                    Button("Delete all data", role: .destructive) {
-                        confirmDeleteAll = true
-                    }
-                    .accessibilityIdentifier("settings.deleteAll")
-                } header: {
-                    Text("Privacy")
-                } footer: {
-                    Text("Everything stays on this iPhone. VeraFlow makes no network requests with your recordings; the only downloads are Apple's speech model, the speaker-label model, and App Store purchases." + (AppLock.canAuthenticate ? "" : " Set a passcode on this iPhone to use the app lock."))
-                }
-                Section("About") {
-                    LabeledContent("Version", value: AppInfo.versionString)
-                        .contentShape(Rectangle())
-                        .onTapGesture { registerVersionTap() }
-                        .accessibilityIdentifier("settings.version")
-                    LabeledContent("Build", value: AppInfo.buildName)
-                    LabeledContent("Speaker models from", value: ModelDownload.diarizationModelSourceDescription)
-                    if diagnosticsUnlocked {
-                        NavigationLink("Diagnostics") {
-                            DiagnosticsView()
-                        }
-                        .accessibilityIdentifier("settings.diagnostics")
-                    }
-                }
-                #if DEBUG
-                Section("Developer") {
-                    NavigationLink("Transcription benchmark") {
-                        TranscriptionBenchmarkView()
-                    }
-                    .accessibilityIdentifier("settings.benchmark")
-                }
-                #endif
+                .padding(.horizontal, VFSpace.gutter)
+                .padding(.bottom, VFSpace.bottomInset)
             }
-            .navigationTitle("Settings")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
+            .background(VFColor.background.ignoresSafeArea())
+            // The design draws its own title and Done pill; pushed screens get the bar back.
+            .toolbar(.hidden, for: .navigationBar)
             .confirmationDialog("Delete all recordings, transcripts, and summaries?", isPresented: $confirmDeleteAll, titleVisibility: .visible) {
                 Button("Delete Everything", role: .destructive) {
                     Task { await deleteAll() }
@@ -120,6 +51,252 @@ struct SettingsView: View {
                 Text(deleteMessage ?? "")
             }
         }
+    }
+
+    // MARK: Header
+
+    private var header: some View {
+        HStack(alignment: .center) {
+            Text("Settings")
+                .vfText(VFText.screenTitle)
+                .accessibilityAddTraits(.isHeader)
+            Spacer()
+            Button("Done") { dismiss() }
+                .font(.custom(VFFontName.sansBold, size: 13.5, relativeTo: .subheadline))
+                .foregroundStyle(VFColor.onAccent)
+                .padding(.horizontal, 18)
+                .frame(minHeight: 38)
+                .background(VFColor.accent, in: Capsule())
+                .frame(minHeight: VFMetric.minHit)
+                .accessibilityIdentifier("settings.done")
+        }
+        .padding(.top, 18)
+    }
+
+    // MARK: This iPhone
+
+    private var deviceGroup: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            VFSectionLabel("This iPhone")
+            VFSettingsGroup {
+                if let capabilities = appState?.capabilities {
+                    statusRow(
+                        "Transcription",
+                        ok: capabilities.canTranscribe,
+                        value: capabilities.transcriptionEngine == .dictationTranscriber ? "Standard accuracy" : capabilities.canTranscribe ? "Ready" : "Not available"
+                    )
+                    VFHairline()
+                    statusRow("AI summaries", ok: capabilities.canSummarize, value: capabilities.canSummarize ? "Ready" : "Not available")
+                    VFHairline()
+                    statusRow(
+                        "Speaker labels",
+                        ok: true,
+                        value: capabilities.diarizationModelsReady ? "Ready" : "Downloads when first needed"
+                    )
+                    if !capabilities.canSummarize {
+                        Text(OnboardingView.summaryMessage(capabilities.summarization))
+                            .vfText(VFText.snippet, color: VFColor.textTertiary)
+                            .padding(.bottom, 12)
+                    }
+                } else {
+                    VFSettingsRow(title: "Checking…") { EmptyView() }
+                }
+            }
+        }
+    }
+
+    /// Status dot (success or danger) plus the wording, so the state is never colour alone.
+    private func statusRow(_ title: String, ok: Bool, value: String) -> some View {
+        VFSettingsRow(title: title) {
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(ok ? VFColor.success : VFColor.danger)
+                    .frame(width: 8, height: 8)
+                    .accessibilityHidden(true)
+                Text(value).vfText(VFText.meta, color: VFColor.textSecondary)
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    // MARK: Recording
+
+    private var recordingGroup: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            VFSectionLabel("Recording")
+            VFSettingsGroup {
+                Toggle("Consent reminder before recording", isOn: $consentReminder)
+                    .toggleStyle(VFToggleRowStyle())
+                    .onChange(of: consentReminder) { _, value in
+                        AppPreferences.setShowsConsentReminder(value)
+                    }
+                    .accessibilityIdentifier("settings.consentReminder")
+                VFHairline()
+                VFSettingsRow(title: "Summary template", detail: "For new recordings") {
+                    Menu {
+                        ForEach(TemplateID.allCases) { template in
+                            Button {
+                                defaultTemplate = template
+                                AppPreferences.setDefaultTemplate(template)
+                            } label: {
+                                if template == defaultTemplate {
+                                    Label(template.displayName, systemImage: "checkmark")
+                                } else {
+                                    Text(template.displayName)
+                                }
+                            }
+                        }
+                    } label: {
+                        menuValue(defaultTemplate.shortName)
+                    }
+                    .accessibilityLabel("Summary template: \(defaultTemplate.displayName)")
+                    .accessibilityIdentifier("settings.template")
+                }
+                VFHairline()
+                VFSettingsRow(title: "Expected voices", detail: "A hint for speaker labels") {
+                    Menu {
+                        ForEach(DiarizationPreference.ExpectedSpeakers.allCases, id: \.self) { choice in
+                            Button {
+                                expectedSpeakers = choice
+                                DiarizationPreference.setExpectedSpeakers(choice)
+                            } label: {
+                                if choice == expectedSpeakers {
+                                    Label(choice.displayName, systemImage: "checkmark")
+                                } else {
+                                    Text(choice.displayName)
+                                }
+                            }
+                        }
+                    } label: {
+                        menuValue(expectedSpeakers.displayName)
+                    }
+                    .accessibilityLabel("Expected voices: \(expectedSpeakers.displayName)")
+                    .accessibilityIdentifier("settings.expectedSpeakers")
+                }
+            }
+            Text(ConsentSheet.message + " Labels can be wrong when people talk over each other.")
+                .vfText(VFText.snippet, color: VFColor.textTertiary)
+        }
+    }
+
+    private func menuValue(_ value: String) -> some View {
+        HStack(spacing: 6) {
+            Text(value).vfText(VFText.meta, color: VFColor.textSecondary)
+            Image(systemName: "chevron.up.chevron.down")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(VFColor.textTertiary)
+                .accessibilityHidden(true)
+        }
+        .frame(minHeight: VFMetric.minHit)
+        .contentShape(Rectangle())
+    }
+
+    // MARK: Privacy
+
+    private var privacyGroup: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            VFSectionLabel("Privacy")
+            VFSettingsGroup {
+                Toggle("Require Face ID or passcode", isOn: $appLockEnabled)
+                    .toggleStyle(VFToggleRowStyle(detail: AppLock.canAuthenticate ? nil : "Set a passcode on this iPhone first"))
+                    .disabled(!AppLock.canAuthenticate)
+                    .onChange(of: appLockEnabled) { _, value in
+                        appLock?.isEnabled = value
+                        AppPreferences.setAppLockEnabled(value)
+                    }
+                    .accessibilityIdentifier("settings.appLock")
+                VFHairline()
+                Button(role: .destructive) {
+                    confirmDeleteAll = true
+                } label: {
+                    HStack {
+                        Text("Delete all data").vfText(VFText.rowLabel, color: VFColor.danger)
+                        Spacer()
+                        Image(systemName: "trash")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(VFColor.danger)
+                            .accessibilityHidden(true)
+                    }
+                    .frame(minHeight: 54)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("settings.deleteAll")
+            }
+        }
+    }
+
+    // MARK: About
+
+    private var aboutGroup: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            VFSectionLabel("About")
+            VFSettingsGroup {
+                Button {
+                    registerVersionTap()
+                } label: {
+                    VFSettingsRow(title: "Version") {
+                        Text(AppInfo.versionString).vfText(VFText.meta, color: VFColor.textSecondary)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Version \(AppInfo.versionString)")
+                .accessibilityIdentifier("settings.version")
+                VFHairline()
+                VFSettingsRow(title: "Build") {
+                    Text(AppInfo.buildName).vfText(VFText.meta, color: VFColor.textSecondary)
+                }
+                .accessibilityElement(children: .combine)
+                VFHairline()
+                VFSettingsRow(title: "Speaker models from") {
+                    Text(ModelDownload.diarizationModelSourceDescription)
+                        .vfText(VFText.meta, color: VFColor.textSecondary)
+                        .multilineTextAlignment(.trailing)
+                }
+                .accessibilityElement(children: .combine)
+                if diagnosticsUnlocked {
+                    VFHairline()
+                    NavigationLink {
+                        DiagnosticsView()
+                    } label: {
+                        navigationRow("Diagnostics")
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("settings.diagnostics")
+                }
+                #if DEBUG
+                VFHairline()
+                NavigationLink {
+                    TranscriptionBenchmarkView()
+                } label: {
+                    navigationRow("Transcription benchmark")
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("settings.benchmark")
+                #endif
+            }
+        }
+    }
+
+    private func navigationRow(_ title: String) -> some View {
+        HStack {
+            Text(title).vfText(VFText.rowLabel)
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(VFColor.textTertiary)
+                .accessibilityHidden(true)
+        }
+        .frame(minHeight: 54)
+        .contentShape(Rectangle())
+    }
+
+    // MARK: Footer
+
+    private var footer: some View {
+        VFReassurance("Everything stays on this iPhone. VeraFlow makes no network requests with your recordings; the only downloads are Apple's speech model, the speaker-label model, and App Store purchases.")
+            .padding(.top, 4)
     }
 
     /// Seven taps on the version reveal Diagnostics (SPEC §15); it stays revealed.

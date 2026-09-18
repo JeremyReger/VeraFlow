@@ -381,6 +381,34 @@ public struct VFToggleStyle: ToggleStyle {
     }
 }
 
+/// A settings row whose trailing control is the switch: the toggle's label is drawn as the row
+/// title, so VoiceOver hears one switch with that name, not a text plus an unnamed switch.
+public struct VFToggleRowStyle: ToggleStyle {
+    private let detail: String?
+    public init(detail: String? = nil) { self.detail = detail }
+
+    public func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 3) {
+                configuration.label.vfText(VFText.rowLabel)
+                if let detail {
+                    Text(detail).vfText(VFText.meta, color: VFColor.textTertiary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Toggle(isOn: configuration.$isOn) { configuration.label }
+                .toggleStyle(VFToggleStyle())
+                .labelsHidden()
+        }
+        .frame(minHeight: 54)
+        .contentShape(Rectangle())
+        .onTapGesture { configuration.isOn.toggle() }
+        .accessibilityRepresentation {
+            Toggle(isOn: configuration.$isOn) { configuration.label }
+        }
+    }
+}
+
 // MARK: - Mini player
 
 public struct VFMiniPlayer: View {

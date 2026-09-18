@@ -7,45 +7,51 @@ struct ConsentSheet: View {
     @State private var dontShowAgain = false
 
     static let message = "Recording laws vary. Some states require everyone's permission. Let people know you're recording."
-    @ScaledMetric(relativeTo: .largeTitle) private var iconSize: CGFloat = 40
+    @ScaledMetric(relativeTo: .largeTitle) private var iconSize: CGFloat = 36
 
     var body: some View {
-        NavigationStack {
-            // Scrolls and can grow to the large detent so large text never hides the button (A-16).
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    Image(systemName: "person.2.wave.2")
-                        .font(.system(size: iconSize))
-                        .foregroundStyle(.tint)
-                        .accessibilityHidden(true)
-                    Text(Self.message)
-                        .font(.body)
-                    Toggle("Don't show again", isOn: $dontShowAgain)
-                        .accessibilityIdentifier("consent.dontShowAgain")
-                    Button("Start Recording") {
-                        if dontShowAgain {
-                            AppPreferences.setShowsConsentReminder(false)
-                        }
-                        dismiss()
-                        onContinue()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, 8)
-                    .accessibilityIdentifier("consent.continue")
-                }
-                .padding(24)
-            }
-            .navigationTitle("Before you record")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
+        // Scrolls and can grow to the large detent so large text never hides the button (A-16).
+        ScrollView {
+            VStack(alignment: .leading, spacing: VFSpace.sectionGap) {
+                HStack {
+                    Text("Before you record")
+                        .vfText(VFText.cardTitle)
+                        .accessibilityAddTraits(.isHeader)
+                    Spacer()
                     Button("Cancel") { dismiss() }
+                        .vfText(VFText.rowLabel, color: VFColor.accent)
+                        .frame(minHeight: VFMetric.minHit)
+                        .accessibilityIdentifier("consent.cancel")
                 }
+                .padding(.top, 18)
+                Image(systemName: "person.2.wave.2")
+                    .font(.system(size: iconSize, weight: .light))
+                    .foregroundStyle(VFColor.accent)
+                    .accessibilityHidden(true)
+                Text(Self.message)
+                    .vfText(VFText.summaryBody)
+                VFSettingsGroup {
+                    Toggle("Don't show again", isOn: $dontShowAgain)
+                        .toggleStyle(VFToggleRowStyle())
+                        .accessibilityIdentifier("consent.dontShowAgain")
+                }
+                Button("Start Recording") {
+                    if dontShowAgain {
+                        AppPreferences.setShowsConsentReminder(false)
+                    }
+                    dismiss()
+                    onContinue()
+                }
+                .buttonStyle(VFPrimaryPillStyle())
+                .padding(.top, 4)
+                .accessibilityIdentifier("consent.continue")
             }
+            .padding(.horizontal, VFSpace.gutter)
+            .padding(.bottom, VFSpace.bottomInset)
         }
+        .background(VFColor.background.ignoresSafeArea())
         .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
     }
 }
 

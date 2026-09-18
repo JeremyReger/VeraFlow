@@ -118,7 +118,7 @@ Update this file at the end of every session. Check an item only when its "Done 
   - [ ] Listing copy, privacy + terms pages, screenshot UI test, review notes
   - [ ] §14.5 checklist with evidence; TestFlight build
   - [ ] Xcode 27 migration (needs Xcode 27 on Jeremy's Mac)
-  - [ ] Redesign from Jeremy's design package (plan: `docs/plans/2026-09-18-redesign.md`): Phase 1 foundation, Library, detail shell, Summary and Transcript done (not yet compiled by Jeremy); recorder, audio, settings, processing card, onboarding/paywall next
+  - [ ] Redesign from Jeremy's design package (plan: `docs/plans/2026-09-18-redesign.md`): Phase 2 written for every screen (Library, detail shell, Summary, Transcript, Record, Audio tab, Settings, processing card, onboarding, consent, paywall, lock covers); none of it compiled or seen on device yet → Jeremy: `scripts/test.sh`, then install and check fonts, light/dark, each screen (steps in the session notes)
 
 ## Requests from device testing
 

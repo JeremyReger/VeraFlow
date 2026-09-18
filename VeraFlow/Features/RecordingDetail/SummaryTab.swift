@@ -124,25 +124,39 @@ struct SummaryTab: View {
         Group {
             switch recording.stage {
             case .ready where recording.failedStage != .summarizing:
-                ContentUnavailableView {
-                    Label("No summary yet", systemImage: "text.document")
-                } description: {
+                VStack(spacing: 14) {
+                    Spacer()
+                    Image(systemName: "text.document")
+                        .font(.system(size: 34))
+                        .foregroundStyle(VFColor.textTertiary)
+                        .accessibilityHidden(true)
+                    Text("No summary yet")
+                        .vfText(VFText.cardTitle)
+                        .accessibilityAddTraits(.isHeader)
                     Text("Generate one from the transcript with the \(recording.templateID.displayName) template.")
-                } actions: {
+                        .vfText(VFText.body, color: VFColor.textSecondary)
+                        .multilineTextAlignment(.center)
                     Button("Summarize") {
                         Task { await services.pipeline.retry(recordingID: recording.id, from: .summarizing) }
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(VFPrimaryPillStyle())
+                    .padding(.top, 6)
                     .accessibilityIdentifier("summary.generate")
+                    Spacer()
                 }
+                .padding(.horizontal, VFSpace.gutter + 8)
             case .ready, .summarizing:
                 Spacer()
             default:
-                ContentUnavailableView(
-                    "Summary comes after the transcript",
-                    systemImage: "text.document",
-                    description: Text("The summary is written once transcription and speaker labels finish.")
-                )
+                ScrollView {
+                    ProcessingCard(
+                        recording: recording,
+                        progress: appState?.pipelineProgress[recording.id],
+                        canSummarize: appState?.capabilities?.canSummarize ?? true
+                    )
+                    .padding(.horizontal, VFSpace.gutterTight)
+                    .padding(.vertical, VFSpace.sectionGap)
+                }
             }
         }
     }

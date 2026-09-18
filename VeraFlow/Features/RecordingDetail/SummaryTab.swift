@@ -32,11 +32,13 @@ struct SummaryTab: View {
                     }
                     content(for: payload, record: selected)
                 }
-                .listStyle(.insetGrouped)
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
             } else {
                 emptyState
             }
         }
+        .background(VFColor.background)
         .task(id: selected?.id) {
             state = (try? selected?.actionItems()) ?? ActionItemsState()
         }
@@ -73,11 +75,12 @@ struct SummaryTab: View {
                 }
                 .font(.footnote)
                 ProgressView(value: fraction)
+                    .tint(VFColor.accent)
                     .accessibilityLabel("Summarizing")
             }
             .padding(.horizontal)
             .padding(.vertical, 10)
-            .background(.bar)
+            .background(VFColor.surface)
             .accessibilityElement(children: .combine)
         } else if recording.failedStage == .summarizing, let message = recording.failureMessage {
             let unlockedNow = isFreeLimitReached && appState?.isUnlocked == true
@@ -107,14 +110,13 @@ struct SummaryTab: View {
             }
             .padding(.horizontal)
             .padding(.vertical, 10)
-            .background(.bar)
+            .background(VFColor.surface)
         } else if let appState, !appState.isUnlocked, appState.capabilities?.canSummarize ?? true, recording.summaries.isEmpty {
             Text("\(min(appState.freeSummariesUsed, FreeTier.summaryLimit)) of \(FreeTier.summaryLimit) free summaries used.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .vfText(VFText.meta, color: VFColor.textTertiary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 6)
-                .background(.bar)
+                .background(VFColor.surface)
         }
     }
 
@@ -166,14 +168,24 @@ struct SummaryTab: View {
     @ViewBuilder
     private func content(for payload: SummaryPayload, record: SummaryRecord) -> some View {
         Section {
-            Text(payload.title).font(.title3.weight(.semibold))
             Text(payload.overview)
+                .vfText(VFText.summaryBody)
+                .padding(.vertical, 4)
+                .listRowSeparator(.hidden)
         } header: {
-            HStack {
-                Text(record.templateID.displayName)
+            HStack(spacing: 10) {
+                Text(record.templateID.displayName.uppercased())
+                    .font(.custom(VFFontName.sansBold, size: 10.5, relativeTo: .caption2))
+                    .tracking(1.4)
+                    .foregroundStyle(VFColor.accent)
+                    .padding(.horizontal, 10)
+                    .frame(height: 24)
+                    .background(VFColor.accent.opacity(0.12), in: Capsule())
+                    .accessibilityLabel("Template: \(record.templateID.displayName)")
                 Spacer()
                 templateMenu
             }
+            .textCase(nil)
         }
 
         switch payload {
@@ -188,12 +200,20 @@ struct SummaryTab: View {
             stringList("Decisions", summary.decisions)
             actionItems(summary.actionItems, record: record)
             if !summary.nextMeeting.isEmpty {
-                Section("Next meeting") { Text(summary.nextMeeting) }
+                Section {
+                    Text(summary.nextMeeting).vfText(VFText.summaryBody)
+                } header: {
+                    VFSectionLabel("Next meeting")
+                }
             }
             stringList("Open questions", summary.openQuestions)
         case .walkthrough(let summary):
             if !summary.location.isEmpty {
-                Section("Location") { Text(summary.location) }
+                Section {
+                    Text(summary.location).vfText(VFText.summaryBody)
+                } header: {
+                    VFSectionLabel("Location")
+                }
             }
             ForEach(Array(summary.areas.enumerated()), id: \.offset) { _, area in
                 workArea(area)
@@ -206,9 +226,13 @@ struct SummaryTab: View {
 
         Section {
             LabeledContent("Generated", value: record.createdAt.formatted(date: .abbreviated, time: .shortened))
+                .vfText(VFText.meta, color: VFColor.textTertiary)
             LabeledContent("Model", value: record.modelInfo)
+                .vfText(VFText.meta, color: VFColor.textTertiary)
         } footer: {
             Text("AI-generated from your recording. Check important details.")
+                .vfText(VFText.reassurance, color: VFColor.textSecondary)
+                .padding(.top, 6)
         }
     }
 
@@ -226,11 +250,13 @@ struct SummaryTab: View {
                 }
             }
         } label: {
-            Label("Change template", systemImage: "arrow.triangle.2.circlepath")
-                .font(.footnote)
-                .frame(minHeight: 44)
+            Text("Change")
+                .font(.custom(VFFontName.sansSemiBold, size: 12.5, relativeTo: .caption))
+                .foregroundStyle(VFColor.textSecondary)
+                .frame(minWidth: 44, minHeight: 44)
                 .contentShape(Rectangle())
         }
+        .accessibilityLabel("Change template")
         .disabled(recording.stage == .summarizing)
         .accessibilityIdentifier("summary.template")
     }
@@ -243,13 +269,25 @@ struct SummaryTab: View {
         Task { await services.pipeline.retry(recordingID: recording.id, from: .summarizing) }
     }
 
+    /// Numbered points separated by hairlines (design spec §4 Summary).
     @ViewBuilder
     private func stringList(_ title: String, _ items: [String]) -> some View {
         if !items.isEmpty {
-            Section(title) {
-                ForEach(Array(items.enumerated()), id: \.offset) { _, item in
-                    Text(item)
+            Section {
+                ForEach(Array(items.enumerated()), id: \.offset) { index, item in
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        Text("\(index + 1)")
+                            .vfText(VFText.meta, color: VFColor.textTertiary)
+                            .frame(width: 18, alignment: .trailing)
+                            .accessibilityHidden(true)
+                        Text(item)
+                            .vfText(VFText.summaryBody)
+                    }
+                    .padding(.vertical, 4)
+                    .listRowSeparatorTint(VFColor.separator)
                 }
+            } header: {
+                VFSectionLabel(title)
             }
         }
     }
@@ -283,10 +321,11 @@ struct SummaryTab: View {
                 }
             }
         } header: {
-            Text(area.name)
+            VFSectionLabel(area.name)
         } footer: {
             if !area.measurements.isEmpty {
                 Text("Check measurements against the audio before quoting.")
+                    .vfText(VFText.reassurance, color: VFColor.textSecondary)
             }
         }
     }
@@ -296,10 +335,13 @@ struct SummaryTab: View {
     @ViewBuilder
     private func actionItems(_ items: [ActionItem], record: SummaryRecord) -> some View {
         if !items.isEmpty {
-            Section("Action items") {
+            Section {
                 ForEach(items) { item in
                     actionItemRow(item, record: record)
+                        .listRowSeparatorTint(VFColor.separator)
                 }
+            } header: {
+                VFSectionLabel("Action items")
             }
         }
     }
@@ -310,9 +352,9 @@ struct SummaryTab: View {
             Button {
                 toggle(item, in: record)
             } label: {
-                Image(systemName: done ? "checkmark.circle.fill" : "circle")
+                Image(systemName: done ? "checkmark.square.fill" : "square")
                     .font(.title3)
-                    .foregroundStyle(done ? Color.accentColor : .secondary)
+                    .foregroundStyle(done ? VFColor.accent : VFColor.textTertiary)
                     .frame(minWidth: 44, minHeight: 44)
                     .contentShape(Rectangle())
             }
@@ -321,8 +363,8 @@ struct SummaryTab: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(item.task)
+                    .vfText(VFText.summaryBody, color: done ? VFColor.textTertiary : VFColor.textPrimary)
                     .strikethrough(done)
-                    .foregroundStyle(done ? .secondary : .primary)
                 HStack(spacing: 8) {
                     if let owner = ownerText(item) {
                         Label(owner, systemImage: "person")
@@ -334,14 +376,14 @@ struct SummaryTab: View {
                         Label(item.dueText, systemImage: "calendar")
                     }
                 }
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .vfText(VFText.meta, color: VFColor.textTertiary)
             }
             Spacer(minLength: 0)
             if let timestamp = item.timestamp {
                 playButton(at: timestamp)
             }
         }
+        .padding(.vertical, 4)
         // One element per action item, with the state spoken and both buttons as actions (A-5).
         .accessibilityElement(children: .combine)
         .accessibilityValue(done ? "Done" : "Not done")

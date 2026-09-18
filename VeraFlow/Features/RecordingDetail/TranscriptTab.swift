@@ -43,6 +43,7 @@ struct TranscriptTab: View {
                 emptyState
             }
         }
+        .background(VFColor.background)
         .modifier(OptionalSpeakerAlerts(controller: speakerController))
         .task {
             if speakerController == nil {
@@ -110,7 +111,7 @@ struct TranscriptTab: View {
         }
         .padding(.horizontal)
         .padding(.vertical, 10)
-        .background(.bar)
+        .background(VFColor.surface)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("transcript.progress")
     }
@@ -123,47 +124,37 @@ struct TranscriptTab: View {
     ) -> some View {
         HStack(spacing: 10) {
             Image(systemName: systemImage).foregroundStyle(tint).accessibilityHidden(true)
-            Text(text).font(.footnote)
+            Text(text).vfText(VFText.snippet, color: VFColor.textSecondary)
             Spacer(minLength: 0)
             action().buttonStyle(.bordered).controlSize(.small).frame(minHeight: 44)
         }
         .padding(.horizontal)
         .padding(.vertical, 10)
-        .background(.bar)
+        .background(VFColor.surface)
     }
 
     // MARK: Header (search + edit)
 
     private var header: some View {
         HStack(spacing: 10) {
-            HStack(spacing: 6) {
-                Image(systemName: "magnifyingglass").foregroundStyle(.secondary).accessibilityHidden(true)
-                TextField("Search transcript", text: $query)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .accessibilityIdentifier("transcript.search")
+            VFField("Search transcript", text: $query, identifier: "transcript.search") {
                 if !query.isEmpty {
                     Button {
                         query = ""
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(VFColor.textTertiary)
                             .frame(width: 28, height: 28)
                             .contentShape(Rectangle())
                     }
                     .accessibilityLabel("Clear search")
                 }
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 7)
-            .background(Color(.secondarySystemBackground), in: Capsule())
             .disabled(isEditing)
 
             if !query.trimmingCharacters(in: .whitespaces).isEmpty {
                 Text(matchCountText)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
+                    .vfText(VFText.meta, color: VFColor.textTertiary)
             }
 
             if !speakers.isEmpty, let speakerController {
@@ -172,10 +163,10 @@ struct TranscriptTab: View {
 
             if recording.transcriptionEngine == .dictationTranscriber {
                 Text("Standard accuracy")
-                    .font(.caption2)
+                    .vfText(VFText.meta, color: VFColor.textTertiary)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(Color(.tertiarySystemFill), in: Capsule())
+                    .overlay { Capsule().strokeBorder(VFColor.borderStrong, lineWidth: VFMetric.hairline) }
                     .accessibilityLabel("Standard accuracy: this iPhone uses the standard speech recognizer.")
             }
 
@@ -183,10 +174,11 @@ struct TranscriptTab: View {
                 if isEditing { commitEdits() } else { drafts = [:] }
                 isEditing.toggle()
             }
-            .fontWeight(isEditing ? .semibold : .regular)
+            .vfText(VFText.rowLabel, color: VFColor.accent)
+            .frame(minHeight: VFMetric.minHit)
             .accessibilityIdentifier("transcript.edit")
         }
-        .padding(.horizontal)
+        .padding(.horizontal, VFSpace.gutterTight)
         .padding(.vertical, 8)
         // Silent state changes get spoken (A-4).
         .onChange(of: matches.count) { _, _ in
@@ -225,8 +217,11 @@ struct TranscriptTab: View {
             }
         } label: {
             Image(systemName: "person.2")
-                .frame(minWidth: 44, minHeight: 44)
-                .contentShape(Rectangle())
+                .font(.system(size: 17, weight: .medium))
+                .foregroundStyle(VFColor.iconPrimary)
+                .frame(width: VFMetric.iconButton, height: VFMetric.iconButton)
+                .background(VFColor.surface, in: Circle())
+                .overlay { Circle().strokeBorder(VFColor.border, lineWidth: VFMetric.hairline) }
         }
         .accessibilityLabel("Speakers")
         .accessibilityIdentifier("transcript.speakers")
@@ -244,7 +239,7 @@ struct TranscriptTab: View {
         let matched = Set(matches)
         return ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 10) {
+                LazyVStack(alignment: .leading, spacing: VFSpace.listGap) {
                     ForEach(segments, id: \.index) { segment in
                         paragraph(
                             segment,
@@ -255,7 +250,7 @@ struct TranscriptTab: View {
                         .id(segment.index)
                     }
                 }
-                .padding(.horizontal)
+                .padding(.horizontal, VFSpace.gutterTight)
                 .padding(.bottom, 12)
             }
             .scrollDismissesKeyboard(.interactively)
@@ -274,33 +269,33 @@ struct TranscriptTab: View {
     private func paragraph(_ segment: TranscriptSegment, isCurrent: Bool, wordIndex: Int?, isMatch: Bool) -> some View {
         let segmentSpeaker = speaker(for: segment.speakerKey)
         let speakerName = segmentSpeaker?.displayName ?? segment.speakerKey.map(SpokenFormat.speakerName(forKey:)) ?? ""
-        return VStack(alignment: .leading, spacing: 4) {
+        return VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
-                // Bold while playing, so the current paragraph isn't marked by colour alone (A-14).
-                Text(timestamp(segment.start))
-                    .font(.caption.monospacedDigit().weight(isCurrent ? .bold : .regular))
-                    .foregroundStyle(isCurrent ? Color.accentColor : .secondary)
                 if let speaker = segmentSpeaker {
-                    Button {
+                    // Dot + name + timecode + "NAME?" while the label is still the default (spec §4).
+                    VFSpeakerTag(
+                        name: speaker.displayName,
+                        index: speaker.colorIndex,
+                        timecode: timestamp(segment.start),
+                        needsName: Self.isDefaultName(speaker.displayName)
+                    ) {
+                        guard !isEditing else { return }
                         speakerController?.beginRename(speaker)
-                    } label: {
-                        Text(speaker.displayName)
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(SpeakerPalette.color(for: speaker.colorIndex))
-                            .frame(minHeight: 28)
-                            .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
-                    .disabled(isEditing)
-                    .accessibilityLabel(speaker.displayName)
-                    .accessibilityHint("Renames this speaker")
-                } else if let key = segment.speakerKey {
-                    Text(SpokenFormat.speakerName(forKey: key)).font(.caption.weight(.semibold))
+                } else {
+                    // Bold while playing, so the current paragraph isn't marked by colour alone (A-14).
+                    Text(timestamp(segment.start))
+                        .vfText(VFText.meta, color: isCurrent ? VFColor.accent : VFColor.textTertiary)
+                        .fontWeight(isCurrent ? .bold : .regular)
+                    if let key = segment.speakerKey {
+                        Text(SpokenFormat.speakerName(forKey: key).uppercased())
+                            .vfText(VFText.speakerLabel, color: VFColor.textSecondary)
+                    }
                 }
                 if segment.isEdited {
                     Image(systemName: "pencil")
                         .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(VFColor.textTertiary)
                         .accessibilityLabel("Edited")
                 }
             }
@@ -314,11 +309,18 @@ struct TranscriptTab: View {
                     words: wordIndex == nil ? [] : segment.words,
                     highlightedWord: wordIndex
                 ))
+                .vfText(VFText.transcriptBody)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .padding(10)
-        .background(paragraphBackground(isCurrent: isCurrent, isMatch: isMatch), in: RoundedRectangle(cornerRadius: 10))
+        .padding(.horizontal, VFSpace.cardPaddingH)
+        .padding(.vertical, 12)
+        .background(paragraphBackground(isCurrent: isCurrent, isMatch: isMatch), in: RoundedRectangle(cornerRadius: VFRadius.block, style: .continuous))
+        .overlay {
+            // The block being played gets a tinted fill and a border, not a left bar (spec §4).
+            RoundedRectangle(cornerRadius: VFRadius.block, style: .continuous)
+                .strokeBorder(isCurrent ? VFColor.nowPlayingBorder : .clear, lineWidth: VFMetric.hairline)
+        }
         .contentShape(Rectangle())
         .onTapGesture {
             guard !isEditing else { return }
@@ -403,9 +405,15 @@ struct TranscriptTab: View {
     }
 
     private func paragraphBackground(isCurrent: Bool, isMatch: Bool) -> Color {
-        if isMatch { return .yellow.opacity(0.22) }
-        if isCurrent { return .accentColor.opacity(0.10) }
+        if isCurrent { return VFColor.nowPlayingFill }
+        if isMatch { return VFColor.accent.opacity(0.12) }
         return .clear
+    }
+
+    /// "Speaker 2" and the like: the diarizer's label, not a name the user gave.
+    static func isDefaultName(_ name: String) -> Bool {
+        let parts = name.split(separator: " ")
+        return parts.count == 2 && parts[0] == "Speaker" && Int(parts[1]) != nil
     }
 
     private var emptyState: some View {

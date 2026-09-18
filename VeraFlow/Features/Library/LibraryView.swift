@@ -108,7 +108,7 @@ struct LibraryView: View {
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
                 if isSearching {
-                    VFField("Search titles", text: $filter.searchText) {
+                    VFField("Search titles", text: $filter.searchText, identifier: "library.search") {
                         if !filter.searchText.isEmpty {
                             Button {
                                 filter.searchText = ""
@@ -121,7 +121,6 @@ struct LibraryView: View {
                             .accessibilityLabel("Clear search")
                         }
                     }
-                    .accessibilityIdentifier("library.search")
                     .listRowInsets(EdgeInsets(top: 4, leading: VFSpace.gutter, bottom: 6, trailing: VFSpace.gutter))
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)

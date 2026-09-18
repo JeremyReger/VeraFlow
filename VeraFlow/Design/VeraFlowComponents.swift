@@ -558,11 +558,19 @@ public struct VFScreenHeader<Trailing: View>: View {
 public struct VFField<Trailing: View>: View {
     private let placeholder: String
     @Binding private var text: String
+    private let identifier: String?
     private let trailing: Trailing
 
-    public init(_ placeholder: String, text: Binding<String>, @ViewBuilder trailing: () -> Trailing = { EmptyView() }) {
+    /// `identifier` lands on the text field itself, so UI tests can find it as a text field.
+    public init(
+        _ placeholder: String,
+        text: Binding<String>,
+        identifier: String? = nil,
+        @ViewBuilder trailing: () -> Trailing = { EmptyView() }
+    ) {
         self.placeholder = placeholder
         self._text = text
+        self.identifier = identifier
         self.trailing = trailing()
     }
 
@@ -575,6 +583,7 @@ public struct VFField<Trailing: View>: View {
                 .vfText(VFText.rowLabel)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
+                .accessibilityIdentifier(identifier ?? "")
             trailing
         }
         .padding(.horizontal, 14)

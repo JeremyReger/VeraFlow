@@ -28,8 +28,8 @@ enum TranscriptText {
         for (index, word) in words.enumerated() {
             var piece = AttributedString(word.text)
             if index == highlightedWord {
-                piece.backgroundColor = Color.accentColor.opacity(0.35)
-                piece.font = Font.body.weight(.semibold)
+                piece.backgroundColor = VFColor.accent.opacity(0.28)
+                piece.underlineStyle = .single
             }
             result += piece
             if index < words.count - 1 {

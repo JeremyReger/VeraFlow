@@ -40,7 +40,7 @@ final class LibraryManagementTests: XCTestCase {
         XCTAssertTrue(search.waitForExistence(timeout: 5))
         // The field sits in a List row; XCUITest reports it "not hittable" there even though
         // its frame is on screen, so tap its centre by coordinate to focus it.
-        search.coordinate(withNormalizedOffset: CGPoint(x: 0.5, y: 0.5)).tap()
+        search.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         search.typeText("Lecture")
         XCTAssertTrue(app.staticTexts["Lecture · Materials science"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.staticTexts["Weekly client check-in"].exists)

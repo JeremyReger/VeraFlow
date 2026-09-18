@@ -118,11 +118,20 @@ final class ExportController {
     }
 
     /// Stays on this device (no Universal Clipboard) and expires after two minutes (S-4).
+    /// iOS refuses pasteboard writes while the app is inactive, which it briefly is while the
+    /// menu that triggered the copy is closing ("Pasteboard … is not available at this time"),
+    /// so the write waits for the app to be active again.
     static func copyToPasteboard(_ text: String) {
-        UIPasteboard.general.setItems(
-            [[UTType.utf8PlainText.identifier: text]],
-            options: [.localOnly: true, .expirationDate: Date.now.addingTimeInterval(120)]
-        )
+        Task { @MainActor in
+            for _ in 0..<20 where UIApplication.shared.applicationState != .active {
+                try? await Task.sleep(for: .milliseconds(100))
+            }
+            UIPasteboard.general.setItems(
+                [[UTType.utf8PlainText.identifier: text]],
+                options: [.localOnly: true, .expirationDate: Date.now.addingTimeInterval(120)]
+            )
+            AccessibilityNotification.Announcement("Copied").post()
+        }
     }
 
     /// Summary + action items as an email, or the model-written follow-up for the client template.

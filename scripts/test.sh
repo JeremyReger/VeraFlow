@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 # Runs the VeraFlow unit + UI tests on an available iPhone simulator.
-# Usage: scripts/test.sh [--unit-only]
+# Usage: scripts/test.sh [--unit-only | --only <Target[/Class[/test]]>]
+#   e.g. scripts/test.sh --only VeraFlowUITests/LibraryManagementTests
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
 UNIT_ONLY=0
+ONLY=""
 if [[ "${1:-}" == "--unit-only" ]]; then UNIT_ONLY=1; fi
+if [[ "${1:-}" == "--only" ]]; then ONLY="${2:?--only needs a test target, class or test}"; fi
 
 if ! command -v xcodebuild >/dev/null 2>&1; then
   echo "error: xcodebuild not found. This script needs a Mac with Xcode installed." >&2
@@ -61,6 +64,8 @@ echo "==> Using simulator $UDID"
 ONLY_TESTING=""
 if [[ "$UNIT_ONLY" == "1" ]]; then
   ONLY_TESTING="-only-testing:VeraFlowTests"
+elif [[ -n "$ONLY" ]]; then
+  ONLY_TESTING="-only-testing:$ONLY"
 fi
 
 set -x

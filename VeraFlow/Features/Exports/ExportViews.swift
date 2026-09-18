@@ -150,8 +150,9 @@ struct MailComposeView: UIViewControllerRepresentable {
             self.dismiss = dismiss
         }
 
-        func mailComposeController(_ controller: MFMailComposeViewController, didFinishWith result: MFMailComposeResult, error: Error?) {
-            dismiss()
+        // The delegate protocol is nonisolated; hop back to the main actor to dismiss.
+        nonisolated func mailComposeController(_ controller: MFMailComposeViewController, didFinishWith result: MFMailComposeResult, error: Error?) {
+            Task { @MainActor in self.dismiss() }
         }
     }
 }

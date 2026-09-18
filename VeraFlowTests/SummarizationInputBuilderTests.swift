@@ -52,6 +52,7 @@ struct SummarizationInputBuilderTests {
             return
         }
         #expect(summary.areas[0].measurements[0].timestamp == 7, "clamped to the duration")
-        #expect(summary.areas[0].measurements[1].timestamp == 3.6, "placed on the paragraph that says it")
+        let placed = try #require(summary.areas[0].measurements[1].timestamp)
+        #expect(abs(placed - 3.6) < 0.001, "placed on the paragraph that says it")
     }
 }

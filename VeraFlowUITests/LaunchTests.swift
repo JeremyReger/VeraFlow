@@ -8,6 +8,8 @@ final class LaunchTests: XCTestCase {
     @MainActor
     func testLaunchShowsLibrary() throws {
         let app = XCUIApplication()
+        // Live services (so their setup is exercised), but past onboarding.
+        app.launchArguments = ["--skip-onboarding"]
         app.launch()
 
         XCTAssertTrue(app.navigationBars["Library"].waitForExistence(timeout: 5))

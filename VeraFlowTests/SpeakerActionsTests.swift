@@ -74,7 +74,7 @@ struct SpeakerActionsTests {
     func controllerRename() throws {
         let (container, recording) = try makeRecording()
         let controller = SpeakerActionsController(actions: SpeakerActions(context: container.mainContext))
-        let speaker = try #require(recording.speakers.first)
+        let speaker = try #require(recording.speakers.first { $0.key == "S1" })
         controller.beginRename(speaker)
         #expect(controller.renameDraft == "Speaker 1")
         controller.renameDraft = ""

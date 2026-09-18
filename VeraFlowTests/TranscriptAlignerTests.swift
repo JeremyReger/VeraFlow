@@ -8,14 +8,19 @@ struct TranscriptAlignerTests {
     private let aligner = LiveTranscriptAligner()
 
     @Test("Alternating two-speaker dialogue gives one paragraph per turn with keys by first appearance")
-    func alternatingDialogue() {
+    func alternatingDialogue() throws {
+        // Three words per turn: a run shorter than three words between the same speaker is
+        // smoothed away on purpose (SPEC §10.2 #2, tested below).
         let words = [
-            TimedWord(text: "Hello", start: 0.0, end: 0.5),
-            TimedWord(text: "Alice.", start: 0.6, end: 1.0),
+            TimedWord(text: "Hello", start: 0.0, end: 0.3),
+            TimedWord(text: "there", start: 0.4, end: 0.7),
+            TimedWord(text: "Alice.", start: 0.8, end: 1.1),
             TimedWord(text: "Hi", start: 1.5, end: 1.8),
-            TimedWord(text: "Bob.", start: 1.9, end: 2.3),
+            TimedWord(text: "there", start: 1.9, end: 2.1),
+            TimedWord(text: "Bob.", start: 2.2, end: 2.4),
             TimedWord(text: "Good", start: 2.8, end: 3.1),
-            TimedWord(text: "morning.", start: 3.2, end: 3.6),
+            TimedWord(text: "morning", start: 3.2, end: 3.4),
+            TimedWord(text: "all.", start: 3.5, end: 3.7),
         ]
         let turns = [
             SpeakerTurn(speakerID: "RAW_A", start: 0.0, end: 1.2),
@@ -23,10 +28,11 @@ struct TranscriptAlignerTests {
             SpeakerTurn(speakerID: "RAW_A", start: 2.7, end: 4.0),
         ]
         let segments = aligner.align(words: words, turns: turns)
+        try #require(segments.count == 3)
         #expect(segments.map(\.speakerKey) == ["S1", "S2", "S1"])
-        #expect(segments.map(\.text) == ["Hello Alice.", "Hi Bob.", "Good morning."])
+        #expect(segments.map(\.text) == ["Hello there Alice.", "Hi there Bob.", "Good morning all."])
         #expect(segments[0].start == 0.0)
-        #expect(segments[2].end == 3.6)
+        #expect(segments[2].end == 3.7)
     }
 
     @Test("A word straddling two turns goes to the larger overlap")
@@ -117,17 +123,19 @@ struct TranscriptAlignerTests {
 
     @Test("Keys follow chronological first appearance, not the diarizer's IDs")
     func keyOrder() {
-        let words = [
-            TimedWord(text: "First", start: 0.0, end: 0.5),
-            TimedWord(text: "Second", start: 1.0, end: 1.5),
-            TimedWord(text: "Third", start: 2.0, end: 2.5),
-        ]
+        // Three words per turn so smoothing leaves the middle turn alone.
+        var words: [TimedWord] = []
+        for index in 0..<9 {
+            let start = Double(index) * 0.3 + (index >= 3 ? 0.2 : 0) + (index >= 6 ? 0.2 : 0)
+            words.append(TimedWord(text: "w\(index)", start: start, end: start + 0.25))
+        }
         let turns = [
-            SpeakerTurn(speakerID: "SPEAKER_ZEBRA", start: 0.0, end: 0.8),
-            SpeakerTurn(speakerID: "SPEAKER_ALPHA", start: 0.9, end: 1.8),
-            SpeakerTurn(speakerID: "SPEAKER_ZEBRA", start: 1.9, end: 2.8),
+            SpeakerTurn(speakerID: "SPEAKER_ZEBRA", start: 0.0, end: 0.95),
+            SpeakerTurn(speakerID: "SPEAKER_ALPHA", start: 1.0, end: 2.05),
+            SpeakerTurn(speakerID: "SPEAKER_ZEBRA", start: 2.1, end: 3.5),
         ]
         #expect(aligner.align(words: words, turns: turns).map(\.speakerKey) == ["S1", "S2", "S1"])
+        #expect(LiveTranscriptAligner.speakerKeys(for: words, turns: turns) == ["S1", "S1", "S1", "S2", "S2", "S2", "S1", "S1", "S1"])
     }
 
     @Test("Paragraph rules still apply inside one speaker's run; no turns means plain paragraphs")

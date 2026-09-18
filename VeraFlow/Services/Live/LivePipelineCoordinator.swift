@@ -154,10 +154,12 @@ actor LivePipelineCoordinator: PipelineCoordinating {
         if recording.stage == .recorded || recording.stage == .transcribing {
             await transcribe(recording, progress: progress)
         }
-        guard !Task.isCancelled, recording.stage == .transcribed || recording.stage == .diarizing else { return }
-        await diarize(recording, progress: progress)
-        guard !Task.isCancelled, recording.stage == .diarized || recording.stage == .summarizing else { return }
-        await summarize(recording, progress: progress)
+        if !Task.isCancelled, recording.stage == .transcribed || recording.stage == .diarizing {
+            await diarize(recording, progress: progress)
+        }
+        if !Task.isCancelled, recording.stage == .diarized || recording.stage == .summarizing {
+            await summarize(recording, progress: progress)
+        }
     }
 
     private func transcribe(_ recording: Recording, progress: @Sendable @escaping (Double) -> Void) async {

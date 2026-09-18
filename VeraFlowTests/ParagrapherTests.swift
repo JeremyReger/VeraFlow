@@ -55,7 +55,9 @@ struct ParagrapherTests {
         #expect(Paragrapher.endsSentence("done."))
         #expect(Paragrapher.endsSentence("really?\""))
         #expect(Paragrapher.endsSentence("wow!)"))
-        #expect(!Paragrapher.endsSentence("Mr."))  // known limitation: abbreviations count as sentence ends
+        #expect(!Paragrapher.endsSentence("Mr."))
+        #expect(!Paragrapher.endsSentence("12 ft."))
+        #expect(Paragrapher.endsSentence("Friday."))
         #expect(!Paragrapher.endsSentence("hello"))
         #expect(!Paragrapher.endsSentence(""))
     }

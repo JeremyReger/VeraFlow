@@ -53,6 +53,19 @@ enum Paragrapher {
     static func endsSentence(_ text: String) -> Bool {
         let trimmed = text.trimmingCharacters(in: CharacterSet(charactersIn: "\"'”’)]}"))
         guard let last = trimmed.last else { return false }
-        return ".?!".contains(last)
+        guard ".?!".contains(last) else { return false }
+        if last == "." {
+            let word = trimmed.dropLast().lowercased()
+            if abbreviations.contains(word) || word.count == 1 { return false } // "Mr.", "J."
+        }
+        return true
     }
+
+    /// Words that end with a period without ending a sentence.
+    static let abbreviations: Set<String> = [
+        "mr", "mrs", "ms", "dr", "prof", "jr", "sr", "st", "mt", "ave", "blvd", "rd", "vs", "etc", "e.g", "i.e",
+        "no", "inc", "ltd", "co", "corp", "dept", "est", "approx", "ft", "in", "sq", "oz", "lb", "lbs",
+        "jan", "feb", "mar", "apr", "jun", "jul", "aug", "sep", "sept", "oct", "nov", "dec",
+        "mon", "tue", "tues", "wed", "thu", "thurs", "fri", "sat", "sun",
+    ]
 }

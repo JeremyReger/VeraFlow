@@ -13,6 +13,8 @@ struct VeraFlowApp: App {
     static let seedSampleDataArgument = "--seed-sample-data"
     /// With the fake services, starts on the onboarding flow instead of skipping it.
     static let showOnboardingArgument = "--show-onboarding"
+    /// Live services, but straight to the Library (the launch UI test).
+    static let skipOnboardingArgument = "--skip-onboarding"
 
     init() {
         let useFakes = ProcessInfo.processInfo.arguments.contains(Self.useFakeServicesArgument)
@@ -33,6 +35,10 @@ struct VeraFlowApp: App {
             } else {
                 container = try ModelContainerFactory.makePersistent()
                 services = try AppServices.live(container: container)
+                if ProcessInfo.processInfo.arguments.contains(Self.skipOnboardingArgument) {
+                    AppPreferences.setOnboardingCompleted(true)
+                    AppPreferences.setAppLockEnabled(false)
+                }
             }
         } catch {
             // Without a store or file storage the app can't do anything useful.

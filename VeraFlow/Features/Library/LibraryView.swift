@@ -113,7 +113,7 @@ struct LibraryView: View {
                     .padding(.top, 8)
                     .padding(.bottom, 6)
                 if isSearching {
-                    VFField("Search titles", text: $filter.searchText, identifier: "library.search") {
+                    VFField("Search recordings and transcripts", text: $filter.searchText, identifier: "library.search") {
                         if !filter.searchText.isEmpty {
                             Button {
                                 filter.searchText = ""

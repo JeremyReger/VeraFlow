@@ -1,7 +1,36 @@
 import Foundation
+import SwiftUI
+
+/// Light, dark, or follow the system (Settings → Appearance). Stored by raw value.
+enum Appearance: String, CaseIterable, Identifiable, Sendable {
+    case system
+    case light
+    case dark
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .system: "System"
+        case .light: "Light"
+        case .dark: "Dark"
+        }
+    }
+
+    /// `nil` lets the system decide.
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system: nil
+        case .light: .light
+        case .dark: .dark
+        }
+    }
+}
 
 /// Small user settings that live in `UserDefaults` (SPEC §4.1, §14.2, §14.4).
 enum AppPreferences {
+    static let appearanceKey = "display.appearance"
+
     static let onboardingCompletedKey = "onboarding.completed"
     static let consentReminderKey = "recording.consentReminder"
     static let appLockKey = "privacy.appLock"
@@ -41,6 +70,14 @@ enum AppPreferences {
 
     static func setDiagnosticsUnlocked(_ value: Bool, in defaults: UserDefaults = .standard) {
         defaults.set(value, forKey: diagnosticsUnlockedKey)
+    }
+
+    static func appearance(in defaults: UserDefaults = .standard) -> Appearance {
+        defaults.string(forKey: appearanceKey).flatMap(Appearance.init(rawValue:)) ?? .system
+    }
+
+    static func setAppearance(_ appearance: Appearance, in defaults: UserDefaults = .standard) {
+        defaults.set(appearance.rawValue, forKey: appearanceKey)
     }
 
     /// The summary template offered on the Record screen (design spec §4 Record — ready). The

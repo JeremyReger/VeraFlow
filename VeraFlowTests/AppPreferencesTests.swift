@@ -25,6 +25,21 @@ struct AppPreferencesTests {
         #expect(AppPreferences.diagnosticsUnlocked(in: defaults))
     }
 
+    @Test("Appearance follows the system until chosen; junk falls back to system")
+    func appearance() throws {
+        let suite = "AppPreferencesTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        #expect(AppPreferences.appearance(in: defaults) == .system)
+        #expect(Appearance.system.colorScheme == nil)
+        AppPreferences.setAppearance(.dark, in: defaults)
+        #expect(AppPreferences.appearance(in: defaults) == .dark)
+        #expect(Appearance.dark.colorScheme == .dark)
+        defaults.set("sepia", forKey: AppPreferences.appearanceKey)
+        #expect(AppPreferences.appearance(in: defaults) == .system)
+    }
+
     @Test("Default template is General until chosen, then remembered; junk falls back to General")
     func defaultTemplate() throws {
         let suite = "AppPreferencesTests.\(UUID().uuidString)"

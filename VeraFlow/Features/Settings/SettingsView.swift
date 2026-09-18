@@ -11,6 +11,7 @@ struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(AppState.self) private var appState: AppState?
     @Environment(AppLock.self) private var appLock: AppLock?
+    @AppStorage(AppPreferences.appearanceKey) private var appearance: Appearance = .system
     @State private var expectedSpeakers = DiarizationPreference.expectedSpeakers()
     @State private var defaultTemplate = AppPreferences.defaultTemplate()
     @State private var consentReminder = AppPreferences.showsConsentReminder()
@@ -26,6 +27,7 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: VFSpace.sectionGap) {
                     header
                     deviceGroup
+                    displayGroup
                     recordingGroup
                     privacyGroup
                     aboutGroup
@@ -117,6 +119,36 @@ struct SettingsView: View {
             }
         }
         .accessibilityElement(children: .combine)
+    }
+
+    // MARK: Display
+
+    /// Chalk / Slate by hand, or follow the system (Jeremy's request; the design spec had no picker).
+    private var displayGroup: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            VFSectionLabel("Display")
+            VFSettingsGroup {
+                VFSettingsRow(title: "Appearance", detail: appearance == .system ? "Follows the iPhone setting" : nil) {
+                    Menu {
+                        ForEach(Appearance.allCases) { choice in
+                            Button {
+                                appearance = choice
+                            } label: {
+                                if choice == appearance {
+                                    Label(choice.displayName, systemImage: "checkmark")
+                                } else {
+                                    Text(choice.displayName)
+                                }
+                            }
+                        }
+                    } label: {
+                        menuValue(appearance.displayName)
+                    }
+                    .accessibilityLabel("Appearance: \(appearance.displayName)")
+                    .accessibilityIdentifier("settings.appearance")
+                }
+            }
+        }
     }
 
     // MARK: Recording

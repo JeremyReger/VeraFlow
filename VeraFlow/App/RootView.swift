@@ -11,6 +11,8 @@ struct RootView: View {
     /// call) so the snapshot iOS takes never shows a transcript. Only with the app lock on: the
     /// cover is part of that feature (security review S-1).
     @State private var isShielded = false
+    /// Settings → Appearance; `nil` scheme follows the system. Applies to the whole scene, sheets included.
+    @AppStorage(AppPreferences.appearanceKey) private var appearance: Appearance = .system
 
     var body: some View {
         Group {
@@ -26,6 +28,7 @@ struct RootView: View {
             }
         }
         .environment(lock)
+        .preferredColorScheme(appearance.colorScheme)
         // Nothing behind the cover is reachable by VoiceOver or Switch Control (A-1).
         .accessibilityHidden(lock.isLocked || isShielded)
         .overlay {

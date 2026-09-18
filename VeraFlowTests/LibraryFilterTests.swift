@@ -41,6 +41,19 @@ struct LibraryFilterTests {
         #expect(filter.apply(to: sample()).isEmpty)
     }
 
+    @Test("Search needs every word, anywhere in the title, summary, tags, or transcript")
+    func matchesFields() {
+        let fields = ["Meeting · Sep 18, 2026", "Kitchen remodel walk-through", "The permit must be in hand", "contractor"]
+        #expect(LibraryFilter.matches(query: "permit", in: fields))
+        #expect(LibraryFilter.matches(query: "kitchen permit", in: fields))
+        #expect(LibraryFilter.matches(query: "CONTRACTOR", in: fields))
+        #expect(!LibraryFilter.matches(query: "kitchen plumbing", in: fields))
+        #expect(LibraryFilter.matches(query: "", in: fields))
+
+        let recording = Recording(title: "Site visit", tags: ["roof"])
+        #expect(LibraryFilter.searchableText(for: recording) == ["Site visit", "roof"])
+    }
+
     @Test("Favorites and tag filters combine with search")
     func favoritesAndTags() {
         var filter = LibraryFilter()

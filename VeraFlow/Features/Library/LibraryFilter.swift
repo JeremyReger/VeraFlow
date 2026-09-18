@@ -43,7 +43,7 @@ struct LibraryFilter: Equatable, Sendable {
             if favoritesOnly, !recording.isFavorite { return false }
             if let tag, !recording.tags.contains(tag) { return false }
             if let template, recording.templateID != template { return false }
-            if !query.isEmpty, !recording.title.localizedStandardContains(query) { return false }
+            if !query.isEmpty, !Self.matches(query: query, in: Self.searchableText(for: recording)) { return false }
             return true
         }
         switch sort {
@@ -57,6 +57,28 @@ struct LibraryFilter: Equatable, Sendable {
             result.sort { $0.duration > $1.duration }
         }
         return result
+    }
+
+    /// True when every word of `query` appears somewhere in `fields` (case- and diacritic-insensitive).
+    static func matches(query: String, in fields: [String]) -> Bool {
+        let words = query.split(whereSeparator: \.isWhitespace).map(String.init)
+        guard !words.isEmpty else { return true }
+        return words.allSatisfy { word in
+            fields.contains { $0.localizedStandardContains(word) }
+        }
+    }
+
+    /// What search looks through: the stored title, the generated title and gist, the tags, and
+    /// the transcript text. Recorded once per recording per keystroke; fine for a personal library.
+    static func searchableText(for recording: Recording) -> [String] {
+        var fields = [recording.title]
+        if let payload = try? recording.currentSummary?.payload() {
+            fields.append(payload.title)
+            fields.append(payload.overview)
+        }
+        fields.append(contentsOf: recording.tags)
+        fields.append(contentsOf: recording.segments.map(\.text))
+        return fields
     }
 
     /// Every distinct tag in use, alphabetically.

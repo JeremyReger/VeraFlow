@@ -1,3 +1,4 @@
+import PhotosUI
 import SwiftData
 import SwiftUI
 import UniformTypeIdentifiers
@@ -14,6 +15,8 @@ struct LibraryView: View {
     @State private var isShowingRecorder = false
     @State private var isShowingSettings = false
     @State private var isShowingImporter = false
+    @State private var isShowingPhotosPicker = false
+    @State private var photoItems: [PhotosPickerItem] = []
     @State private var isImporting = false
     @State private var importMessage: String?
 
@@ -61,6 +64,9 @@ struct LibraryView: View {
                     Button("Import from Files", systemImage: "square.and.arrow.down") {
                         isShowingImporter = true
                     }
+                    Button("Import Video from Photos", systemImage: "photo.on.rectangle") {
+                        isShowingPhotosPicker = true
+                    }
                 }
                 .accessibilityIdentifier("library.more")
                 Button("Record", systemImage: "record.circle") {
@@ -85,6 +91,17 @@ struct LibraryView: View {
                 Task { await importFiles(urls) }
             case .failure(let error):
                 importMessage = error.localizedDescription
+            }
+        }
+        .photosPicker(
+            isPresented: $isShowingPhotosPicker,
+            selection: $photoItems,
+            maxSelectionCount: 10,
+            matching: .videos
+        )
+        .onChange(of: photoItems) { _, items in
+            if !items.isEmpty {
+                Task { await importPhotoItems(items) }
             }
         }
         .alert("Import", isPresented: Binding(
@@ -193,6 +210,9 @@ struct LibraryView: View {
             Button("Import from Files") {
                 isShowingImporter = true
             }
+            Button("Import Video from Photos") {
+                isShowingPhotosPicker = true
+            }
         }
         .accessibilityIdentifier("library.empty")
     }
@@ -219,6 +239,34 @@ struct LibraryView: View {
         }
         if !failures.isEmpty {
             importMessage = failures.joined(separator: "\n")
+        }
+    }
+
+    /// Videos from the Photos picker: each is copied to tmp, imported like a dropped mp4/mov,
+    /// and the copy removed. The picker runs out of process, so no Photos permission is needed.
+    private func importPhotoItems(_ items: [PhotosPickerItem]) async {
+        isImporting = true
+        var urls: [URL] = []
+        var failures: [String] = []
+        for item in items {
+            do {
+                if let video = try await item.loadTransferable(type: PickedVideo.self) {
+                    urls.append(video.url)
+                } else {
+                    failures.append("One selected item isn't a video.")
+                }
+            } catch {
+                failures.append("Couldn't load a video from Photos: \(error.localizedDescription)")
+            }
+        }
+        isImporting = false
+        photoItems = []
+        await importFiles(urls)
+        for url in urls {
+            try? FileManager.default.removeItem(at: url)
+        }
+        if !failures.isEmpty {
+            importMessage = ([importMessage].compactMap { $0 } + failures).joined(separator: "\n")
         }
     }
 

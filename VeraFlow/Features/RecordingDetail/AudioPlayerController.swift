@@ -1,5 +1,6 @@
 import AVFAudio
 import Foundation
+import MediaPlayer
 import Observation
 
 /// Minimal playback for one audio file: play, pause, seek, skip. The full Audio tab lands in M3+.
@@ -16,9 +17,12 @@ final class AudioPlayerController {
 
     private var player: AVAudioPlayer?
     private var ticker: Task<Void, Never>?
+    private var title = ""
+    private var commandTargets: [(MPRemoteCommand, Any)] = []
 
-    func load(url: URL) {
+    func load(url: URL, title: String = "") {
         stop()
+        self.title = title
         guard FileManager.default.fileExists(at: url) else {
             errorMessage = "Audio file not found."
             isLoaded = false
@@ -35,6 +39,8 @@ final class AudioPlayerController {
             currentTime = 0
             errorMessage = nil
             isLoaded = true
+            registerRemoteCommands()
+            updateNowPlaying()
         } catch {
             errorMessage = "This recording can't be played: \(error.localizedDescription)"
             isLoaded = false
@@ -77,6 +83,7 @@ final class AudioPlayerController {
         }
         isPlaying = true
         startTicker()
+        updateNowPlaying()
     }
 
     func pause() {
@@ -84,6 +91,7 @@ final class AudioPlayerController {
         isPlaying = false
         stopTicker()
         currentTime = player?.currentTime ?? 0
+        updateNowPlaying()
     }
 
     func stop() {
@@ -94,6 +102,8 @@ final class AudioPlayerController {
         currentTime = 0
         duration = 0
         isLoaded = false
+        unregisterRemoteCommands()
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
     }
 
     func seek(to time: TimeInterval) {
@@ -101,6 +111,54 @@ final class AudioPlayerController {
         let clamped = min(max(0, time), max(0, duration))
         player.currentTime = clamped
         currentTime = clamped
+        updateNowPlaying()
+    }
+
+    // MARK: Lock Screen / Control Center (Now Playing)
+
+    /// Title, length, position, and rate for the system's playback controls.
+    private func updateNowPlaying() {
+        guard isLoaded else { return }
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = [
+            MPMediaItemPropertyTitle: title.isEmpty ? "Recording" : title,
+            MPMediaItemPropertyArtist: "VeraFlow",
+            MPMediaItemPropertyPlaybackDuration: duration,
+            MPNowPlayingInfoPropertyElapsedPlaybackTime: currentTime,
+            MPNowPlayingInfoPropertyPlaybackRate: isPlaying ? 1.0 : 0.0,
+        ]
+    }
+
+    private func registerRemoteCommands() {
+        unregisterRemoteCommands()
+        let center = MPRemoteCommandCenter.shared()
+        center.skipForwardCommand.preferredIntervals = [15]
+        center.skipBackwardCommand.preferredIntervals = [15]
+        func add(_ command: MPRemoteCommand, _ action: @escaping @MainActor (MPRemoteCommandEvent) -> Void) {
+            command.isEnabled = true
+            let target = command.addTarget { event in
+                // The command center calls back on the main thread.
+                MainActor.assumeIsolated { action(event) }
+                return .success
+            }
+            commandTargets.append((command, target))
+        }
+        add(center.playCommand) { [weak self] _ in self?.play() }
+        add(center.pauseCommand) { [weak self] _ in self?.pause() }
+        add(center.togglePlayPauseCommand) { [weak self] _ in self?.togglePlayPause() }
+        add(center.skipForwardCommand) { [weak self] _ in self?.skip(by: 15) }
+        add(center.skipBackwardCommand) { [weak self] _ in self?.skip(by: -15) }
+        add(center.changePlaybackPositionCommand) { [weak self] event in
+            if let event = event as? MPChangePlaybackPositionCommandEvent {
+                self?.seek(to: event.positionTime)
+            }
+        }
+    }
+
+    private func unregisterRemoteCommands() {
+        for (command, target) in commandTargets {
+            command.removeTarget(target)
+        }
+        commandTargets = []
     }
 
     func skip(by seconds: TimeInterval) {
@@ -131,6 +189,7 @@ final class AudioPlayerController {
             isPlaying = false
             currentTime = player.currentTime >= duration - 0.05 ? duration : player.currentTime
             stopTicker()
+            updateNowPlaying()
             try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         }
     }

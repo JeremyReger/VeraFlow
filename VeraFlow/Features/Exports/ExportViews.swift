@@ -10,11 +10,10 @@ struct ExportMenuItems: View {
     let onSendToReminders: () -> Void
     /// Called instead of the action when the free tier doesn't include it (SPEC §13.2).
     let onLocked: () -> Void
+    /// Passed in explicitly: toolbar menu content doesn't reliably see `@Environment` objects.
+    let isUnlocked: Bool
     @Environment(\.services) private var services
-    @Environment(AppState.self) private var appState: AppState?
     @AppStorage("export.includeTranscript") private var includeTranscript = true
-
-    private var isUnlocked: Bool { appState?.isUnlocked ?? false }
 
     /// Runs `action` if the tier allows it, otherwise opens the paywall.
     private func gated(_ action: ExportGate.Action, _ run: @escaping () -> Void) -> () -> Void {

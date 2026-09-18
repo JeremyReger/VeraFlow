@@ -163,6 +163,15 @@ final class RecorderViewModel {
         notice = nil
         phase = .recording
         observe(snapshots: snapshots, interruptions: interruptions)
+        // Lock Screen / Dynamic Island buttons arrive here while this recording is live.
+        RecordingControlHub.shared.handler = { [weak self] action in
+            guard let self else { return }
+            switch action {
+            case .pause: await self.pause()
+            case .resume: await self.resume()
+            case .bookmark: await self.addBookmark()
+            }
+        }
         await services.activity.start(recordingID: recording.id, title: recording.title, state: activityState())
     }
 
@@ -194,6 +203,7 @@ final class RecorderViewModel {
     func stop() async {
         guard isActive, let recording else { return }
         isAskingToResume = false
+        RecordingControlHub.shared.handler = nil
         await services.activity.end()
         do {
             let result = try await services.recorder.stop()

@@ -24,6 +24,7 @@ struct RecordingDetailView: View {
     @Environment(\.services) private var services
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(AppState.self) private var appState: AppState?
     @Query private var allRecordings: [Recording]
     @State private var tab: Tab
     @State private var player = AudioPlayerController()
@@ -77,7 +78,8 @@ struct RecordingDetailView: View {
                             recording: recording,
                             controller: exportController,
                             onSendToReminders: { remindersRecord = recording.currentSummary },
-                            onLocked: { showsPaywall = true }
+                            onLocked: { showsPaywall = true },
+                            isUnlocked: appState?.isUnlocked ?? false
                         )
                     }
                     .accessibilityIdentifier("detail.share")
@@ -110,7 +112,7 @@ struct RecordingDetailView: View {
             if exportController == nil {
                 exportController = ExportController(services: services)
             }
-            player.load(url: services.storage.audioURL(for: recording.id, fileName: recording.audioFileName))
+            player.load(url: services.storage.audioURL(for: recording.id, fileName: recording.audioFileName), title: recording.title)
         }
         .onDisappear { player.stop() }
     }

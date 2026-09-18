@@ -22,6 +22,8 @@ protocol PipelineCoordinating: Sendable {
     func resumePendingWork() async
     /// Cancels work for a recording (e.g. it was deleted).
     func cancel(recordingID: UUID) async
+    /// After an unlock: re-runs the summaries that stopped at the free limit (SPEC §13.3).
+    func retrySummariesBlockedByFreeLimit() async
     func events() async -> AsyncStream<PipelineEvent>
 }
 
@@ -47,6 +49,12 @@ actor FakePipelineCoordinator: PipelineCoordinating {
 
     func cancel(recordingID: UUID) async {
         cancelled.append(recordingID)
+    }
+
+    private(set) var freeLimitRetryCount = 0
+
+    func retrySummariesBlockedByFreeLimit() async {
+        freeLimitRetryCount += 1
     }
 
     func events() async -> AsyncStream<PipelineEvent> {

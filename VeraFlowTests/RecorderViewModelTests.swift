@@ -357,3 +357,27 @@ struct RecorderViewModelTests {
         #expect(state.bookmarkCount == 1)
     }
 }
+
+extension RecorderViewModelTests {
+    @Test("Lock Screen buttons reach the live recording through the control hub, and stop unhooks them")
+    func liveActivityControls() async throws {
+        let harness = try makeHarness()
+        defer { harness.cleanUp() }
+        let viewModel = harness.viewModel
+
+        await viewModel.start()
+        #expect(viewModel.phase == .recording)
+
+        await RecordingControlHub.shared.perform(.pause)
+        #expect(viewModel.phase == .paused)
+        await RecordingControlHub.shared.perform(.resume)
+        #expect(viewModel.phase == .recording)
+        await RecordingControlHub.shared.perform(.bookmark)
+        #expect(viewModel.bookmarkCount == 1)
+
+        await viewModel.stop()
+        #expect(RecordingControlHub.shared.handler == nil)
+        await RecordingControlHub.shared.perform(.pause)
+        #expect(viewModel.phase == .naming, "nothing listens after Stop")
+    }
+}

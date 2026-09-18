@@ -135,7 +135,12 @@ final class AppState {
         entitlementTask?.cancel()
         entitlementTask = Task { [services] in
             for await unlocked in await services.purchases.entitlementUpdates() {
+                let wasUnlocked = self.isUnlocked
                 self.isUnlocked = unlocked
+                if unlocked, !wasUnlocked {
+                    // The 4th-summary paywall moment: finish what the user came for (SPEC §13.3).
+                    await services.pipeline.retrySummariesBlockedByFreeLimit()
+                }
             }
         }
     }

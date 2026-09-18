@@ -111,6 +111,8 @@ Update this file at the end of every session. Check an item only when its "Done 
 
 ## Requests from device testing
 
+- Lock Screen controls (Jeremy, 2026-09-18): Pause/Resume + Bookmark buttons on the recording Live Activity, and standard playback controls for the player. Built the same day; needs the device check.
+
 - Live transcription while recording (Jeremy, 2026-09-18): start showing words about 10 s into a recording instead of after Stop. `SpeechAnalyzer` accepts streaming input, so the tap's buffers could feed it live and the file pass at the end would still produce the final, timed transcript. Planned after the pipeline is verified on device, because it adds CPU load during recording (the exact thing being debugged).
 
 ## Notes / blockers

@@ -2,8 +2,8 @@ import ActivityKit
 import SwiftUI
 import WidgetKit
 
-/// Recording status on the Lock Screen / Notification Center and in the Dynamic Island.
-/// Status only: timer, Recording/Paused, bookmark count. Tapping opens the app.
+/// Recording status on the Lock Screen / Notification Center and in the Dynamic Island, with
+/// Pause/Resume and Bookmark buttons that run inside the app (`LiveActivityIntent`).
 struct RecordingLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: RecordingActivityAttributes.self) { context in
@@ -26,13 +26,16 @@ struct RecordingLiveActivity: Widget {
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     HStack {
-                        Text(context.attributes.title)
-                            .font(.subheadline)
-                            .lineLimit(1)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(context.attributes.title)
+                                .font(.subheadline)
+                                .lineLimit(1)
+                            BookmarkCount(count: context.state.bookmarkCount)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                         Spacer()
-                        BookmarkCount(count: context.state.bookmarkCount)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                        ControlButtons(isPaused: context.state.isPaused)
                     }
                     .padding(.horizontal, 4)
                 }
@@ -70,10 +73,42 @@ private struct RecordingBanner: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            RecordingTimer(state: state)
-                .font(.title2.monospacedDigit().weight(.semibold))
+            VStack(alignment: .trailing, spacing: 8) {
+                RecordingTimer(state: state)
+                    .font(.title2.monospacedDigit().weight(.semibold))
+                ControlButtons(isPaused: state.isPaused)
+            }
         }
         .padding()
+    }
+}
+
+/// Pause/Resume and Bookmark. Each press runs its intent in the app, which updates the activity.
+private struct ControlButtons: View {
+    let isPaused: Bool
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if isPaused {
+                Button(intent: ResumeRecordingIntent()) {
+                    Label("Resume", systemImage: "record.circle")
+                }
+                .tint(.red)
+            } else {
+                Button(intent: PauseRecordingIntent()) {
+                    Label("Pause", systemImage: "pause.fill")
+                }
+                .tint(.orange)
+            }
+            Button(intent: AddBookmarkIntent()) {
+                Image(systemName: "bookmark.fill")
+            }
+            .tint(.blue)
+            .accessibilityLabel("Add bookmark")
+        }
+        .buttonStyle(.borderedProminent)
+        .controlSize(.small)
+        .font(.caption.weight(.semibold))
     }
 }
 

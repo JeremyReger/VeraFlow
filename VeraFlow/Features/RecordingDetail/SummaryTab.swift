@@ -71,9 +71,10 @@ struct SummaryTab: View {
             .padding(.vertical, 10)
             .background(.bar)
         } else if recording.failedStage == .summarizing, let message = recording.failureMessage {
+            let unlockedNow = isFreeLimitReached && appState?.isUnlocked == true
             HStack(spacing: 10) {
-                Image(systemName: isFreeLimitReached ? "lock.fill" : "sparkles.slash").foregroundStyle(.orange)
-                Text(message).font(.footnote)
+                Image(systemName: unlockedNow ? "lock.open.fill" : isFreeLimitReached ? "lock.fill" : "sparkles.slash").foregroundStyle(.orange)
+                Text(unlockedNow ? "Unlocked. Tap Retry to write this summary." : message).font(.footnote)
                 Spacer(minLength: 0)
                 if isFreeLimitReached, appState?.isUnlocked != true {
                     // The natural paywall moment (SPEC §13.3): the fourth summary.

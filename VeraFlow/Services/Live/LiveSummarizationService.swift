@@ -164,10 +164,19 @@ actor LiveSummarizationService: SummarizationService {
         var inputTokens = budget.inputTokens
         let counter = await tokenCounter(calibratedOn: TranscriptChunker.text(for: input.lines))
 
+        var rateLimitWaits = 0
         for attempt in 0...Self.maxOverflowRetries {
             do {
                 return try await run(input, inputTokens: inputTokens, tokenCount: counter, progress: progress)
             } catch let error as LanguageModelSession.GenerationError {
+                if case .rateLimited = error, rateLimitWaits < 2 {
+                    // The system throttles the model briefly (e.g. right after another request);
+                    // wait it out instead of failing the summary.
+                    rateLimitWaits += 1
+                    Self.log.notice("model rate limited; retrying in 5 s (\(rateLimitWaits, privacy: .public)/2)")
+                    try await Task.sleep(for: .seconds(5))
+                    continue
+                }
                 guard case .exceededContextWindowSize = error, attempt < Self.maxOverflowRetries else {
                     throw Self.map(error)
                 }

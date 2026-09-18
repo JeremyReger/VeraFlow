@@ -89,6 +89,16 @@ actor LivePipelineCoordinator: PipelineCoordinating {
         }
     }
 
+    func retrySummariesBlockedByFreeLimit() async {
+        let blocked = ((try? context.fetch(FetchDescriptor<Recording>())) ?? [])
+            .filter { $0.failedStage == .summarizing && $0.failureMessage == SummarizationError.freeLimitMessage }
+            .sorted { $0.createdAt < $1.createdAt }
+        Self.log.info("unlocked: retrying \(blocked.count, privacy: .public) summaries stopped at the free limit")
+        for recording in blocked {
+            await retry(recordingID: recording.id, from: .summarizing)
+        }
+    }
+
     func cancel(recordingID: UUID) async {
         queue.removeAll { $0 == recordingID }
         if current == recordingID {
@@ -299,6 +309,7 @@ actor LivePipelineCoordinator: PipelineCoordinating {
             // 4th summary stops cleanly with the paywall reason instead of a model call.
             let unlocked = await purchases.isUnlocked()
             let freeUsed = await purchases.freeSummariesUsed()
+            Self.log.info("summary gate for \(id.uuidString, privacy: .public): unlocked \(unlocked, privacy: .public), free used \(freeUsed, privacy: .public)/\(FreeTier.summaryLimit, privacy: .public)")
             guard unlocked || freeUsed < FreeTier.summaryLimit else {
                 throw SummarizationError.freeLimitReached
             }

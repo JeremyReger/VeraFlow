@@ -30,7 +30,9 @@ final class TranscriptTests: XCTestCase {
 
         let paragraph = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "permit")).firstMatch
         XCTAssertTrue(paragraph.waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["player.playPause"].exists)
+        // The pinned player is there; with fake services there is no audio file, so it shows
+        // its "not found" message instead of controls.
+        XCTAssertTrue(app.buttons["player.playPause"].exists || app.staticTexts["Audio file not found."].exists, "pinned player missing")
 
         let search = app.textFields["transcript.search"]
         XCTAssertTrue(search.waitForExistence(timeout: 5))

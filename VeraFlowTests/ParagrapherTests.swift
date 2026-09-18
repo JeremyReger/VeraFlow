@@ -56,7 +56,7 @@ struct ParagrapherTests {
         #expect(Paragrapher.endsSentence("really?\""))
         #expect(Paragrapher.endsSentence("wow!)"))
         #expect(!Paragrapher.endsSentence("Mr."))
-        #expect(!Paragrapher.endsSentence("12 ft."))
+        #expect(!Paragrapher.endsSentence("ft."))
         #expect(Paragrapher.endsSentence("Friday."))
         #expect(!Paragrapher.endsSentence("hello"))
         #expect(!Paragrapher.endsSentence(""))

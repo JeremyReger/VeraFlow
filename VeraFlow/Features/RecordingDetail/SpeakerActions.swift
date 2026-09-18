@@ -117,11 +117,13 @@ final class SpeakerActionsController {
     }
 }
 
-/// Eight distinguishable colours for speaker labels, indexed by `Speaker.colorIndex`.
+/// Eight distinguishable colours for speaker labels, indexed by `Speaker.colorIndex`. Asset
+/// colours tuned to at least 4.5:1 against the system background in light and dark mode, since
+/// they are used for caption-size text (accessibility review A-7).
 enum SpeakerPalette {
-    static let colors: [Color] = [.blue, .orange, .green, .purple, .pink, .teal, .indigo, .brown]
+    static let count = 8
 
     static func color(for index: Int) -> Color {
-        colors[((index % colors.count) + colors.count) % colors.count]
+        Color("Speaker\(((index % count) + count) % count + 1)")
     }
 }

@@ -24,6 +24,11 @@ struct ExportMenuItems: View {
         ExportGate.isAllowed(action, unlocked: isUnlocked) ? systemImage : "lock"
     }
 
+    /// The lock icon isn't spoken; the hint says what a gated item does (A-18).
+    private func lockHint(_ action: ExportGate.Action) -> String {
+        ExportGate.isAllowed(action, unlocked: isUnlocked) ? "" : "Opens the unlock screen"
+    }
+
     private var hasSummary: Bool { recording.currentSummary != nil }
     private var hasTranscript: Bool { !recording.segments.isEmpty }
 
@@ -34,6 +39,7 @@ struct ExportMenuItems: View {
                     Task { await controller.share(kind, document: document(), audioURL: audioURL) }
                 })
                 .disabled(!hasSummary && !hasTranscript)
+                .accessibilityHint(lockHint(.file(kind)))
             }
             Toggle("Include transcript", systemImage: "text.alignleft", isOn: $includeTranscript)
                 .disabled(!hasTranscript)
@@ -53,15 +59,18 @@ struct ExportMenuItems: View {
                 Task { await controller.draftEmail(for: document()) }
             })
             .disabled(!hasSummary)
+            .accessibilityHint(lockHint(.email))
             Button("Send action items to Reminders", systemImage: lockIcon(.reminders, "list.bullet.rectangle"), action: gated(.reminders) {
                 onSendToReminders()
             })
             .disabled(actionItems.isEmpty)
+            .accessibilityHint(lockHint(.reminders))
         }
         Section {
             Button(ExportKind.audio.title, systemImage: lockIcon(.file(.audio), ExportKind.audio.systemImage), action: gated(.file(.audio)) {
                 Task { await controller.share(.audio, document: document(), audioURL: audioURL) }
             })
+            .accessibilityHint(lockHint(.file(.audio)))
         }
     }
 
@@ -178,7 +187,7 @@ struct RemindersSheet: View {
             Form {
                 if let errorMessage {
                     Section {
-                        Text(errorMessage).foregroundStyle(.red)
+                        Text(errorMessage).foregroundStyle(Color("Alert"))
                     }
                 }
                 Section("List") {
@@ -222,6 +231,9 @@ struct RemindersSheet: View {
                         }
                         .buttonStyle(.plain)
                         .disabled(sent)
+                        // Selection is otherwise only a glyph (A-8).
+                        .accessibilityAddTraits(selectedItemIDs.contains(item.id) ? .isSelected : [])
+                        .accessibilityValue(sent ? "Already in Reminders" : selectedItemIDs.contains(item.id) ? "Selected" : "Not selected")
                     }
                 } header: {
                     Text("Action items")

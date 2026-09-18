@@ -133,7 +133,7 @@ struct OnboardingView: View {
                 .foregroundStyle(.secondary)
         }
         if let assetMessage {
-            Text(assetMessage).font(.footnote).foregroundStyle(.red)
+            Text(assetMessage).font(.footnote).foregroundStyle(Color("Alert"))
         }
     }
 
@@ -172,21 +172,27 @@ private struct OnboardingPage<Content: View>: View {
     let systemImage: String
     let title: String
     @ViewBuilder let content: Content
+    @ScaledMetric(relativeTo: .largeTitle) private var iconSize: CGFloat = 64
 
     var body: some View {
-        VStack(spacing: 24) {
-            Spacer()
-            Image(systemName: systemImage)
-                .font(.system(size: 64))
-                .foregroundStyle(.tint)
-            Text(title)
-                .font(.title2.bold())
-                .multilineTextAlignment(.center)
-            content
-            Spacer()
-            Spacer()
+        // Scrolls so large text sizes never clip the page (A-15).
+        ScrollView {
+            VStack(spacing: 24) {
+                Image(systemName: systemImage)
+                    .font(.system(size: iconSize))
+                    .foregroundStyle(.tint)
+                    .accessibilityHidden(true)
+                    .padding(.top, 48)
+                Text(title)
+                    .font(.title2.bold())
+                    .multilineTextAlignment(.center)
+                    .accessibilityAddTraits(.isHeader)
+                content
+            }
+            .padding(.horizontal, 28)
+            .padding(.bottom, 24)
+            .frame(maxWidth: .infinity)
         }
-        .padding(.horizontal, 28)
     }
 }
 
@@ -201,6 +207,8 @@ private struct CapabilityRow: View {
             Image(systemName: ok ? "checkmark.circle.fill" : "info.circle.fill")
                 .foregroundStyle(ok ? .green : .orange)
         }
+        // The icon colour carries the state for sighted users; the label carries it for VoiceOver (A-21).
+        .accessibilityLabel((ok ? "Available: " : "Note: ") + text)
     }
 }
 

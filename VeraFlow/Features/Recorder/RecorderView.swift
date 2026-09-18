@@ -25,6 +25,10 @@ struct RecorderView: View {
 private struct RecorderContent: View {
     @Bindable var viewModel: RecorderViewModel
     @Environment(\.dismiss) private var dismiss
+    @ScaledMetric(relativeTo: .largeTitle) private var timerSize: CGFloat = 56
+    @ScaledMetric(relativeTo: .largeTitle) private var startIconSize: CGFloat = 88
+    @ScaledMetric(relativeTo: .title2) private var controlDiameter: CGFloat = 56
+    @ScaledMetric(relativeTo: .title) private var stopDiameter: CGFloat = 72
     @Environment(\.openURL) private var openURL
     @State private var showsConsent = false
 
@@ -66,6 +70,15 @@ private struct RecorderContent: View {
         }
         .onChange(of: viewModel.phase) { _, phase in
             if case .saved = phase { dismiss() }
+            // The status text changes colour and wording; VoiceOver hears it too (A-4).
+            switch phase {
+            case .recording: AccessibilityNotification.Announcement("Recording").post()
+            case .paused: AccessibilityNotification.Announcement("Paused").post()
+            default: break
+            }
+        }
+        .onChange(of: viewModel.notice) { _, notice in
+            if let notice { AccessibilityNotification.Announcement(notice).post() }
         }
         .alert("Resume recording?", isPresented: Binding(
             get: { viewModel.isAskingToResume },
@@ -101,7 +114,7 @@ private struct RecorderContent: View {
             } label: {
                 VStack(spacing: 12) {
                     Image(systemName: "record.circle.fill")
-                        .font(.system(size: 88))
+                        .font(.system(size: startIconSize))
                         .foregroundStyle(.red)
                     Text("Start Recording")
                         .font(.headline)
@@ -160,9 +173,11 @@ private struct RecorderContent: View {
                 .accessibilityIdentifier("recorder.status")
 
             Text(Duration.seconds(viewModel.snapshot.elapsed), format: .time(pattern: .hourMinuteSecond))
-                .font(.system(size: 56, weight: .light, design: .rounded))
+                .font(.system(size: timerSize, weight: .light, design: .rounded))
                 .monospacedDigit()
                 .accessibilityLabel("Elapsed time")
+                .accessibilityValue(SpokenFormat.duration(viewModel.snapshot.elapsed))
+                .accessibilityAddTraits(.updatesFrequently)
                 .accessibilityIdentifier("recorder.timer")
 
             WaveformView(samples: viewModel.levelHistory, capacity: RecorderViewModel.waveformSampleCount)
@@ -174,7 +189,7 @@ private struct RecorderContent: View {
                 .padding(.horizontal, 48)
 
             if viewModel.bookmarkCount > 0 {
-                Text("\(viewModel.bookmarkCount) bookmark\(viewModel.bookmarkCount == 1 ? "" : "s")")
+                Text("^[\(viewModel.bookmarkCount) bookmark](inflect: true)")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -198,7 +213,7 @@ private struct RecorderContent: View {
                     Label("Bookmark", systemImage: "flag.fill")
                         .labelStyle(.iconOnly)
                         .font(.title2)
-                        .frame(width: 56, height: 56)
+                        .frame(width: controlDiameter, height: controlDiameter)
                 }
                 .buttonStyle(.bordered)
                 .clipShape(Circle())
@@ -210,7 +225,7 @@ private struct RecorderContent: View {
                 } label: {
                     Image(systemName: "stop.fill")
                         .font(.title)
-                        .frame(width: 72, height: 72)
+                        .frame(width: stopDiameter, height: stopDiameter)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.red)
@@ -224,7 +239,7 @@ private struct RecorderContent: View {
                     } label: {
                         Image(systemName: "play.fill")
                             .font(.title2)
-                            .frame(width: 56, height: 56)
+                            .frame(width: controlDiameter, height: controlDiameter)
                     }
                     .buttonStyle(.bordered)
                     .clipShape(Circle())
@@ -236,7 +251,7 @@ private struct RecorderContent: View {
                     } label: {
                         Image(systemName: "pause.fill")
                             .font(.title2)
-                            .frame(width: 56, height: 56)
+                            .frame(width: controlDiameter, height: controlDiameter)
                     }
                     .buttonStyle(.bordered)
                     .clipShape(Circle())
@@ -317,19 +332,22 @@ struct WaveformView: View {
 /// Horizontal level bar, 0...1.
 struct LevelMeter: View {
     let level: Float
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         GeometryReader { proxy in
             ZStack(alignment: .leading) {
                 Capsule().fill(.quaternary)
                 Capsule()
-                    .fill(level > 0.9 ? Color.red : Color.accentColor)
+                    .fill(level > 0.9 ? Color("Alert") : Color.accentColor)
                     .frame(width: proxy.size.width * CGFloat(min(max(level, 0), 1)))
-                    .animation(.linear(duration: 0.1), value: level)
+                    .animation(reduceMotion ? nil : .linear(duration: 0.1), value: level)
             }
         }
+        .accessibilityElement(children: .ignore)
         .accessibilityLabel("Input level")
-        .accessibilityValue("\(Int(level * 100)) percent")
+        .accessibilityValue(level > 0.9 ? "\(Int(level * 100)) percent, too loud" : "\(Int(level * 100)) percent")
+        .accessibilityAddTraits(.updatesFrequently)
     }
 }
 

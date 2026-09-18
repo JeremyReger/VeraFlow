@@ -83,6 +83,7 @@ struct PaywallView: View {
     @Environment(\.services) private var services
     @Environment(AppState.self) private var appState: AppState?
     @State private var model: PaywallModel?
+    @ScaledMetric(relativeTo: .largeTitle) private var iconSize: CGFloat = 44
 
     var body: some View {
         NavigationStack {
@@ -122,9 +123,10 @@ struct PaywallView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 Image(systemName: "lock.open.fill")
-                    .font(.system(size: 44))
+                    .font(.system(size: iconSize))
                     .foregroundStyle(.tint)
                     .frame(maxWidth: .infinity)
+                    .accessibilityHidden(true)
                 Text("One purchase. No subscription. Everything stays on your iPhone.")
                     .font(.title3.bold())
                     .multilineTextAlignment(.center)
@@ -177,6 +179,7 @@ struct PaywallView: View {
 
                 if let message = model.message {
                     Text(message).font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: .infinity)
+                        .onAppear { AccessibilityNotification.Announcement(message).post() }
                 }
 
                 HStack(spacing: 16) {
@@ -207,6 +210,8 @@ struct PaywallView: View {
             Image(systemName: available ? "checkmark.circle.fill" : "minus.circle")
                 .foregroundStyle(available ? .green : .secondary)
         }
+        // Strikethrough isn't spoken; say it (A-21).
+        .accessibilityLabel([available ? title : "Not available on this iPhone: \(title)", detail].compactMap { $0 }.joined(separator: ". "))
     }
 }
 

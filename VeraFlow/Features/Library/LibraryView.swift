@@ -167,6 +167,7 @@ struct LibraryView: View {
                     ProgressView("Importing…")
                         .padding()
                         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+                        .onAppear { AccessibilityNotification.Announcement("Importing").post() }
                 }
             }
         }
@@ -188,9 +189,12 @@ struct LibraryView: View {
                                 in: Capsule()
                             )
                             .foregroundStyle(filter.tag == tag ? Color.white : Color.primary)
+                            .frame(minHeight: 44)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .accessibilityAddTraits(filter.tag == tag ? .isSelected : [])
+                    .accessibilityHint("Filters the library by this tag")
                 }
             }
             .padding(.horizontal)
@@ -310,12 +314,13 @@ struct LibraryRow: View {
             }
             HStack(spacing: 8) {
                 Text(recording.createdAt, format: .dateTime.month(.abbreviated).day().hour().minute())
-                Text("·")
+                Text("·").accessibilityHidden(true)
                 Text(Duration.seconds(recording.duration), format: .time(pattern: .minuteSecond))
+                    .accessibilityLabel(SpokenFormat.duration(recording.duration))
                 if recording.stage != .ready {
-                    Text("·")
+                    Text("·").accessibilityHidden(true)
                     Text(recording.stage.displayName)
-                        .foregroundStyle(recording.stage == .failed ? .red : .secondary)
+                        .foregroundStyle(recording.stage == .failed ? Color("Alert") : .secondary)
                 }
             }
             .font(.subheadline)

@@ -132,6 +132,7 @@ struct RecordingDetailView: View {
                                 Text(Duration.seconds(bookmark.time), format: .time(pattern: .minuteSecond))
                                     .monospacedDigit()
                                     .foregroundStyle(.secondary)
+                                    .accessibilityLabel(SpokenFormat.duration(bookmark.time))
                                 Text(bookmark.note ?? "Bookmark")
                             }
                         }
@@ -142,7 +143,7 @@ struct RecordingDetailView: View {
             Section("Status") {
                 LabeledContent("Stage", value: recording.stage.displayName)
                 if let message = recording.failureMessage {
-                    Text(message).foregroundStyle(.red)
+                    Text(message).foregroundStyle(Color("Alert"))
                 }
                 if let engine = recording.transcriptionEngine {
                     LabeledContent("Speech engine", value: engineName(engine))

@@ -7,31 +7,36 @@ struct ConsentSheet: View {
     @State private var dontShowAgain = false
 
     static let message = "Recording laws vary. Some states require everyone's permission. Let people know you're recording."
+    @ScaledMetric(relativeTo: .largeTitle) private var iconSize: CGFloat = 40
 
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 20) {
-                Image(systemName: "person.2.wave.2")
-                    .font(.system(size: 40))
-                    .foregroundStyle(.tint)
-                Text(Self.message)
-                    .font(.body)
-                Toggle("Don't show again", isOn: $dontShowAgain)
-                    .accessibilityIdentifier("consent.dontShowAgain")
-                Spacer()
-                Button("Start Recording") {
-                    if dontShowAgain {
-                        AppPreferences.setShowsConsentReminder(false)
+            // Scrolls and can grow to the large detent so large text never hides the button (A-16).
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    Image(systemName: "person.2.wave.2")
+                        .font(.system(size: iconSize))
+                        .foregroundStyle(.tint)
+                        .accessibilityHidden(true)
+                    Text(Self.message)
+                        .font(.body)
+                    Toggle("Don't show again", isOn: $dontShowAgain)
+                        .accessibilityIdentifier("consent.dontShowAgain")
+                    Button("Start Recording") {
+                        if dontShowAgain {
+                            AppPreferences.setShowsConsentReminder(false)
+                        }
+                        dismiss()
+                        onContinue()
                     }
-                    dismiss()
-                    onContinue()
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 8)
+                    .accessibilityIdentifier("consent.continue")
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .frame(maxWidth: .infinity)
-                .accessibilityIdentifier("consent.continue")
+                .padding(24)
             }
-            .padding(24)
             .navigationTitle("Before you record")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -40,7 +45,7 @@ struct ConsentSheet: View {
                 }
             }
         }
-        .presentationDetents([.medium])
+        .presentationDetents([.medium, .large])
     }
 }
 

@@ -43,6 +43,13 @@ struct SummaryTab: View {
         .sheet(isPresented: $showsPaywall) {
             PaywallView()
         }
+        // Pipeline stage changes and failures are otherwise silent for VoiceOver (A-4).
+        .onChange(of: recording.stage) { _, stage in
+            AccessibilityNotification.Announcement(stage.displayName).post()
+        }
+        .onChange(of: recording.failureMessage) { _, message in
+            if let message { AccessibilityNotification.Announcement(message).post() }
+        }
     }
 
     private var isFreeLimitReached: Bool {
@@ -57,7 +64,7 @@ struct SummaryTab: View {
             let fraction = appState?.pipelineProgress[recording.id]?.fraction ?? 0
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
-                    Image(systemName: "sparkles")
+                    Image(systemName: "sparkles").accessibilityHidden(true)
                     Text("Summarizing…")
                     Spacer()
                     if fraction > 0 {
@@ -66,14 +73,18 @@ struct SummaryTab: View {
                 }
                 .font(.footnote)
                 ProgressView(value: fraction)
+                    .accessibilityLabel("Summarizing")
             }
             .padding(.horizontal)
             .padding(.vertical, 10)
             .background(.bar)
+            .accessibilityElement(children: .combine)
         } else if recording.failedStage == .summarizing, let message = recording.failureMessage {
             let unlockedNow = isFreeLimitReached && appState?.isUnlocked == true
             HStack(spacing: 10) {
-                Image(systemName: unlockedNow ? "lock.open.fill" : isFreeLimitReached ? "lock.fill" : "exclamationmark.triangle").foregroundStyle(.orange)
+                Image(systemName: unlockedNow ? "lock.open.fill" : isFreeLimitReached ? "lock.fill" : "exclamationmark.triangle")
+                    .foregroundStyle(.orange)
+                    .accessibilityHidden(true)
                 Text(unlockedNow ? "Unlocked. Tap Retry to write this summary." : message).font(.footnote)
                 Spacer(minLength: 0)
                 if isFreeLimitReached, appState?.isUnlocked != true {
@@ -81,6 +92,7 @@ struct SummaryTab: View {
                     Button("Unlock") { showsPaywall = true }
                         .buttonStyle(.borderedProminent)
                         .controlSize(.small)
+                        .frame(minHeight: 44)
                         .accessibilityIdentifier("summary.unlock")
                 } else {
                     Button("Retry") {
@@ -89,6 +101,7 @@ struct SummaryTab: View {
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
+                    .frame(minHeight: 44)
                     .accessibilityIdentifier("summary.retry")
                 }
             }
@@ -215,6 +228,8 @@ struct SummaryTab: View {
         } label: {
             Label("Change template", systemImage: "arrow.triangle.2.circlepath")
                 .font(.footnote)
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
         }
         .disabled(recording.stage == .summarizing)
         .accessibilityIdentifier("summary.template")
@@ -298,6 +313,8 @@ struct SummaryTab: View {
                 Image(systemName: done ? "checkmark.circle.fill" : "circle")
                     .font(.title3)
                     .foregroundStyle(done ? Color.accentColor : .secondary)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel(done ? "Mark not done" : "Mark done")
@@ -325,6 +342,18 @@ struct SummaryTab: View {
                 playButton(at: timestamp)
             }
         }
+        // One element per action item, with the state spoken and both buttons as actions (A-5).
+        .accessibilityElement(children: .combine)
+        .accessibilityValue(done ? "Done" : "Not done")
+        .accessibilityActions {
+            Button(done ? "Mark not done" : "Mark done") { toggle(item, in: record) }
+            if let timestamp = item.timestamp {
+                Button("Play from \(SpokenFormat.duration(timestamp))") {
+                    player.seek(to: timestamp)
+                    player.play()
+                }
+            }
+        }
         .accessibilityIdentifier("summary.actionItem")
     }
 
@@ -343,10 +372,11 @@ struct SummaryTab: View {
             Label(TranscriptChunker.timestamp(timestamp), systemImage: "play.circle")
                 .font(.caption.monospacedDigit())
                 .labelStyle(.titleAndIcon)
+                .frame(minHeight: 28)
         }
         .buttonStyle(.bordered)
-        .controlSize(.mini)
-        .accessibilityLabel("Play from \(TranscriptChunker.timestamp(timestamp))")
+        .controlSize(.small)
+        .accessibilityLabel("Play from \(SpokenFormat.duration(timestamp))")
     }
 
     private func toggle(_ item: ActionItem, in record: SummaryRecord) {

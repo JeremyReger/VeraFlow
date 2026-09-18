@@ -9,6 +9,9 @@ enum ExportRenderer {
         var lines: [String]
     }
 
+    /// Same wording as under every summary in the app (SPEC §14.3); exports carry it too (A-30).
+    static let aiDisclaimer = "AI-generated from your recording. Check important details."
+
     static func markdown(for document: ExportDocument) -> String {
         var out: [String] = ["# \(document.title)", "", metadataLine(document), ""]
         if !document.speakers.isEmpty {
@@ -29,6 +32,10 @@ enum ExportRenderer {
         }
         if case .walkthrough(let summary)? = document.summary, summary.areas.contains(where: { !$0.measurements.isEmpty }) {
             out.append("> Check measurements against the audio before quoting.")
+            out.append("")
+        }
+        if document.summary != nil {
+            out.append("> " + aiDisclaimer)
             out.append("")
         }
         if document.includeTranscript, !document.segments.isEmpty {
@@ -60,6 +67,10 @@ enum ExportRenderer {
         }
         if case .walkthrough(let summary)? = document.summary, summary.areas.contains(where: { !$0.measurements.isEmpty }) {
             out.append("Check measurements against the audio before quoting.")
+            out.append("")
+        }
+        if document.summary != nil {
+            out.append(aiDisclaimer)
             out.append("")
         }
         if document.includeTranscript, !document.segments.isEmpty {

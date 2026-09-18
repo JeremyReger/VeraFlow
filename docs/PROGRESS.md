@@ -110,8 +110,9 @@ Update this file at the end of every session. Check an item only when its "Done 
 - [ ] M9 — Polish and ship (plan: `docs/plans/2026-09-18-m9-polish-and-ship.md`; Jeremy added a Section 508 accessibility review and a DoD-oriented security review up front)
   - [x] Security review filed (`docs/reviews/2026-09-18-security-review.md`); 13 of 17 findings fixed in code, 2 accepted, S-11 (bundle models) is Jeremy's call, S-10 needs `Package.resolved` committed after the next `test.sh`
   - [ ] Device: with the app lock on, pull down Control Center and open the app switcher → the cover shows, not the transcript; Lock Screen playback shows "Recording"; a shared export disappears from Files → On My iPhone → VeraFlow after the share sheet closes
-  - [ ] Accessibility review filed (`docs/reviews/2026-09-18-accessibility-review.md`) and code-level findings fixed
-  - [ ] Dynamic Type, dark mode, Reduce Motion, empty states, error copy
+  - [x] Accessibility review filed (`docs/reviews/2026-09-18-accessibility-review.md`); 28 of 33 findings fixed in code, 3 partly (PDF structure tags, list title truncation, scroll animations under Reduce Motion), 2 accepted/DEBUG-only
+  - [ ] Device (VoiceOver on): record → hear "Recording"/"Paused" and the elapsed time on the timer; open a transcript → each paragraph is one element with Play from here / Change speaker / Rename in the actions rotor; check an action item → "Done"; Settings → Accessibility → Larger Text at the largest size → onboarding, consent sheet, recorder controls, summary rows still usable
+  - [x] Dynamic Type (`@ScaledMetric` for every fixed size), dark-mode colour sets, Reduce Motion on the level meter, empty states already covered; error copy audit still open
   - [ ] App icon (generated, reproducible) + alpha variant
   - [ ] Listing copy, privacy + terms pages, screenshot UI test, review notes
   - [ ] §14.5 checklist with evidence; TestFlight build

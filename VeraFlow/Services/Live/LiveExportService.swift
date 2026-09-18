@@ -122,10 +122,16 @@ enum PDFComposer {
         let pageRect = CGRect(origin: .zero, size: pageSize)
         let contentRect = pageRect.insetBy(dx: margin, dy: margin + 16)
         let framesetter = CTFramesetterCreateWithAttributedString(text)
-        let renderer = UIGraphicsPDFRenderer(bounds: pageRect, format: UIGraphicsPDFRendererFormat())
+        // Title and creator metadata so readers and screen readers know what the file is (A-17).
+        let format = UIGraphicsPDFRendererFormat()
+        format.documentInfo = [
+            kCGPDFContextTitle as String: document.title,
+            kCGPDFContextCreator as String: "VeraFlow",
+        ]
+        let renderer = UIGraphicsPDFRenderer(bounds: pageRect, format: format)
         let footerAttributes: [NSAttributedString.Key: Any] = [
             .font: UIFont.systemFont(ofSize: 9),
-            .foregroundColor: UIColor.gray,
+            .foregroundColor: UIColor.darkGray,
         ]
 
         return renderer.pdfData { context in
@@ -190,6 +196,9 @@ enum PDFComposer {
         }
         if case .walkthrough(let summary)? = document.summary, summary.areas.contains(where: { !$0.measurements.isEmpty }) {
             append("Check measurements against the audio before quoting.", size: 10, weight: .medium, color: .darkGray, style: paragraph(spacingBefore: 6, spacingAfter: 6))
+        }
+        if document.summary != nil {
+            append(ExportRenderer.aiDisclaimer, size: 10, weight: .medium, color: .darkGray, style: paragraph(spacingBefore: 6, spacingAfter: 6))
         }
         if document.includeTranscript, !document.segments.isEmpty {
             append("Transcript", size: 13, weight: .semibold, style: paragraph(spacingBefore: 10, spacingAfter: 3))

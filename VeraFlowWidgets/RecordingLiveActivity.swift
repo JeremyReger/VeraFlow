@@ -14,6 +14,7 @@ struct RecordingLiveActivity: Widget {
                 DynamicIslandExpandedRegion(.leading) {
                     HStack(spacing: 6) {
                         StatusIcon(isPaused: context.state.isPaused)
+                            .accessibilityHidden(true) // the text beside it says the same (A-20)
                         Text(context.state.isPaused ? "Paused" : "Recording")
                             .font(.headline)
                     }
@@ -44,6 +45,7 @@ struct RecordingLiveActivity: Widget {
             } compactTrailing: {
                 RecordingTimer(state: context.state)
                     .font(.caption.monospacedDigit())
+                    .minimumScaleFactor(0.7)
                     .frame(maxWidth: 56)
             } minimal: {
                 StatusIcon(isPaused: context.state.isPaused)
@@ -62,6 +64,7 @@ private struct RecordingBanner: View {
             HStack(spacing: 12) {
                 StatusIcon(isPaused: state.isPaused)
                     .font(.title)
+                    .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(state.isPaused ? "Paused" : "Recording")
                         .font(.headline)

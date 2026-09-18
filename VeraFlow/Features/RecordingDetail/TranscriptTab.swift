@@ -95,6 +95,7 @@ struct TranscriptTab: View {
         return VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Image(systemName: preparing ? "arrow.down.circle" : systemImage)
+                    .accessibilityHidden(true)
                 Text(preparing ? downloading : working)
                 Spacer()
                 if let fraction = progress?.fraction, fraction > 0 {
@@ -105,10 +106,12 @@ struct TranscriptTab: View {
             }
             .font(.footnote)
             ProgressView(value: progress?.fraction ?? 0)
+                .accessibilityLabel(preparing ? downloading : working)
         }
         .padding(.horizontal)
         .padding(.vertical, 10)
         .background(.bar)
+        .accessibilityElement(children: .combine)
         .accessibilityIdentifier("transcript.progress")
     }
 
@@ -119,10 +122,10 @@ struct TranscriptTab: View {
         @ViewBuilder action: () -> Action = { EmptyView() }
     ) -> some View {
         HStack(spacing: 10) {
-            Image(systemName: systemImage).foregroundStyle(tint)
+            Image(systemName: systemImage).foregroundStyle(tint).accessibilityHidden(true)
             Text(text).font(.footnote)
             Spacer(minLength: 0)
-            action().buttonStyle(.bordered).controlSize(.small)
+            action().buttonStyle(.bordered).controlSize(.small).frame(minHeight: 44)
         }
         .padding(.horizontal)
         .padding(.vertical, 10)
@@ -134,7 +137,7 @@ struct TranscriptTab: View {
     private var header: some View {
         HStack(spacing: 10) {
             HStack(spacing: 6) {
-                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                Image(systemName: "magnifyingglass").foregroundStyle(.secondary).accessibilityHidden(true)
                 TextField("Search transcript", text: $query)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
@@ -143,7 +146,10 @@ struct TranscriptTab: View {
                     Button {
                         query = ""
                     } label: {
-                        Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                            .frame(width: 28, height: 28)
+                            .contentShape(Rectangle())
                     }
                     .accessibilityLabel("Clear search")
                 }
@@ -170,7 +176,7 @@ struct TranscriptTab: View {
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(Color(.tertiarySystemFill), in: Capsule())
-                    .accessibilityHint("This iPhone uses the standard speech recognizer.")
+                    .accessibilityLabel("Standard accuracy: this iPhone uses the standard speech recognizer.")
             }
 
             Button(isEditing ? "Done" : "Edit") {
@@ -182,6 +188,15 @@ struct TranscriptTab: View {
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
+        // Silent state changes get spoken (A-4).
+        .onChange(of: matches.count) { _, _ in
+            if !query.trimmingCharacters(in: .whitespaces).isEmpty {
+                AccessibilityNotification.Announcement(matchCountText).post()
+            }
+        }
+        .onChange(of: recording.stage) { _, stage in
+            AccessibilityNotification.Announcement(stage.displayName).post()
+        }
     }
 
     /// Rename / Merge for every speaker (SPEC §10.3).
@@ -210,6 +225,8 @@ struct TranscriptTab: View {
             }
         } label: {
             Image(systemName: "person.2")
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
         }
         .accessibilityLabel("Speakers")
         .accessibilityIdentifier("transcript.speakers")
@@ -255,24 +272,30 @@ struct TranscriptTab: View {
     }
 
     private func paragraph(_ segment: TranscriptSegment, isCurrent: Bool, wordIndex: Int?, isMatch: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        let speaker = speaker(for: segment.speakerKey)
+        let speakerName = speaker?.displayName ?? segment.speakerKey.map(SpokenFormat.speakerName(forKey:)) ?? ""
+        return VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 8) {
+                // Bold while playing, so the current paragraph isn't marked by colour alone (A-14).
                 Text(timestamp(segment.start))
-                    .font(.caption.monospacedDigit())
+                    .font(.caption.monospacedDigit().weight(isCurrent ? .bold : .regular))
                     .foregroundStyle(isCurrent ? Color.accentColor : .secondary)
-                if let speaker = speaker(for: segment.speakerKey) {
+                if let speaker {
                     Button {
                         speakerController?.beginRename(speaker)
                     } label: {
                         Text(speaker.displayName)
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(SpeakerPalette.color(for: speaker.colorIndex))
+                            .frame(minHeight: 28)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .disabled(isEditing)
-                    .accessibilityLabel("Speaker \(speaker.displayName), tap to rename")
+                    .accessibilityLabel(speaker.displayName)
+                    .accessibilityHint("Renames this speaker")
                 } else if let key = segment.speakerKey {
-                    Text(key).font(.caption.weight(.semibold))
+                    Text(SpokenFormat.speakerName(forKey: key)).font(.caption.weight(.semibold))
                 }
                 if segment.isEdited {
                     Image(systemName: "pencil")
@@ -284,6 +307,7 @@ struct TranscriptTab: View {
             if isEditing {
                 TextField("Paragraph text", text: draftBinding(for: segment), axis: .vertical)
                     .textFieldStyle(.roundedBorder)
+                    .accessibilityLabel("Paragraph at \(SpokenFormat.duration(segment.start)), \(speakerName)")
             } else {
                 Text(TranscriptText.attributed(
                     text: segment.text,
@@ -307,12 +331,10 @@ struct TranscriptTab: View {
             }
             if segment.isEdited {
                 Button("Revert to transcribed text", systemImage: "arrow.uturn.backward") {
-                    TranscriptText.revert(segment)
-                    drafts[segment.index] = nil
-                    try? modelContext.save()
+                    revert(segment)
                 }
             }
-            if let speakerController, recording.stage.hasTranscript, recording.stage != .diarizing {
+            if let speakerController, canChangeSpeaker {
                 Menu("Change speaker", systemImage: "person.crop.circle") {
                     ForEach(speakers, id: \.key) { speaker in
                         Button {
@@ -332,7 +354,52 @@ struct TranscriptTab: View {
                 }
             }
         }
+        // One VoiceOver element per paragraph, with every long-press action available from the
+        // actions rotor so Switch Control and Full Keyboard Access can reach them too (A-3).
+        // While editing the text field stays its own element.
+        .accessibilityElement(children: isEditing ? .contain : .combine)
+        .accessibilityLabel(isEditing ? "" : "\(speakerName), \(SpokenFormat.duration(segment.start))")
+        .accessibilityValue(isEditing ? "" : paragraphValue(segment, isCurrent: isCurrent, isMatch: isMatch))
+        .accessibilityAddTraits(isEditing ? [] : .isButton)
+        .accessibilityHint(isEditing ? "" : "Seeks playback to this paragraph")
+        .accessibilityActions {
+            Button("Play from here") {
+                player.seek(to: segment.start)
+                player.play()
+            }
+            if segment.isEdited {
+                Button("Revert to transcribed text") { revert(segment) }
+            }
+            if let speaker {
+                Button("Rename \(speaker.displayName)") { speakerController?.beginRename(speaker) }
+            }
+            if let speakerController, canChangeSpeaker {
+                ForEach(speakers.filter { $0.key != segment.speakerKey }, id: \.key) { other in
+                    Button("Change speaker to \(other.displayName)") { speakerController.assign(segment, to: other) }
+                }
+                Button("New speaker") { speakerController.assignToNewSpeaker(segment, in: recording) }
+            }
+        }
         .accessibilityIdentifier("transcript.paragraph.\(segment.index)")
+    }
+
+    private var canChangeSpeaker: Bool {
+        recording.stage.hasTranscript && recording.stage != .diarizing
+    }
+
+    private func revert(_ segment: TranscriptSegment) {
+        TranscriptText.revert(segment)
+        drafts[segment.index] = nil
+        try? modelContext.save()
+    }
+
+    private func paragraphValue(_ segment: TranscriptSegment, isCurrent: Bool, isMatch: Bool) -> String {
+        var parts: [String] = []
+        if isCurrent { parts.append("Now playing") }
+        if isMatch { parts.append("Search match") }
+        if segment.isEdited { parts.append("Edited") }
+        parts.append(segment.text)
+        return parts.joined(separator: ", ")
     }
 
     private func paragraphBackground(isCurrent: Bool, isMatch: Bool) -> Color {

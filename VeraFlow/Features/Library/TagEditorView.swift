@@ -57,6 +57,12 @@ struct TagEditorView: View {
             .navigationTitle("Tags")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                // Swipe-to-delete has a visible alternative for Switch Control and keyboards (A-27).
+                if !tags.isEmpty {
+                    ToolbarItem(placement: .topBarLeading) {
+                        EditButton()
+                    }
+                }
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }

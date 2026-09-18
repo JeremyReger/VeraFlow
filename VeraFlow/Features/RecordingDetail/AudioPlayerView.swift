@@ -2,6 +2,7 @@ import SwiftUI
 
 /// Play/pause, skip, and scrub controls bound to an `AudioPlayerController`.
 struct AudioPlayerView: View {
+    @ScaledMetric(relativeTo: .largeTitle) private var playIconSize: CGFloat = 52
     let player: AudioPlayerController
     @State private var scrubTime: TimeInterval = 0
     @State private var isScrubbing = false
@@ -31,7 +32,9 @@ struct AudioPlayerView: View {
                 )
                 .disabled(!player.isLoaded)
                 .accessibilityLabel("Playback position")
+                .accessibilityValue("\(SpokenFormat.duration(isScrubbing ? scrubTime : player.currentTime)) of \(SpokenFormat.duration(player.duration))")
 
+                // The slider's spoken value carries both times (A-10).
                 HStack {
                     Text(timeText(isScrubbing ? scrubTime : player.currentTime))
                     Spacer()
@@ -39,12 +42,15 @@ struct AudioPlayerView: View {
                 }
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
 
                 HStack(spacing: 36) {
                     Button {
                         player.skip(by: -15)
                     } label: {
                         Image(systemName: "gobackward.15").font(.title2)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                     }
                     .accessibilityLabel("Back 15 seconds")
 
@@ -52,7 +58,7 @@ struct AudioPlayerView: View {
                         player.togglePlayPause()
                     } label: {
                         Image(systemName: player.isPlaying ? "pause.circle.fill" : "play.circle.fill")
-                            .font(.system(size: 52))
+                            .font(.system(size: playIconSize))
                     }
                     .accessibilityLabel(player.isPlaying ? "Pause" : "Play")
                     .accessibilityIdentifier("player.playPause")
@@ -61,6 +67,8 @@ struct AudioPlayerView: View {
                         player.skip(by: 15)
                     } label: {
                         Image(systemName: "goforward.15").font(.title2)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                     }
                     .accessibilityLabel("Forward 15 seconds")
                 }

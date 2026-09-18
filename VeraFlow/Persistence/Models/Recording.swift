@@ -79,6 +79,11 @@ final class Recording {
     }
 
     /// Default title for a new recording, e.g. "Meeting · Sep 17, 2:30 PM" (SPEC §4.2).
+    /// True while the title is still the automatic "Meeting · date" one, i.e. nobody named it.
+    var hasDefaultTitle: Bool {
+        title.hasPrefix("Meeting · ")
+    }
+
     static func suggestedTitle(for date: Date = .now, locale: Locale = .current) -> String {
         let formatted = date.formatted(
             Date.FormatStyle(date: .abbreviated, time: .shortened, locale: locale)

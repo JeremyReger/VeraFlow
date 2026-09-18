@@ -1,8 +1,9 @@
 import Foundation
 
-/// What a library card shows for one recording (design spec §4 Library): the summary's title
-/// and a one-line gist when there is a summary, the recording's own title and the first
-/// transcript line before that, and the pipeline state while it's still working.
+/// What a library card shows for one recording (design spec §4 Library): a name the user gave
+/// (or an imported file's name) always wins; the automatic "Meeting · date" title is replaced
+/// by the summary's generated one. The gist is the summary overview, else the first transcript
+/// line, and the pipeline state shows while it's still working.
 struct LibraryCardModel: Equatable, Sendable {
     var title: String
     var snippet: String
@@ -18,7 +19,11 @@ struct LibraryCardModel: Equatable, Sendable {
 
     init(recording: Recording, locale: Locale = .current) {
         let payload = try? recording.currentSummary?.payload()
-        title = payload?.title.isEmpty == false ? payload!.title : recording.title
+        if recording.hasDefaultTitle, let generated = payload?.title, !generated.isEmpty {
+            title = generated
+        } else {
+            title = recording.title
+        }
         snippet = Self.snippet(
             overview: payload?.overview,
             firstTranscriptLine: recording.segments.min { $0.index < $1.index }?.text,

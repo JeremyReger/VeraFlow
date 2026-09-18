@@ -27,7 +27,7 @@ struct LibraryCardModelTests {
     func grouping() throws {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "UTC")!
-        let now = Date(timeIntervalSince1970: 1_789_000_000) // 2026-09-10 08:26 UTC (a Thursday)
+        let now = Date(timeIntervalSince1970: 1_789_040_000) // 2026-09-10 11:33 UTC (a Thursday)
         let today = Recording(title: "a", createdAt: now.addingTimeInterval(-3_600), stage: .ready)
         let yesterday = Recording(title: "b", createdAt: now.addingTimeInterval(-86_400), stage: .ready)
         let older = Recording(title: "c", createdAt: now.addingTimeInterval(-5 * 86_400), stage: .ready)
@@ -43,12 +43,16 @@ struct LibraryCardModelTests {
         #expect(LibraryGrouping.sections([], sort: .title, now: now, calendar: calendar, locale: english).isEmpty)
     }
 
-    @Test("A card takes the summary title, gist, and action count when there is a summary")
+    @Test("A card keeps a user-given title, takes the summary's title only over the automatic one, and shows gist and action count")
     @MainActor
     func cardFromSummary() throws {
         let recording = PreviewData.sampleRecording(createdAt: Date(timeIntervalSince1970: 1_789_000_000))
-        let card = LibraryCardModel(recording: recording, locale: english)
         let payload = try #require(try recording.currentSummary?.payload())
+        #expect(LibraryCardModel(recording: recording, locale: english).title == "Kitchen remodel walk-through")
+
+        recording.title = Recording.suggestedTitle(for: recording.createdAt)
+        #expect(recording.hasDefaultTitle)
+        let card = LibraryCardModel(recording: recording, locale: english)
         #expect(card.title == payload.title)
         #expect(card.snippet.hasPrefix(String(payload.overview.prefix(20))))
         #expect(card.actionCount == payload.actionItems.count)

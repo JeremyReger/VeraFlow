@@ -46,7 +46,7 @@ struct AppServices: Sendable {
 
     /// The services the shipping app uses. Real implementations replace fakes milestone by milestone:
     /// M1 recorder, M2 importer, M3 transcription + pipeline, M4 diarization + aligner (done),
-    /// M5 summarization + due dates (done), M6 exporter (done), M7 capabilities, M8 purchases.
+    /// M5 summarization + due dates (done), M6 exporter (done), M7 capabilities (done), M8 purchases.
     static func live(container: ModelContainer) throws -> AppServices {
         let storage = try RecordingStorage.appDefault()
         var services = fakes(storage: storage)
@@ -63,6 +63,11 @@ struct AppServices: Sendable {
         services.dueDates = LiveDueDateResolver()
         services.summarization = LiveSummarizationService()
         services.exporter = LiveExportService()
+        services.capabilities = LiveCapabilityService(
+            transcription: services.transcription,
+            diarization: services.diarization,
+            summarization: services.summarization
+        )
         services.background = LiveBackgroundProcessing()
         services.pipeline = LivePipelineCoordinator(
             container: container,

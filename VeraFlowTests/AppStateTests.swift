@@ -67,3 +67,24 @@ extension AppStateTests {
         Issue.record("Timed out waiting for the app state to update")
     }
 }
+
+extension AppStateTests {
+    @Test("Stage changes and failures are kept for Diagnostics; progress ticks are not")
+    func recentEvents() async throws {
+        var services = AppServices.fakes()
+        let pipeline = FakePipelineCoordinator()
+        services.pipeline = pipeline
+        let state = AppState(services: services)
+        await state.startup()
+        let id = UUID()
+
+        await pipeline.emit(.stageChanged(recordingID: id, stage: .transcribing))
+        await pipeline.emit(.progress(recordingID: id, stage: .transcribing, fraction: 0.5))
+        await pipeline.emit(.failed(recordingID: id, stage: .transcribing, message: "x"))
+        try await waitUntil { state.recentEvents.count == 2 }
+        #expect(state.recentEvents.map(\.event) == [
+            .stageChanged(recordingID: id, stage: .transcribing),
+            .failed(recordingID: id, stage: .transcribing, message: "x"),
+        ])
+    }
+}

@@ -51,6 +51,19 @@ struct LibraryActions {
         try services.storage.deleteFolder(for: id)
     }
 
+    /// "Delete all data" (SPEC §14.4): every row, every audio folder (orphans included), and any queued work.
+    func deleteAll() async throws {
+        let recordings = try context.fetch(FetchDescriptor<Recording>())
+        for recording in recordings {
+            await services.pipeline.cancel(recordingID: recording.id)
+            context.delete(recording)
+        }
+        try context.save()
+        for id in try services.storage.existingFolderIDs() {
+            try services.storage.deleteFolder(for: id)
+        }
+    }
+
     /// Copies an audio file into a new recording's folder and queues it for processing.
     /// Files handed over by the share sheet land in the app's Inbox and are removed after import.
     @discardableResult

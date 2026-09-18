@@ -26,6 +26,9 @@ final class AppState {
     private(set) var pendingImportURLs: [URL] = []
     /// Processing progress by recording id; absent when nothing is running for it.
     private(set) var pipelineProgress: [UUID: PipelineProgress] = [:]
+    /// The last pipeline events with their arrival time, for the Diagnostics screen (SPEC §15).
+    private(set) var recentEvents: [PipelineTimeline.Entry] = []
+    static let recentEventLimit = 200
 
     private let services: AppServices
     private let modelContext: ModelContext?
@@ -63,6 +66,14 @@ final class AppState {
     }
 
     private func apply(_ event: PipelineEvent) {
+        if case .progress = event {
+            // Progress ticks are too many to keep; stage changes, downloads, and failures are enough.
+        } else {
+            recentEvents.append(PipelineTimeline.Entry(date: .now, event: event))
+            if recentEvents.count > Self.recentEventLimit {
+                recentEvents.removeFirst(recentEvents.count - Self.recentEventLimit)
+            }
+        }
         switch event {
         case .stageChanged(let id, let stage):
             if stage.isProcessing {

@@ -170,7 +170,7 @@ struct SummaryTab: View {
             LabeledContent("Generated", value: record.createdAt.formatted(date: .abbreviated, time: .shortened))
             LabeledContent("Model", value: record.modelInfo)
         } footer: {
-            Text("Written on this iPhone from the transcript. Check anything important against the audio.")
+            Text("AI-generated from your recording. Check important details.")
         }
     }
 

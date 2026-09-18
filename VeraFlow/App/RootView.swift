@@ -1,12 +1,37 @@
 import SwiftUI
 
-/// Top-level navigation. M0 launches straight into the Library; onboarding gates it from M7.
+/// Top-level navigation: onboarding on first launch (SPEC §4.1), the optional app lock
+/// (SPEC §14.4), then the Library.
 struct RootView: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var isOnboarded = AppPreferences.onboardingCompleted()
+    @State private var lock = AppLock()
 
     var body: some View {
-        NavigationStack {
-            LibraryView()
+        Group {
+            if isOnboarded {
+                NavigationStack {
+                    LibraryView()
+                }
+            } else {
+                OnboardingView {
+                    AppPreferences.setOnboardingCompleted(true)
+                    withAnimation { isOnboarded = true }
+                }
+            }
+        }
+        .environment(lock)
+        .overlay {
+            if lock.isLocked {
+                LockScreenView(lock: lock)
+                    .transition(.opacity)
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background {
+                lock.lock()
+            }
         }
         .alert("Interrupted recording", isPresented: Binding(
             get: { appState.recoveryMessage != nil },

@@ -11,6 +11,8 @@ struct VeraFlowApp: App {
     static let useFakeServicesArgument = "--use-fake-services"
     /// With the fake services, also inserts the preview recordings so list features can be driven.
     static let seedSampleDataArgument = "--seed-sample-data"
+    /// With the fake services, starts on the onboarding flow instead of skipping it.
+    static let showOnboardingArgument = "--show-onboarding"
 
     init() {
         let useFakes = ProcessInfo.processInfo.arguments.contains(Self.useFakeServicesArgument)
@@ -18,6 +20,10 @@ struct VeraFlowApp: App {
             if useFakes {
                 container = try ModelContainerFactory.makeInMemory()
                 services = .fakes()
+                // UI tests start on the Library with no consent sheet or lock in the way.
+                AppPreferences.setOnboardingCompleted(!ProcessInfo.processInfo.arguments.contains(Self.showOnboardingArgument))
+                AppPreferences.setShowsConsentReminder(false)
+                AppPreferences.setAppLockEnabled(false)
                 if ProcessInfo.processInfo.arguments.contains(Self.seedSampleDataArgument) {
                     for recording in PreviewData.sampleRecordings() {
                         container.mainContext.insert(recording)

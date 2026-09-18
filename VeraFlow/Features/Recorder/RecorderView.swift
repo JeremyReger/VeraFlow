@@ -26,6 +26,7 @@ private struct RecorderContent: View {
     @Bindable var viewModel: RecorderViewModel
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
+    @State private var showsConsent = false
 
     var body: some View {
         NavigationStack {
@@ -54,6 +55,11 @@ private struct RecorderContent: View {
             }
         }
         .interactiveDismissDisabled(viewModel.isActive || viewModel.phase == .naming)
+        .sheet(isPresented: $showsConsent) {
+            ConsentSheet {
+                Task { await viewModel.start() }
+            }
+        }
         .task {
             await viewModel.loadInputs()
             await viewModel.watchInputs()
@@ -86,7 +92,12 @@ private struct RecorderContent: View {
         VStack(spacing: 32) {
             Spacer()
             Button {
-                Task { await viewModel.start() }
+                // Consent reminder first (SPEC §14.2) unless the user turned it off.
+                if AppPreferences.showsConsentReminder() {
+                    showsConsent = true
+                } else {
+                    Task { await viewModel.start() }
+                }
             } label: {
                 VStack(spacing: 12) {
                     Image(systemName: "record.circle.fill")

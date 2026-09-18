@@ -88,7 +88,16 @@ Update this file at the end of every session. Check an item only when its "Done 
   - [x] Share menu on the detail screen: Markdown, PDF, plain text, include-transcript toggle, copy summary / action items, email (client follow-up via the model), Send to Reminders sheet, audio
   - [ ] `scripts/test.sh` green on Jeremy's Mac
   - [ ] Device: Markdown opens in Notes/Obsidian, PDF previews in Files, Mail draft is prefilled, Reminders shows the items with due dates, `.m4a` plays
-- [ ] M7 — Onboarding, settings, capability messaging, privacy
+- [ ] M7 — Onboarding, settings, capability messaging, privacy — written while Jeremy was away (plan: `docs/plans/2026-09-18-m7-onboarding-settings-privacy.md`); needs the compile run and device checks
+  - [x] Onboarding: four pages incl. microphone permission and honest capability messaging + optional speech-model download; gated in `RootView`
+  - [x] Consent reminder sheet (SPEC §14.2 copy) with "Don't show again" and a Settings toggle
+  - [x] `LiveCapabilityService` (SPEC §15) wired into `AppServices.live`
+  - [x] App lock (Face ID / passcode), Delete all data, AI disclaimer under summaries, `NSFaceIDUsageDescription`
+  - [x] Diagnostics (7 taps on the version): capabilities, models, storage, failures, stage timings, event log
+  - [x] Tests: preferences (1), timeline (3), delete all (1), app-state event log (1); UI test walks onboarding
+  - [ ] `scripts/test.sh` green on Jeremy's Mac
+  - [ ] Device: fresh install shows onboarding; capability page matches the phone; consent sheet once; Face ID lock on return; Delete all data; Diagnostics after 7 taps
+  - [ ] Device: proxy (Charles/Proxyman) shows only Apple speech assets, Hugging Face model files, and StoreKit
 - [ ] M8 — Purchases
 - [ ] M9 — Polish and ship
 

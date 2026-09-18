@@ -82,7 +82,12 @@ Update this file at the end of every session. Check an item only when its "Done 
   - [ ] Device: 60-min lecture and 30-min meeting summarize with no context-overflow failure
   - [ ] Device: walk-through fixture has zero invented measurements; action items link to the right moment (±10 s)
   - [ ] `docs/EVALS.md` golden results per fixture × template
-- [ ] M6 — Exports
+- [ ] M6 — Exports — written while Jeremy was away (plan: `docs/plans/2026-09-18-m6-exports.md`); needs the compile run and device checks
+  - [x] `ExportRenderer`: Markdown / plain text / copy texts / file names / reminder notes (7 tests)
+  - [x] `LiveExportService`: Core Text PDF with page footers (Simulator-tested), EventKit reminders with due dates + stored IDs, `.m4a` audio export
+  - [x] Share menu on the detail screen: Markdown, PDF, plain text, include-transcript toggle, copy summary / action items, email (client follow-up via the model), Send to Reminders sheet, audio
+  - [ ] `scripts/test.sh` green on Jeremy's Mac
+  - [ ] Device: Markdown opens in Notes/Obsidian, PDF previews in Files, Mail draft is prefilled, Reminders shows the items with due dates, `.m4a` plays
 - [ ] M7 — Onboarding, settings, capability messaging, privacy
 - [ ] M8 — Purchases
 - [ ] M9 — Polish and ship

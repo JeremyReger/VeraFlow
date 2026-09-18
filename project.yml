@@ -77,6 +77,7 @@ targets:
         BGTaskSchedulerPermittedIdentifiers:
           - com.jeremyreger.veraflow.processing.*
         NSMicrophoneUsageDescription: "VeraFlow uses the microphone to record your meetings. Audio stays on this iPhone."
+        NSRemindersFullAccessUsageDescription: "VeraFlow adds the action items you choose to your Reminders lists. Nothing is read back or sent anywhere."
         ITSAppUsesNonExemptEncryption: false
         # Lets Voice Memos, Files, Mail, etc. hand audio to VeraFlow. The system copies the file into
         # Documents/Inbox and calls onOpenURL (SPEC M2; onOpenURL chosen over a Share Extension).

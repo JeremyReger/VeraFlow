@@ -47,10 +47,11 @@ enum ExportError: Error, Equatable {
     case remindersAccessDenied
     case remindersFailed(String)
     case pdfFailed(String)
+    case audioExportFailed(String)
     case mailUnavailable
 }
 
-/// Builds exports and hands action items to Reminders (SPEC §12). Implemented for real in M6.
+/// Builds exports and hands action items to Reminders (SPEC §12). `LiveExportService` is the real one.
 protocol ExportService: Sendable {
     func markdown(for document: ExportDocument) async -> String
     func plainText(for document: ExportDocument) async -> String
@@ -60,6 +61,8 @@ protocol ExportService: Sendable {
     func reminderLists() async throws -> [ReminderList]
     /// Creates reminders and returns action item ID → reminder identifier.
     func createReminders(_ requests: [ReminderRequest], in list: ReminderList) async throws -> [UUID: String]
+    /// Writes an `.m4a` copy of the recording's audio to `destination` (SPEC §12).
+    func exportAudio(from sourceURL: URL, to destination: URL) async throws
 }
 
 /// Produces minimal text output and records what it was asked to do.
@@ -116,4 +119,15 @@ actor FakeExportService: ExportService {
         }
         return ids
     }
+
+    func exportAudio(from sourceURL: URL, to destination: URL) async throws {
+        if let errorToThrow { throw errorToThrow }
+        try? FileManager.default.removeItem(at: destination)
+        try FileManager.default.copyItem(at: sourceURL, to: destination)
+    }
+
+    // MARK: Test controls
+
+    func setError(_ error: ExportError?) { errorToThrow = error }
+    func setLists(_ lists: [ReminderList]) { self.lists = lists }
 }

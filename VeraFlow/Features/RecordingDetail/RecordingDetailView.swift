@@ -28,6 +28,8 @@ struct RecordingDetailView: View {
     @State private var tab: Tab
     @State private var player = AudioPlayerController()
     @State private var controller: RecordingActionsController?
+    @State private var exportController: ExportController?
+    @State private var remindersRecord: SummaryRecord?
 
     /// Explicit because `@Query` makes the synthesized initializer private. Opens on the Summary
     /// when there is one, otherwise on the Transcript.
@@ -67,6 +69,16 @@ struct RecordingDetailView: View {
         .navigationTitle(recording.title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            if let exportController {
+                ToolbarItem(placement: .primaryAction) {
+                    Menu("Share", systemImage: "square.and.arrow.up") {
+                        ExportMenuItems(recording: recording, controller: exportController) {
+                            remindersRecord = recording.currentSummary
+                        }
+                    }
+                    .accessibilityIdentifier("detail.share")
+                }
+            }
             if let controller {
                 ToolbarItem(placement: .primaryAction) {
                     Menu("Actions", systemImage: "ellipsis.circle") {
@@ -77,12 +89,19 @@ struct RecordingDetailView: View {
             }
         }
         .modifier(OptionalRecordingActions(controller: controller, allTags: LibraryFilter.allTags(in: allRecordings)))
+        .modifier(OptionalExportPresentation(controller: exportController))
+        .sheet(item: $remindersRecord) { record in
+            RemindersSheet(recording: recording, record: record)
+        }
         .task {
             if controller == nil {
                 let actions = LibraryActions(context: modelContext, services: services)
                 let controller = RecordingActionsController(actions: actions)
                 controller.onDeleted = { _ in dismiss() }
                 self.controller = controller
+            }
+            if exportController == nil {
+                exportController = ExportController(services: services)
             }
             player.load(url: services.storage.audioURL(for: recording.id, fileName: recording.audioFileName))
         }
@@ -155,6 +174,19 @@ struct RecordingDetailView: View {
         case .dictationTranscriber: "Apple Speech (standard accuracy)"
         case .parakeet: "Parakeet"
         case .fake: "Sample"
+        }
+    }
+}
+
+/// Share sheet, mail composer, and export errors once the controller exists.
+private struct OptionalExportPresentation: ViewModifier {
+    let controller: ExportController?
+
+    func body(content: Content) -> some View {
+        if let controller {
+            content.modifier(ExportPresentation(controller: controller))
+        } else {
+            content
         }
     }
 }

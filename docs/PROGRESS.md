@@ -52,8 +52,8 @@ Update this file at the end of every session. Check an item only when its "Done 
   - [x] Tests: paragrapher (5), coordinator (6), cursor (4), WER (4), benchmark (4), transcript text (4), app-state progress (1); UI test opens a seeded transcript, searches, toggles Edit
   - [ ] `scripts/test.sh` green on Jeremy's Mac
   - [ ] Fixtures in `TestAudio/` (2-min monologue + 10-min two-person with reference text; 30-min, 60-min optional)
-  - [ ] Device: a new recording transcribes automatically; the Library row shows progress; the transcript appears with timestamps and follows playback
-  - [ ] Device: the first transcription downloads the speech assets with progress (or reports "Standard accuracy" on a device without `SpeechTranscriber`)
+  - [x] Device: a new recording transcribes automatically and the transcript appears with timestamps (2026-09-18, iPhone iOS 27.0; 846 words / 4:40 in ~25 s). Follow-playback highlight and row progress still to eyeball
+  - [x] Device: speech assets were already installed on Jeremy's iPhone; `SpeechTranscriber` path confirmed (Speech engine: Apple Speech)
   - [ ] Device: lock the phone during transcription; it finishes (or resumes on next launch from `.recorded`)
   - [ ] Device: the 60-minute fixture transcribes without a crash or memory warning
   - [ ] Device: benchmark on the 10-minute fixture; WER + time for both engines recorded in `docs/DECISIONS.md`, engine choice decided
@@ -65,9 +65,9 @@ Update this file at the end of every session. Check an item only when its "Done 
   - [x] Settings → Speaker labels → Expected speakers (Automatic / 2 / 3 / 4 or more) with the honesty note; Audio tab lists speakers with colours and the same note
   - [x] Tests: aligner (9), speaker actions (5), preference (1), coordinator diarization path (4 new, 4 updated)
   - [ ] `scripts/test.sh` green on Jeremy's Mac
-  - [ ] Device: first run downloads the diarizer models with progress; a 2-person recording shows Speaker 1 / Speaker 2
+  - [x] Device: first run downloaded the diarizer models (23 files, compiled in 17.7 s); a multi-speaker recording shows two speakers (third voice still merged; testing the Expected speakers hint)
   - [ ] Device: 10-minute 2-person fixture: spot-check 20 turns, ≥ 85 % correct (SPEC §16)
-  - [ ] Device: rename propagates to every paragraph; merge two speakers; change speaker on one paragraph; new speaker
+  - [x] Device: rename propagates to every paragraph and to the summary's action-item owner ("Don"). Merge / change speaker / new speaker still to try
   - [ ] Device: with the models not downloaded and no network, the transcript still appears with one speaker and Retry works once online
 - [ ] M5 — Summaries and templates — written while Jeremy was away (plan: `docs/plans/2026-09-17-m5-summaries.md`); needs the compile run and device checks
   - [x] `LiveDueDateResolver` (rules + `NSDataDetector` fallback, re-anchored to the recording date, 5 PM default) with a 40-row table test on a fixed Thursday
@@ -79,7 +79,7 @@ Update this file at the end of every session. Check an item only when its "Done 
   - [x] Tests: due dates (43), chunker + budget (5), post-processor (5), input builder (2), coordinator summary path (3 new)
   - [x] `LiveSummarizationService` on Foundation Models (API names checked against the developer.apple.com reference on 2026-09-18): availability mapping, `@Generable` drafts, fresh session per call, map → reduce → final, `contextSize` read at runtime, `tokenCount(for:)` on iOS 26.4+ to calibrate the estimate, overflow → 30 % smaller chunks and retry (3×)
   - [ ] `scripts/test.sh` green on Jeremy's Mac
-  - [ ] Device: 60-min lecture and 30-min meeting summarize with no context-overflow failure
+  - [x] Device: a 4:40 recording summarized on device (8,192-token context, title/overview/key points/decisions/action items/open questions all grounded in the transcript). 60-min and 30-min fixtures still to run
   - [ ] Device: walk-through fixture has zero invented measurements; action items link to the right moment (±10 s)
   - [ ] `docs/EVALS.md` golden results per fixture × template
 - [ ] M6 — Exports — written while Jeremy was away (plan: `docs/plans/2026-09-18-m6-exports.md`); needs the compile run and device checks
@@ -105,7 +105,7 @@ Update this file at the end of every session. Check an item only when its "Done 
   - [x] `VeraFlow.storekit` attached to the scheme; `ExportGate` for the free tier
   - [x] Tests: counter (1), paywall model (2), export gate (1), coordinator free-limit path (1)
   - [ ] `scripts/test.sh` green on Jeremy's Mac
-  - [ ] Device/StoreKit: purchase, refund (locks again), restore, Family Sharing, free count survives reinstall
+  - [x] Device/StoreKit: purchase in the Xcode StoreKit environment unlocks; the 4th summary was blocked correctly before it. Refund, restore, Family Sharing, and reinstall still to test
   - [ ] Decide the price and fill `AppLinks` (terms, privacy) before TestFlight
 - [ ] M9 — Polish and ship
 

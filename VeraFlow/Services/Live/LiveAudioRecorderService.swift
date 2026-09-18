@@ -216,8 +216,11 @@ actor LiveAudioRecorderService: AudioRecorderService {
 
     func availableInputs() async -> [AudioInputOption] {
         let session = AVAudioSession.sharedInstance()
-        // Inputs are only listed for record-capable categories.
-        try? Self.configureSession(session)
+        // Inputs are only listed for record-capable categories. Never re-set the category while
+        // capture is running; the session is already configured then.
+        if status == .idle {
+            try? Self.configureSession(session)
+        }
         return (session.availableInputs ?? []).map { port in
             AudioInputOption(id: port.uid, name: port.portName, isBuiltIn: port.portType == .builtInMic)
         }
@@ -226,13 +229,20 @@ actor LiveAudioRecorderService: AudioRecorderService {
     func selectInput(id: String?) async throws {
         let session = AVAudioSession.sharedInstance()
         do {
-            try Self.configureSession(session)
+            if status == .idle {
+                try Self.configureSession(session)
+            }
             guard let id else {
                 try session.setPreferredInput(nil)
                 return
             }
             guard let port = session.availableInputs?.first(where: { $0.uid == id }) else {
                 throw AudioRecorderError.sessionFailed("That microphone is no longer available")
+            }
+            // Already routed through that port: leave the session alone (no route change, no
+            // engine reconfiguration mid-recording).
+            if session.currentRoute.inputs.contains(where: { $0.uid == id }), session.preferredInput?.uid == id || session.preferredInput == nil {
+                return
             }
             try session.setPreferredInput(port)
         } catch let error as AudioRecorderError {

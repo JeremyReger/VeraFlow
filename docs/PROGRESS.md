@@ -109,4 +109,8 @@ Update this file at the end of every session. Check an item only when its "Done 
   - [ ] Decide the price and fill `AppLinks` (terms, privacy) before TestFlight
 - [ ] M9 — Polish and ship
 
+## Requests from device testing
+
+- Live transcription while recording (Jeremy, 2026-09-18): start showing words about 10 s into a recording instead of after Stop. `SpeechAnalyzer` accepts streaming input, so the tap's buffers could feed it live and the file pass at the end would still produce the final, timed transcript. Planned after the pipeline is verified on device, because it adds CPU load during recording (the exact thing being debugged).
+
 ## Notes / blockers

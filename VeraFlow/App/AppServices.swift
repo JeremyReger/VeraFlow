@@ -87,7 +87,8 @@ struct AppServices: Sendable {
             purchases: services.purchases,
             storage: storage,
             background: services.background,
-            speakerHint: { SpeakerCountHint(DiarizationPreference.expectedSpeakers()) }
+            speakerHint: { SpeakerCountHint(DiarizationPreference.expectedSpeakers()) },
+            isAppActive: { await MainActor.run { UIApplication.shared.applicationState != .background } }
         )
         return services
     }

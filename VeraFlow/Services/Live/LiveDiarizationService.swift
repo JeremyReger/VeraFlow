@@ -27,7 +27,13 @@ actor LiveDiarizationService: DiarizationService {
             return
         }
         do {
-            let loaded = try await OfflineDiarizerModels.load { update in
+            // CPU + Neural Engine only. iOS refuses Metal (GPU) work from a backgrounded app, and
+            // the pipeline runs right after Stop while the user has often already left the app:
+            // on device every segmentation call failed with "Insufficient Permission (to submit
+            // GPU work from background)". The ANE is not Metal and keeps working.
+            let configuration = MLModelConfiguration()
+            configuration.computeUnits = .cpuAndNeuralEngine
+            let loaded = try await OfflineDiarizerModels.load(configuration: configuration) { update in
                 progress(min(0.99, update.fractionCompleted))
             }
             models = loaded

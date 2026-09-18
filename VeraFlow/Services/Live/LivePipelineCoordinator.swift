@@ -42,6 +42,12 @@ actor LivePipelineCoordinator: PipelineCoordinating {
     private var rateLimitStrikes: [UUID: Int] = [:]
     /// Base wait before retrying a rate-limited summary; doubles per strike up to 8×.
     private let rateLimitRetryDelay: Duration
+    /// Whether the app is in the foreground. Speaker labelling that fails in the background
+    /// (Core ML can't use the GPU there) is retried when the app comes back instead of being
+    /// recorded as a failure.
+    private let isAppActive: @Sendable () async -> Bool
+    /// Recordings whose speaker labelling is waiting for the next foreground.
+    private var deferredForForeground: Set<UUID> = []
 
     init(
         container: ModelContainer,
@@ -54,9 +60,11 @@ actor LivePipelineCoordinator: PipelineCoordinating {
         storage: RecordingStorage,
         background: any BackgroundProcessing,
         speakerHint: @escaping @Sendable () -> SpeakerCountHint = { .automatic },
-        rateLimitRetryDelay: Duration = .seconds(180)
+        rateLimitRetryDelay: Duration = .seconds(180),
+        isAppActive: @escaping @Sendable () async -> Bool = { true }
     ) {
         self.rateLimitRetryDelay = rateLimitRetryDelay
+        self.isAppActive = isAppActive
         self.container = container
         self.transcription = transcription
         self.diarization = diarization
@@ -102,6 +110,12 @@ actor LivePipelineCoordinator: PipelineCoordinating {
         for id in due {
             rateLimitRetries.removeValue(forKey: id)?.cancel()
             await retryIfStillRateLimited(id)
+        }
+        let waiting = deferredForForeground
+        deferredForForeground = []
+        for id in waiting {
+            Self.log.info("app is active again; resuming speaker labels for \(id.uuidString, privacy: .public)")
+            await enqueue(recordingID: id)
         }
     }
 
@@ -311,6 +325,16 @@ actor LivePipelineCoordinator: PipelineCoordinating {
         } catch {
             if Task.isCancelled {
                 handleCancellation(recording, resumeFrom: .transcribed)
+                return
+            }
+            if await !isAppActive() {
+                // Not a real failure: the models can't use the GPU while the app is in the
+                // background. Park the recording at .transcribed and pick it up on foreground.
+                recording.stage = .transcribed
+                save()
+                deferredForForeground.insert(id)
+                events.emit(.stageChanged(recordingID: id, stage: .transcribed))
+                Self.log.info("speaker labels deferred for \(id.uuidString, privacy: .public): app is in the background")
                 return
             }
             let message = PipelineFailure.message(for: error)

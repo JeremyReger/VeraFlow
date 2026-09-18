@@ -44,7 +44,14 @@ struct LivePipelineCoordinatorTests {
         }
     }
 
-    private func makeHarness(speakerHint: SpeakerCountHint = .automatic, unlocked: Bool = true, freeSummariesUsed: Int = 0, rateLimitRetryDelay: Duration = .seconds(180)) throws -> Harness {
+    /// Stands in for `UIApplication.applicationState` in the pipeline tests.
+    actor AppActivity {
+        var isActive: Bool
+        init(_ isActive: Bool) { self.isActive = isActive }
+        func set(_ isActive: Bool) { self.isActive = isActive }
+    }
+
+    private func makeHarness(speakerHint: SpeakerCountHint = .automatic, unlocked: Bool = true, freeSummariesUsed: Int = 0, rateLimitRetryDelay: Duration = .seconds(180), activity: AppActivity? = nil) throws -> Harness {
         let storage = RecordingStorage(rootDirectory: try TestAudioFiles.temporaryDirectory())
         let container = try ModelContainerFactory.makeInMemory()
         let transcription = FakeTranscriptionService()
@@ -63,7 +70,8 @@ struct LivePipelineCoordinatorTests {
             storage: storage,
             background: background,
             speakerHint: { speakerHint },
-            rateLimitRetryDelay: rateLimitRetryDelay
+            rateLimitRetryDelay: rateLimitRetryDelay,
+            isAppActive: { await activity?.isActive ?? true }
         )
         return Harness(
             container: container,
@@ -174,6 +182,33 @@ struct LivePipelineCoordinatorTests {
         #expect(recording.failureMessage == "AI summaries need an Apple Intelligence–capable iPhone. Transcripts still work.")
         #expect(recording.summaries.isEmpty)
         #expect(recording.speakers.count == 2, "speaker labels are untouched")
+    }
+
+    @Test("Speaker labelling that fails in the background waits for the foreground instead of failing")
+    func diarizationDeferredWhileBackgrounded() async throws {
+        let activity = AppActivity(false)
+        let harness = try makeHarness(activity: activity)
+        defer { harness.cleanUp() }
+        await harness.diarization.setError(.processingFailed("GPU work not permitted in the background"))
+        let id = try harness.insert()
+
+        await harness.coordinator.enqueue(recordingID: id)
+        try await waitUntil { try harness.stage(of: id) == .transcribed }
+        try await Task.sleep(for: .milliseconds(150))
+        let parked = try #require(try harness.fetch(id))
+        #expect(parked.stage == .transcribed, "not marked failed, not summarized")
+        #expect(parked.failedStage == nil)
+        #expect(parked.summaries.isEmpty)
+
+        // Back in the foreground the models work; the recording finishes without user action.
+        await activity.set(true)
+        await harness.diarization.setError(nil)
+        await harness.coordinator.resumeDeferredRetries()
+        try await waitUntil { try harness.stage(of: id) == .ready }
+        let finished = try #require(try harness.fetch(id))
+        #expect(finished.failedStage == nil)
+        #expect(finished.speakers.count == 2)
+        #expect(finished.summaries.count == 1)
     }
 
     @Test("Process next moves a recording to the front of the queue")

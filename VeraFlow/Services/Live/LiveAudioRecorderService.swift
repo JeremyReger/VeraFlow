@@ -268,6 +268,7 @@ actor LiveAudioRecorderService: AudioRecorderService {
         do {
             switch action {
             case .unchanged:
+                Self.log.info("input \(self.wantedInputID ?? "automatic", privacy: .public) already preferred; route \(Self.describeRoute(session), privacy: .public)")
                 return
             case .unavailable:
                 Self.log.info("input \(self.wantedInputID ?? "-", privacy: .public) not available; keeping \(Self.describeRoute(session), privacy: .public)")

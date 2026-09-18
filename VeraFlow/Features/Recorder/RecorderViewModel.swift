@@ -1,6 +1,7 @@
 import AVFAudio
 import Foundation
 import Observation
+import OSLog
 import SwiftData
 
 /// One bar of the live waveform.
@@ -85,8 +86,11 @@ final class RecorderViewModel {
         await applyInputChoice()
     }
 
+    private static let log = Logger(subsystem: "com.jeremyreger.veraflow", category: "recorder-ui")
+
     /// The user picked a microphone (`nil` = let iOS choose). Remembered for next time.
     func selectInput(id: String?) async {
+        Self.log.info("mic tap: \(id ?? "automatic", privacy: .public); listed \(self.inputs.map(\.id).joined(separator: ","), privacy: .public); phase \(String(describing: self.phase), privacy: .public)")
         inputChoice = id.map { .device($0) } ?? .automatic
         defaults.set(inputChoice.stored, forKey: Self.inputChoiceKey)
         appliedInputID = nil

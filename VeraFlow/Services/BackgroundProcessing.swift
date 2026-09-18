@@ -25,9 +25,11 @@ actor FakeBackgroundProcessing: BackgroundProcessing {
     ) async {
         runTitles.append(title)
         let expireAfter = self.expireAfter
-        let task = Task { [weak self] in
+        // Actors are Sendable; a strong, immutable capture is what the closures need.
+        let recorder = self
+        let task = Task {
             await work { fraction in
-                Task { await self?.record(progress: fraction) }
+                Task { await recorder.record(progress: fraction) }
             }
         }
         if let expireAfter {

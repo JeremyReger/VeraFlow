@@ -16,7 +16,7 @@ final class ScreenshotTests: XCTestCase {
         app.launchArguments = ["--use-fake-services", "--seed-sample-data"]
         app.launch()
 
-        XCTAssertTrue(app.navigationBars["Library"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Library"].waitForExistence(timeout: 5))
         snap(app, "01-library")
 
         // Recorder mid-recording (fake recorder: no microphone needed).

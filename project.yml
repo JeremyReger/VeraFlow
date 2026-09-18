@@ -71,6 +71,15 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}
+        # Bundled under the SIL Open Font License (VeraFlow/Resources/Fonts/OFL-*.txt). Static
+        # instances built from Google's variable fonts; PostScript names match VFFontName.
+        UIAppFonts:
+          - Newsreader-Regular.ttf
+          - Newsreader-Italic.ttf
+          - Manrope-Regular.ttf
+          - Manrope-Medium.ttf
+          - Manrope-SemiBold.ttf
+          - Manrope-Bold.ttf
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         UIBackgroundModes:

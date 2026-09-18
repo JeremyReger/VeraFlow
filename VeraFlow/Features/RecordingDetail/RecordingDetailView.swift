@@ -143,7 +143,7 @@ struct RecordingDetailView: View {
             Section("Status") {
                 LabeledContent("Stage", value: recording.stage.displayName)
                 if let message = recording.failureMessage {
-                    Text(message).foregroundStyle(Color("Alert"))
+                    Text(message).foregroundStyle(VFColor.danger)
                 }
                 if let engine = recording.transcriptionEngine {
                     LabeledContent("Speech engine", value: engineName(engine))

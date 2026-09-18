@@ -118,6 +118,7 @@ Update this file at the end of every session. Check an item only when its "Done 
   - [ ] Listing copy, privacy + terms pages, screenshot UI test, review notes
   - [ ] §14.5 checklist with evidence; TestFlight build
   - [ ] Xcode 27 migration (needs Xcode 27 on Jeremy's Mac)
+  - [ ] Redesign from Jeremy's design package (plan: `docs/plans/2026-09-18-redesign.md`): Phase 1 foundation + Library done; detail shell, summary, transcript, recorder, audio, settings, processing card, onboarding/paywall next
 
 ## Requests from device testing
 

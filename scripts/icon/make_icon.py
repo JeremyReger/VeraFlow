@@ -3,8 +3,8 @@
 
 Reproducible: run `python3 scripts/icon/make_icon.py` (needs Pillow) and the PNGs in
 VeraFlow/Resources/Assets.xcassets are rewritten. iOS masks the corners itself, so the
-image is a full-bleed square. The mark: waveform bars whose tops trace a "V" that flows
-into a check mark — audio in, to-do list out.
+image is a full-bleed square with no rounding. The mark is "Ember" from the design spec §7:
+five bars, one lit.
 """
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
@@ -12,49 +12,34 @@ from PIL import Image, ImageDraw, ImageFont
 SIZE = 1024
 ROOT = Path(__file__).resolve().parents[2] / "VeraFlow/Resources/Assets.xcassets"
 
-TOP = (18, 104, 128)      # deep teal
-BOTTOM = (36, 42, 110)    # indigo
-WHITE = (255, 255, 255, 255)
-
-
-def gradient(size):
-    img = Image.new("RGBA", (size, size))
-    px = img.load()
-    for y in range(size):
-        t = y / (size - 1)
-        r = round(TOP[0] + (BOTTOM[0] - TOP[0]) * t)
-        g = round(TOP[1] + (BOTTOM[1] - TOP[1]) * t)
-        b = round(TOP[2] + (BOTTOM[2] - TOP[2]) * t)
-        for x in range(size):
-            px[x, y] = (r, g, b, 255)
-    return img
+# "Ember" (design spec §7): five bars on a dark tile, centre bar in clay. Same tile in both
+# appearances; it is the one warm note now that the interface is cool.
+TILE = (0x1B, 0x1D, 0x22)
+OUTER = (0x4A, 0x50, 0x5A)
+INNER = (0xB4, 0xBA, 0xC4)
+CENTRE = (0xE0, 0x7A, 0x4F)
+BAR_FRACTION = 0.0536          # bar width and gap, as a fraction of the tile
+HEIGHTS = [0.238, 0.440, 0.619, 0.440, 0.238]   # outward from the centre: 61.9 / 44.0 / 23.8 %
+COLOURS = [OUTER, INNER, CENTRE, INNER, OUTER]
 
 
 def draw_mark(img):
-    """Nine rounded bars. Heights dip to a V in the middle; the last two rise into a check."""
     d = ImageDraw.Draw(img)
     s = SIZE
-    n = 9
-    bar_w = s * 0.056
-    gap = s * 0.026
-    total = n * bar_w + (n - 1) * gap
+    bar_w = s * BAR_FRACTION
+    gap = s * BAR_FRACTION
+    total = 5 * bar_w + 4 * gap
     x0 = (s - total) / 2
-    center_y = s * 0.54
-    # Relative half-heights: a V whose right arm keeps rising into the check's upstroke.
-    # Everything stays inside the central 76% of the canvas (iOS masks the corners).
-    halves = [0.22, 0.17, 0.12, 0.08, 0.05, 0.09, 0.15, 0.22, 0.29]
-    for i, h in enumerate(halves):
+    for i, (h, colour) in enumerate(zip(HEIGHTS, COLOURS)):
         x = x0 + i * (bar_w + gap)
-        top = center_y - s * h
-        bottom = center_y + s * min(h, 0.22)
-        # The check's tail leans right: shift the last two bars up so the tops draw the upstroke.
-        lift = s * 0.045 * max(0, i - 6)
-        d.rounded_rectangle(
-            [x, top - lift, x + bar_w, bottom - lift],
-            radius=bar_w / 2,
-            fill=WHITE,
-        )
+        bar_h = s * h
+        top = (s - bar_h) / 2
+        d.rounded_rectangle([x, top, x + bar_w, top + bar_h], radius=bar_w / 2, fill=colour + (255,))
     return img
+
+
+def tile():
+    return Image.new("RGBA", (SIZE, SIZE), TILE + (255,))
 
 
 def alpha_band(img):
@@ -86,7 +71,7 @@ def alpha_band(img):
 
 
 def main():
-    base = draw_mark(gradient(SIZE))
+    base = draw_mark(tile())
     out = ROOT / "AppIcon.appiconset" / "AppIcon.png"
     base.convert("RGB").save(out, "PNG", optimize=True)
     alpha_dir = ROOT / "AppIcon-Alpha.appiconset"

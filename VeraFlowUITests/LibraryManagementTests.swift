@@ -35,7 +35,8 @@ final class LibraryManagementTests: XCTestCase {
         XCTAssertTrue(renamed.waitForExistence(timeout: 5))
         XCTAssertFalse(app.staticTexts["Kitchen remodel walk-through"].exists)
 
-        let search = app.searchFields.firstMatch
+        app.buttons["library.searchButton"].tap()
+        let search = app.textFields["Search titles"]
         XCTAssertTrue(search.waitForExistence(timeout: 5))
         search.tap()
         search.typeText("Lecture")

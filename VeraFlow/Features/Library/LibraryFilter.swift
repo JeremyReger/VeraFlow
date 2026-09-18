@@ -25,10 +25,12 @@ struct LibraryFilter: Equatable, Sendable {
     var sort: LibrarySort = .newest
     var favoritesOnly = false
     var tag: String?
+    /// Filter chip for one summary template (design spec: "the user's own template names").
+    var template: TemplateID?
 
     /// True when anything other than the default ordering is applied.
     var isNarrowing: Bool {
-        !trimmedSearch.isEmpty || favoritesOnly || tag != nil
+        !trimmedSearch.isEmpty || favoritesOnly || tag != nil || template != nil
     }
 
     private var trimmedSearch: String {
@@ -40,6 +42,7 @@ struct LibraryFilter: Equatable, Sendable {
         var result = recordings.filter { recording in
             if favoritesOnly, !recording.isFavorite { return false }
             if let tag, !recording.tags.contains(tag) { return false }
+            if let template, recording.templateID != template { return false }
             if !query.isEmpty, !recording.title.localizedStandardContains(query) { return false }
             return true
         }

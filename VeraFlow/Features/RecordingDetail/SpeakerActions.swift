@@ -117,13 +117,10 @@ final class SpeakerActionsController {
     }
 }
 
-/// Eight distinguishable colours for speaker labels, indexed by `Speaker.colorIndex`. Asset
-/// colours tuned to at least 4.5:1 against the system background in light and dark mode, since
-/// they are used for caption-size text (accessibility review A-7).
+/// Speaker label colours, indexed by `Speaker.colorIndex`: the design tokens' five pairs,
+/// authored per appearance for at least 4.5:1 on their ground (design spec §2, review A-7).
 enum SpeakerPalette {
-    static let count = 8
-
     static func color(for index: Int) -> Color {
-        Color("Speaker\(((index % count) + count) % count + 1)")
+        VFColor.speaker(index)
     }
 }

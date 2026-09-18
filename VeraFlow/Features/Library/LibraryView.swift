@@ -19,6 +19,7 @@ struct LibraryView: View {
     @State private var photoItems: [PhotosPickerItem] = []
     @State private var isImporting = false
     @State private var importMessage: String?
+    @State private var isSearching = false
 
     /// Types the Files picker offers (SPEC M2: m4a, mp3, wav, caf) plus mp4/mov video, whose
     /// audio track is extracted (Teams and Zoom recordings).
@@ -46,35 +47,10 @@ struct LibraryView: View {
             }
         }
         .navigationTitle("Library")
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button("Settings", systemImage: "gearshape") {
-                    isShowingSettings = true
-                }
-            }
-            ToolbarItemGroup(placement: .primaryAction) {
-                Menu("More", systemImage: "ellipsis.circle") {
-                    Picker("Sort", selection: $filter.sort) {
-                        ForEach(LibrarySort.allCases) { sort in
-                            Text(sort.displayName).tag(sort)
-                        }
-                    }
-                    Toggle("Favorites Only", systemImage: "star", isOn: $filter.favoritesOnly)
-                    Divider()
-                    Button("Import from Files", systemImage: "square.and.arrow.down") {
-                        isShowingImporter = true
-                    }
-                    Button("Import Video from Photos", systemImage: "photo.on.rectangle") {
-                        isShowingPhotosPicker = true
-                    }
-                }
-                .accessibilityIdentifier("library.more")
-                Button("Record", systemImage: "record.circle") {
-                    isShowingRecorder = true
-                }
-            }
-        }
-        .searchable(text: $filter.searchText, prompt: "Search titles")
+        // The design draws its own header (eyebrow, serif title, round buttons); the system bar
+        // stays hidden here and comes back on the pushed detail screen.
+        .toolbar(.hidden, for: .navigationBar)
+        .background(VFColor.background.ignoresSafeArea())
         .sheet(isPresented: $isShowingRecorder) {
             RecorderView()
         }
@@ -127,33 +103,76 @@ struct LibraryView: View {
             emptyState
         } else {
             List {
-                if !allTags.isEmpty {
-                    tagChips
-                        .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-                }
-                ForEach(visibleRecordings) { recording in
-                    NavigationLink(value: recording.id) {
-                        LibraryRow(recording: recording, progress: appState.pipelineProgress[recording.id])
-                    }
-                    .swipeActions(edge: .trailing) {
-                        Button("Delete", systemImage: "trash", role: .destructive) {
-                            controller.requestDelete(recording)
+                header
+                    .listRowInsets(EdgeInsets(top: 8, leading: VFSpace.gutter, bottom: 6, trailing: VFSpace.gutter))
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                if isSearching {
+                    VFField("Search titles", text: $filter.searchText) {
+                        if !filter.searchText.isEmpty {
+                            Button {
+                                filter.searchText = ""
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundStyle(VFColor.textTertiary)
+                                    .frame(width: 28, height: 28)
+                                    .contentShape(Rectangle())
+                            }
+                            .accessibilityLabel("Clear search")
                         }
                     }
-                    .swipeActions(edge: .leading) {
-                        Button(recording.isFavorite ? "Unfavorite" : "Favorite",
-                               systemImage: recording.isFavorite ? "star.slash" : "star") {
-                            controller.toggleFavorite(recording)
+                    .accessibilityIdentifier("library.search")
+                    .listRowInsets(EdgeInsets(top: 4, leading: VFSpace.gutter, bottom: 6, trailing: VFSpace.gutter))
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                }
+                chips
+                    .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 10, trailing: 0))
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                ForEach(LibraryGrouping.sections(visibleRecordings, sort: filter.sort)) { section in
+                    Section {
+                        ForEach(section.recordings) { recording in
+                            LibraryCard(recording: recording, progress: appState.pipelineProgress[recording.id])
+                                .overlay {
+                                    // Hidden link keeps the card free of the list's disclosure chevron.
+                                    NavigationLink(value: recording.id) { EmptyView() }.opacity(0)
+                                }
+                                .listRowInsets(EdgeInsets(top: VFSpace.listGap / 2, leading: VFSpace.gutter, bottom: VFSpace.listGap / 2, trailing: VFSpace.gutter))
+                                .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
+                                .swipeActions(edge: .trailing) {
+                                    Button("Delete", systemImage: "trash", role: .destructive) {
+                                        controller.requestDelete(recording)
+                                    }
+                                }
+                                .swipeActions(edge: .leading) {
+                                    Button(recording.isFavorite ? "Unstar" : "Star",
+                                           systemImage: recording.isFavorite ? "star.slash" : "star") {
+                                        controller.toggleFavorite(recording)
+                                    }
+                                    .tint(VFColor.accent)
+                                }
+                                .contextMenu {
+                                    RecordingMenuItems(recording: recording, controller: controller)
+                                }
                         }
-                        .tint(.yellow)
-                    }
-                    .contextMenu {
-                        RecordingMenuItems(recording: recording, controller: controller)
+                    } header: {
+                        if !section.title.isEmpty {
+                            VFSectionLabel(section.title)
+                                .padding(.top, 6)
+                        }
                     }
                 }
+                // Room for the pinned Record row.
+                Color.clear
+                    .frame(height: VFMetric.primaryPillHeight + VFSpace.bottomInset)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
             }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .scrollDismissesKeyboard(.interactively)
             .navigationDestination(for: UUID.self) { id in
                 if let recording = recordings.first(where: { $0.id == id }) {
                     RecordingDetailView(recording: recording)
@@ -166,58 +185,162 @@ struct LibraryView: View {
                 if isImporting {
                     ProgressView("Importing…")
                         .padding()
-                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: VFRadius.block))
                         .onAppear { AccessibilityNotification.Announcement("Importing").post() }
                 }
             }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                bottomActions
+            }
         }
     }
 
-    private var tagChips: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
+    /// Eyebrow, serif title, and the round search / settings / more buttons.
+    private var header: some View {
+        VFScreenHeader(eyebrow: "VeraFlow", title: "Library") {
             HStack(spacing: 8) {
-                ForEach(allTags, id: \.self) { tag in
-                    Button {
-                        filter.tag = filter.tag == tag ? nil : tag
-                    } label: {
-                        Text(tag)
-                            .font(.subheadline)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(
-                                filter.tag == tag ? Color.accentColor : Color.secondary.opacity(0.15),
-                                in: Capsule()
-                            )
-                            .foregroundStyle(filter.tag == tag ? Color.white : Color.primary)
-                            .frame(minHeight: 44)
-                            .contentShape(Rectangle())
+                VFIconButton(systemName: "magnifyingglass", label: isSearching ? "Hide search" : "Search") {
+                    withAnimation(VFMotion.tabSwitch) {
+                        isSearching.toggle()
+                        if !isSearching { filter.searchText = "" }
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityAddTraits(filter.tag == tag ? .isSelected : [])
+                }
+                .accessibilityIdentifier("library.searchButton")
+                VFIconButton(systemName: "gearshape", label: "Settings") {
+                    isShowingSettings = true
+                }
+                .accessibilityIdentifier("library.settings")
+                Menu {
+                    Picker("Sort", selection: $filter.sort) {
+                        ForEach(LibrarySort.allCases) { sort in
+                            Text(sort.displayName).tag(sort)
+                        }
+                    }
+                    Divider()
+                    Button("Import from Files", systemImage: "square.and.arrow.down") {
+                        isShowingImporter = true
+                    }
+                    Button("Import Video from Photos", systemImage: "photo.on.rectangle") {
+                        isShowingPhotosPicker = true
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 17, weight: .medium))
+                        .foregroundStyle(VFColor.iconPrimary)
+                        .frame(width: VFMetric.iconButton, height: VFMetric.iconButton)
+                        .background(VFColor.surface, in: Circle())
+                        .overlay { Circle().strokeBorder(VFColor.border, lineWidth: VFMetric.hairline) }
+                }
+                .accessibilityLabel("More")
+                .accessibilityIdentifier("library.more")
+            }
+        }
+    }
+
+    /// All / Starred / the templates in use / the user's tags.
+    private var chips: some View {
+        let templates = TemplateID.allCases.filter { template in recordings.contains { $0.templateID == template } }
+        return ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                VFChip("All", isSelected: !filter.favoritesOnly && filter.template == nil && filter.tag == nil) {
+                    filter.favoritesOnly = false
+                    filter.template = nil
+                    filter.tag = nil
+                }
+                VFChip("Starred", isSelected: filter.favoritesOnly) {
+                    filter.favoritesOnly.toggle()
+                }
+                if templates.count > 1 {
+                    ForEach(templates) { template in
+                        VFChip(template.shortName, isSelected: filter.template == template) {
+                            filter.template = filter.template == template ? nil : template
+                        }
+                    }
+                }
+                ForEach(allTags, id: \.self) { tag in
+                    VFChip(tag, isSelected: filter.tag == tag) {
+                        filter.tag = filter.tag == tag ? nil : tag
+                    }
                     .accessibilityHint("Filters the library by this tag")
                 }
             }
-            .padding(.horizontal)
+            .padding(.horizontal, VFSpace.gutter)
         }
     }
 
-    private var emptyState: some View {
-        ContentUnavailableView {
-            Label("No recordings yet", systemImage: "waveform")
-        } description: {
-            Text("Tap Record to capture a meeting, or import an audio file. Everything stays on this iPhone.")
-        } actions: {
+    /// The accent Record pill and the round import button over a scrim, so cards scrolling
+    /// underneath stay legible (design spec §4 Library).
+    private var bottomActions: some View {
+        HStack(spacing: 12) {
             Button("Record") {
                 isShowingRecorder = true
             }
-            .buttonStyle(.borderedProminent)
-            Button("Import from Files") {
+            .buttonStyle(VFPrimaryPillStyle())
+            .accessibilityIdentifier("library.record")
+            importMenu {
+                VFRoundButtonLabel(systemName: "square.and.arrow.down")
+            }
+            .accessibilityLabel("Import")
+        }
+        .padding(.horizontal, VFSpace.gutter)
+        .padding(.top, 18)
+        .padding(.bottom, 8)
+        .background {
+            LinearGradient(
+                colors: [VFColor.background.opacity(0), VFColor.background, VFColor.background],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+        }
+    }
+
+    private func importMenu<Content: View>(@ViewBuilder label: () -> Content) -> some View {
+        Menu {
+            Button("Import from Files", systemImage: "square.and.arrow.down") {
                 isShowingImporter = true
             }
-            Button("Import Video from Photos") {
+            Button("Import Video from Photos", systemImage: "photo.on.rectangle") {
                 isShowingPhotosPicker = true
             }
+        } label: {
+            label()
         }
+    }
+
+    /// First run (design spec §4 Library — first run).
+    private var emptyState: some View {
+        VStack(spacing: 0) {
+            header
+                .padding(.horizontal, VFSpace.gutter)
+                .padding(.top, 8)
+            Spacer()
+            VStack(spacing: 18) {
+                VFWaveformMark(height: 52)
+                Text("Your meetings, turned into a to-do list.")
+                    .vfText(VFText.recordingTitle)
+                    .multilineTextAlignment(.center)
+                Text("Record a meeting or import a file. VeraFlow transcribes it, labels who said what, and writes the action items.")
+                    .vfText(VFText.body, color: VFColor.textSecondary)
+                    .multilineTextAlignment(.center)
+                Button("Record") {
+                    isShowingRecorder = true
+                }
+                .buttonStyle(VFPrimaryPillStyle())
+                .padding(.top, 8)
+                importMenu {
+                    Text("Import a file")
+                        .vfText(VFText.rowLabel, color: VFColor.accent)
+                        .frame(minHeight: VFMetric.minHit)
+                }
+                .accessibilityLabel("Import a file")
+            }
+            .padding(.horizontal, 28)
+            Spacer()
+            VFReassurance()
+                .padding(.bottom, VFSpace.bottomInset)
+        }
+        .frame(maxWidth: .infinity)
         .accessibilityIdentifier("library.empty")
     }
 
@@ -289,56 +412,76 @@ struct LibraryView: View {
     }
 }
 
-/// One row in the library list.
-struct LibraryRow: View {
+/// One card in the library (design spec §4): serif title, two-line gist, then
+/// `time · N speakers · N actions`, with the pipeline state while it's still working.
+struct LibraryCard: View {
     let recording: Recording
     /// Live processing progress from `AppState`, when a stage is running for this recording.
     var progress: PipelineProgress? = nil
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Text(recording.title)
-                    .font(.headline)
-                    .lineLimit(1)
-                if recording.isFavorite {
+        let model = LibraryCardModel(recording: recording)
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Text(model.title)
+                    .vfText(VFText.cardTitle)
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                if model.isFavorite {
                     Image(systemName: "star.fill")
-                        .foregroundStyle(.yellow)
-                        .accessibilityLabel("Favorite")
+                        .font(.system(size: 12))
+                        .foregroundStyle(VFColor.accent)
+                        .accessibilityLabel("Starred")
                 }
-                if recording.source == .imported {
-                    Image(systemName: "square.and.arrow.down")
-                        .foregroundStyle(.secondary)
-                        .accessibilityLabel("Imported")
-                }
-            }
-            HStack(spacing: 8) {
-                Text(recording.createdAt, format: .dateTime.month(.abbreviated).day().hour().minute())
-                Text("·").accessibilityHidden(true)
-                Text(Duration.seconds(recording.duration), format: .time(pattern: .minuteSecond))
+                Text(model.duration)
+                    .vfText(VFText.meta, color: VFColor.textTertiary)
                     .accessibilityLabel(SpokenFormat.duration(recording.duration))
-                if recording.stage != .ready {
+            }
+            if !model.snippet.isEmpty {
+                Text(model.snippet)
+                    .vfText(VFText.snippet, color: VFColor.textSecondary)
+                    .lineLimit(2)
+            }
+            HStack(spacing: 7) {
+                Text(model.timeOfDay)
+                if model.isImported {
                     Text("·").accessibilityHidden(true)
-                    Text(recording.stage.displayName)
-                        .foregroundStyle(recording.stage == .failed ? Color("Alert") : .secondary)
+                    Text("Imported")
+                }
+                if model.speakerCount > 0 {
+                    Text("·").accessibilityHidden(true)
+                    Text("^[\(model.speakerCount) speaker](inflect: true)")
+                }
+                if model.actionCount > 0 {
+                    Text("·").accessibilityHidden(true)
+                    Text("^[\(model.actionCount) action](inflect: true)")
+                        .font(.custom(VFFontName.sansSemiBold, size: 11.5, relativeTo: .caption))
+                        .foregroundStyle(VFColor.accent)
                 }
             }
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
-            if !recording.tags.isEmpty {
-                Text(recording.tags.joined(separator: " · "))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+            .vfText(VFText.meta, color: VFColor.textTertiary)
+            .padding(.top, 2)
+            if let status = model.status {
+                Text(status)
+                    .vfText(VFText.meta, color: model.isFailed ? VFColor.danger : VFColor.textSecondary)
+                    .lineLimit(2)
             }
             if let progress {
                 ProgressView(value: progress.fraction)
                     .progressViewStyle(.linear)
-                    .tint(progress.isPreparingAssets ? .secondary : .accentColor)
+                    .tint(progress.isPreparingAssets ? VFColor.textTertiary : VFColor.accent)
                     .accessibilityLabel(progress.isPreparingAssets ? "Downloading speech model" : progress.stage.displayName)
             }
         }
-        .padding(.vertical, 2)
+        .padding(.horizontal, VFSpace.cardPaddingH)
+        .padding(.vertical, VFSpace.cardPaddingV)
+        .background(VFColor.surface, in: RoundedRectangle(cornerRadius: VFRadius.card, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: VFRadius.card, style: .continuous)
+                .strokeBorder(VFColor.border, lineWidth: VFMetric.hairline)
+        }
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
     }
 }
 

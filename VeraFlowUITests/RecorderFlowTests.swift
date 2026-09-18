@@ -12,7 +12,7 @@ final class RecorderFlowTests: XCTestCase {
         app.launchArguments = ["--use-fake-services"]
         app.launch()
 
-        XCTAssertTrue(app.navigationBars["Library"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Library"].waitForExistence(timeout: 5))
         app.buttons["Record"].firstMatch.tap()
 
         let start = app.buttons["recorder.start"]

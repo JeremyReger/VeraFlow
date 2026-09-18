@@ -187,7 +187,7 @@ struct RemindersSheet: View {
             Form {
                 if let errorMessage {
                     Section {
-                        Text(errorMessage).foregroundStyle(Color("Alert"))
+                        Text(errorMessage).foregroundStyle(VFColor.danger)
                     }
                 }
                 Section("List") {

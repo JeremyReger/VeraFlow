@@ -12,7 +12,7 @@ final class LaunchTests: XCTestCase {
         app.launchArguments = ["--skip-onboarding"]
         app.launch()
 
-        XCTAssertTrue(app.navigationBars["Library"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Library"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["Record"].firstMatch.exists)
     }
 }

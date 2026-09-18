@@ -90,7 +90,7 @@ struct DiagnosticsView: View {
         let seconds = String(format: "%.1f s", timing.seconds)
         let value = timing.succeeded ? seconds : "failed after " + seconds
         return LabeledContent(label) {
-            Text(value).foregroundStyle(timing.succeeded ? Color.secondary : Color("Alert"))
+            Text(value).foregroundStyle(timing.succeeded ? Color.secondary : VFColor.danger)
         }
     }
 

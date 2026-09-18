@@ -133,7 +133,7 @@ struct OnboardingView: View {
                 .foregroundStyle(.secondary)
         }
         if let assetMessage {
-            Text(assetMessage).font(.footnote).foregroundStyle(Color("Alert"))
+            Text(assetMessage).font(.footnote).foregroundStyle(VFColor.danger)
         }
     }
 

@@ -53,11 +53,18 @@ struct AppServices: Sendable {
         services.recorder = LiveAudioRecorderService(capacityProvider: { storage.availableCapacity() })
         services.activity = LiveRecordingActivityService()
         services.importer = LiveAudioImportService()
-        // Apple's engine by default; the debug benchmark screen can switch to Parakeet (SPEC §9.4).
+        // Apple's engine. Debug builds add Parakeet behind the benchmark screen (SPEC §9.4);
+        // release builds don't contain it, so they have exactly one model-download path
+        // (security review S-12).
         let apple = LiveTranscriptionService()
+        #if DEBUG
         let parakeet = ParakeetTranscriptionService()
         services.transcription = EngineSelectingTranscriptionService(apple: apple, parakeet: parakeet)
         services.benchmarkEngines = [.init(name: "Apple Speech", service: apple), .init(name: "Parakeet", service: parakeet)]
+        #else
+        services.transcription = apple
+        services.benchmarkEngines = []
+        #endif
         services.diarization = LiveDiarizationService()
         services.aligner = LiveTranscriptAligner()
         services.dueDates = LiveDueDateResolver()

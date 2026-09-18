@@ -2,6 +2,7 @@ import Foundation
 import Observation
 import SwiftUI
 import UIKit
+import UniformTypeIdentifiers
 
 /// Which file to produce for the share sheet.
 enum ExportKind: String, CaseIterable, Identifiable, Sendable {
@@ -78,15 +79,21 @@ final class ExportController {
             let name = await services.exporter.fileName(for: document, fileExtension: kind.fileExtension)
             let url = Self.exportsDirectory().appending(path: name)
             try? FileManager.default.removeItem(at: url)
+            // Exports hold the full transcript: complete protection while they wait in tmp, and
+            // they are removed when the share sheet closes (security review S-5).
+            let options: Data.WritingOptions = [.atomic, .completeFileProtection]
             switch kind {
             case .markdown:
-                try await services.exporter.markdown(for: document).write(to: url, atomically: true, encoding: .utf8)
+                let text = try await services.exporter.markdown(for: document)
+                try Data(text.utf8).write(to: url, options: options)
             case .plainText:
-                try await services.exporter.plainText(for: document).write(to: url, atomically: true, encoding: .utf8)
+                let text = try await services.exporter.plainText(for: document)
+                try Data(text.utf8).write(to: url, options: options)
             case .pdf:
-                try await services.exporter.pdf(for: document).write(to: url, options: .atomic)
+                try await services.exporter.pdf(for: document).write(to: url, options: options)
             case .audio:
                 try await services.exporter.exportAudio(from: audioURL, to: url)
+                try? FileManager.default.setAttributes([.protectionKey: FileProtectionType.complete], ofItemAtPath: url.path)
             }
             shareItem = ShareItem(url: url)
         } catch {
@@ -94,12 +101,28 @@ final class ExportController {
         }
     }
 
+    /// Removes the shared file once the share sheet is gone.
+    func finishSharing() {
+        if let url = shareItem?.url {
+            try? FileManager.default.removeItem(at: url)
+        }
+        shareItem = nil
+    }
+
     func copySummary(_ document: ExportDocument) {
-        UIPasteboard.general.string = ExportRenderer.summaryText(for: document)
+        Self.copyToPasteboard(ExportRenderer.summaryText(for: document))
     }
 
     func copyActionItems(_ document: ExportDocument) {
-        UIPasteboard.general.string = ExportRenderer.actionItemsText(for: document)
+        Self.copyToPasteboard(ExportRenderer.actionItemsText(for: document))
+    }
+
+    /// Stays on this device (no Universal Clipboard) and expires after two minutes (S-4).
+    static func copyToPasteboard(_ text: String) {
+        UIPasteboard.general.setItems(
+            [[UTType.utf8PlainText.identifier: text]],
+            options: [.localOnly: true, .expirationDate: Date.now.addingTimeInterval(120)]
+        )
     }
 
     /// Summary + action items as an email, or the model-written follow-up for the client template.
@@ -110,7 +133,11 @@ final class ExportController {
         do {
             if case .client(let summary)? = document.summary {
                 let email = try await services.summarization.followUpEmail(for: summary)
-                mailDraft = MailDraft(subject: email.subject, body: email.body)
+                // Model-written text: no links or markup ride into Mail (S-14).
+                mailDraft = MailDraft(
+                    subject: TextSanitizer.stripLinksAndMarkup(email.subject),
+                    body: TextSanitizer.stripLinksAndMarkupKeepingLines(email.body)
+                )
             } else {
                 mailDraft = MailDraft(subject: document.title, body: ExportRenderer.emailBody(for: document))
             }

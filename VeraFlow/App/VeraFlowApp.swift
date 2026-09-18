@@ -1,3 +1,4 @@
+import os
 import SwiftData
 import SwiftUI
 
@@ -17,9 +18,17 @@ struct VeraFlowApp: App {
     static let skipOnboardingArgument = "--skip-onboarding"
 
     init() {
+        // Launch arguments exist for UI tests, which run Debug builds. Release binaries ignore
+        // them entirely so no argument can swap services or turn the app lock off (security
+        // review S-2).
+        #if DEBUG
         let useFakes = ProcessInfo.processInfo.arguments.contains(Self.useFakeServicesArgument)
+        #else
+        let useFakes = false
+        #endif
         do {
             if useFakes {
+                #if DEBUG
                 container = try ModelContainerFactory.makeInMemory()
                 services = .fakes()
                 // UI tests start on the Library with no consent sheet or lock in the way.
@@ -32,17 +41,25 @@ struct VeraFlowApp: App {
                     }
                     try container.mainContext.save()
                 }
+                #else
+                fatalError("Fake services are not built into release builds.")
+                #endif
             } else {
                 container = try ModelContainerFactory.makePersistent()
                 services = try AppServices.live(container: container)
+                #if DEBUG
                 if ProcessInfo.processInfo.arguments.contains(Self.skipOnboardingArgument) {
                     AppPreferences.setOnboardingCompleted(true)
                     AppPreferences.setAppLockEnabled(false)
                 }
+                #endif
             }
         } catch {
-            // Without a store or file storage the app can't do anything useful.
-            fatalError("VeraFlow failed to start: \(error)")
+            // Without a store or file storage the app can't do anything useful. The error goes
+            // to the log privately; the crash report carries a constant string (S-17).
+            Logger(subsystem: "com.jeremyreger.veraflow", category: "startup")
+                .fault("startup failed: \(error.localizedDescription, privacy: .private)")
+            fatalError("VeraFlow failed to start: the data store could not be opened.")
         }
         _appState = State(initialValue: AppState(services: services, modelContext: container.mainContext))
     }

@@ -32,7 +32,9 @@ struct DiagnosticsView: View {
                 LabeledContent("Summary model", value: modelInfo)
                 LabeledContent("Prompt version", value: "v\(Prompts.version)")
                 LabeledContent("Speaker models from", value: ModelDownload.diarizationModelSourceDescription)
+                #if DEBUG
                 LabeledContent("Speech engine choice", value: EngineSelectingTranscriptionService.choice().displayName)
+                #endif
             }
             Section("Storage") {
                 LabeledContent("Recordings", value: "\(recordings.count)")

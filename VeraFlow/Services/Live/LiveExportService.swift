@@ -70,7 +70,7 @@ actor LiveExportService: ExportService {
             store.reset()
             throw ExportError.remindersFailed(error.localizedDescription)
         }
-        Self.log.info("created \(identifiers.count, privacy: .public) reminders in \(list.title, privacy: .public)")
+        Self.log.info("created \(identifiers.count, privacy: .public) reminders")
         return identifiers
     }
 

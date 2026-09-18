@@ -1,3 +1,4 @@
+#if DEBUG
 import Foundation
 
 /// Routes each call to Apple's engine or Parakeet according to a stored preference, so the
@@ -61,3 +62,4 @@ actor EngineSelectingTranscriptionService: TranscriptionService {
         try await current.transcribe(fileURL: fileURL, locale: locale, progress: progress)
     }
 }
+#endif

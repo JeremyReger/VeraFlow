@@ -43,6 +43,7 @@ final class AppState {
 
     /// Runs the launch checks: capabilities, entitlement, and pipeline recovery (SPEC §4.1, §6.3, §8.2).
     func startup() async {
+        TemporaryFiles.sweep()
         capabilities = await services.capabilities.refresh()
         isUnlocked = await services.purchases.isUnlocked()
         freeSummariesUsed = await services.purchases.freeSummariesUsed()

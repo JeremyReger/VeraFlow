@@ -27,9 +27,11 @@ struct ActionItemPostProcessor: Sendable {
     func process(_ drafts: [ActionItemDraft], context: Context) -> [ActionItem] {
         var items: [ActionItem] = []
         for draft in drafts {
-            let task = draft.task.trimmingCharacters(in: .whitespacesAndNewlines)
+            // Model-written text: links and markup are dropped before it can become a
+            // reminder title (security review S-14).
+            let task = TextSanitizer.stripLinksAndMarkup(draft.task)
             guard !task.isEmpty else { continue }
-            let owner = draft.owner.trimmingCharacters(in: .whitespacesAndNewlines)
+            let owner = TextSanitizer.stripLinksAndMarkup(draft.owner)
             let dueText = draft.dueText.trimmingCharacters(in: .whitespacesAndNewlines)
             let timestamp = Self.parseTimestamp(draft.timestamp).map { min(max(0, $0), context.duration) }
                 ?? Self.nearestSegmentStart(for: task, in: context.segments)

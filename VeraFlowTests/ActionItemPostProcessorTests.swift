@@ -35,6 +35,17 @@ struct ActionItemPostProcessorTests {
         #expect(items[1].dueDate == nil)
     }
 
+    @Test("Links and markdown in model-written task text are stripped before it can reach Reminders")
+    func stripsLinks() {
+        let items = processor.process([
+            ActionItemDraft(task: "**Pay** the deposit at https://evil.example/pay", owner: "[Jeremy](http://x)", dueText: "", timestamp: "01:00"),
+        ], context: context)
+        #expect(items.count == 1)
+        #expect(items.first?.task == "Pay the deposit at")
+        #expect(items.first?.owner == "Jeremy")
+        #expect(items.first?.ownerSpeakerKey == "S1")
+    }
+
     @Test("Same task with two different named owners stays as two items")
     func differentOwnersKept() {
         let items = processor.process([

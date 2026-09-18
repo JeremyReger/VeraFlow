@@ -75,6 +75,10 @@ struct LibraryActions {
             imported = try await services.importer.importAudio(from: sourceURL, into: folder)
         } catch {
             try? services.storage.deleteFolder(for: id)
+            if Self.isInboxURL(sourceURL) {
+                // Nothing to keep: a rejected file shouldn't sit in Documents/Inbox (S-7).
+                try? FileManager.default.removeItem(at: sourceURL)
+            }
             throw error
         }
 

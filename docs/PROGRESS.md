@@ -108,7 +108,8 @@ Update this file at the end of every session. Check an item only when its "Done 
   - [x] Device/StoreKit: purchase in the Xcode StoreKit environment unlocks; the 4th summary was blocked correctly before it. Refund, restore, Family Sharing, and reinstall still to test
   - [ ] Decide the price and fill `AppLinks` (terms, privacy) before TestFlight
 - [ ] M9 — Polish and ship (plan: `docs/plans/2026-09-18-m9-polish-and-ship.md`; Jeremy added a Section 508 accessibility review and a DoD-oriented security review up front)
-  - [ ] Security review filed (`docs/reviews/2026-09-18-security-review.md`) and code-level findings fixed
+  - [x] Security review filed (`docs/reviews/2026-09-18-security-review.md`); 13 of 17 findings fixed in code, 2 accepted, S-11 (bundle models) is Jeremy's call, S-10 needs `Package.resolved` committed after the next `test.sh`
+  - [ ] Device: with the app lock on, pull down Control Center and open the app switcher → the cover shows, not the transcript; Lock Screen playback shows "Recording"; a shared export disappears from Files → On My iPhone → VeraFlow after the share sheet closes
   - [ ] Accessibility review filed (`docs/reviews/2026-09-18-accessibility-review.md`) and code-level findings fixed
   - [ ] Dynamic Type, dark mode, Reduce Motion, empty states, error copy
   - [ ] App icon (generated, reproducible) + alpha variant

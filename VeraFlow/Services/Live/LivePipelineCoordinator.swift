@@ -273,7 +273,7 @@ actor LivePipelineCoordinator: PipelineCoordinating {
             recording.failureMessage = message
             save()
             events.emit(.failed(recordingID: id, stage: .transcribing, message: message))
-            Self.log.error("transcription failed for \(id.uuidString, privacy: .public): \(message, privacy: .public)")
+            Self.log.error("transcription failed for \(id.uuidString, privacy: .public): \(message, privacy: .private)")
         }
     }
 
@@ -321,7 +321,7 @@ actor LivePipelineCoordinator: PipelineCoordinating {
             save()
             events.emit(.failed(recordingID: id, stage: .diarizing, message: message))
             events.emit(.stageChanged(recordingID: id, stage: .diarized))
-            Self.log.error("diarization failed for \(id.uuidString, privacy: .public), continuing with one speaker: \(message, privacy: .public)")
+            Self.log.error("diarization failed for \(id.uuidString, privacy: .public), continuing with one speaker: \(message, privacy: .private)")
         }
     }
 
@@ -389,7 +389,7 @@ actor LivePipelineCoordinator: PipelineCoordinating {
             save()
             events.emit(.failed(recordingID: id, stage: .summarizing, message: message))
             events.emit(.stageChanged(recordingID: id, stage: .ready))
-            Self.log.error("summary skipped for \(id.uuidString, privacy: .public): \(message, privacy: .public)")
+            Self.log.error("summary skipped for \(id.uuidString, privacy: .public): \(message, privacy: .private)")
             if case SummarizationError.rateLimited = error {
                 scheduleRateLimitRetry(for: id)
             }
@@ -492,7 +492,7 @@ actor LivePipelineCoordinator: PipelineCoordinating {
         do {
             try context.save()
         } catch {
-            Self.log.error("save failed: \(error.localizedDescription, privacy: .public)")
+            Self.log.error("save failed: \(error.localizedDescription, privacy: .private)")
         }
     }
 }

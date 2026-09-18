@@ -1,3 +1,4 @@
+#if DEBUG
 import Foundation
 import FluidAudio
 import os
@@ -95,3 +96,4 @@ actor ParakeetTranscriptionService: TranscriptionService {
         return Language(rawValue: code)
     }
 }
+#endif

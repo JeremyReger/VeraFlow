@@ -84,7 +84,7 @@ struct ExportPresentation: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .sheet(item: $controller.shareItem) { item in
+            .sheet(item: $controller.shareItem, onDismiss: { controller.finishSharing() }) { item in
                 ActivityView(items: [item.url])
                     .presentationDetents([.medium, .large])
             }

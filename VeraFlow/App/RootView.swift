@@ -7,6 +7,10 @@ struct RootView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var isOnboarded = AppPreferences.onboardingCompleted()
     @State private var lock = AppLock()
+    /// Covers the content while the scene is inactive (app switcher, Control Center, an incoming
+    /// call) so the snapshot iOS takes never shows a transcript. Only with the app lock on: the
+    /// cover is part of that feature (security review S-1).
+    @State private var isShielded = false
 
     var body: some View {
         Group {
@@ -22,20 +26,34 @@ struct RootView: View {
             }
         }
         .environment(lock)
+        // Nothing behind the cover is reachable by VoiceOver or Switch Control (A-1).
+        .accessibilityHidden(lock.isLocked || isShielded)
         .overlay {
             if lock.isLocked {
                 LockScreenView(lock: lock)
+                    .transition(.opacity)
+            } else if isShielded {
+                PrivacyShieldView()
                     .transition(.opacity)
             }
         }
         .onChange(of: scenePhase) { _, phase in
             switch phase {
+            case .inactive:
+                isShielded = lock.isEnabled
             case .background:
+                isShielded = false
                 lock.lock()
             case .active:
+                isShielded = false
                 Task { await appState.didBecomeActive() }
-            default:
+            @unknown default:
                 break
+            }
+        }
+        .onChange(of: lock.isLocked) { _, locked in
+            if locked {
+                AccessibilityNotification.Announcement("VeraFlow is locked").post()
             }
         }
         .alert("Interrupted recording", isPresented: Binding(

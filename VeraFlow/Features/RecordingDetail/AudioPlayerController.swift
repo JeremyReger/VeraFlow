@@ -119,8 +119,11 @@ final class AudioPlayerController {
     /// Title, length, position, and rate for the system's playback controls.
     private func updateNowPlaying() {
         guard isLoaded else { return }
+        // With the app lock on, the Lock Screen and Control Center must not show the recording's
+        // name (security review S-3).
+        let shownTitle = AppPreferences.appLockEnabled() || title.isEmpty ? "Recording" : title
         MPNowPlayingInfoCenter.default().nowPlayingInfo = [
-            MPMediaItemPropertyTitle: title.isEmpty ? "Recording" : title,
+            MPMediaItemPropertyTitle: shownTitle,
             MPMediaItemPropertyArtist: "VeraFlow",
             MPMediaItemPropertyPlaybackDuration: duration,
             MPNowPlayingInfoPropertyElapsedPlaybackTime: currentTime,

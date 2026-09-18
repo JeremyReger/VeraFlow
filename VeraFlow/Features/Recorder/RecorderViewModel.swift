@@ -77,7 +77,9 @@ final class RecorderViewModel {
     // MARK: Inputs
 
     /// Reads what's plugged in and applies the remembered choice (built-in mic by default).
-    /// Safe to call often: the recorder is only told when the effective port changes.
+    /// Safe to call often: the recorder is told once per choice, not on every route change.
+    /// Route changes are noisy (the port being switched to can be missing from the list for a
+    /// moment); pushing a fallback then would undo the switch the user just asked for.
     func loadInputs() async {
         inputs = await services.recorder.availableInputs()
         await applyInputChoice()
@@ -116,7 +118,9 @@ final class RecorderViewModel {
     private func applyInputChoice() async {
         let effective = AudioInputPolicy.effectiveInput(available: inputs, choice: inputChoice)
         selectedInputID = effective
-        guard appliedInputID != .some(effective) else { return }
+        // Only the first load and an explicit tap reach the recorder. It keeps the wanted port
+        // itself, ignores it while unplugged, and iOS already falls back to the phone mic.
+        guard appliedInputID == nil else { return }
         do {
             try await services.recorder.selectInput(id: effective)
             appliedInputID = .some(effective)

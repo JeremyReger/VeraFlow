@@ -293,7 +293,7 @@ struct RecorderViewModelTests {
         #expect(await again.recorder.selectedInputID == nil)
     }
 
-    @Test("When the chosen headset disappears, the phone mic is applied instead")
+    @Test("When the chosen headset disappears, the menu shows the phone mic but the recorder keeps the choice")
     func inputFallsBackWhenHeadsetLeaves() async throws {
         let harness = try makeHarness()
         defer { harness.cleanUp() }
@@ -304,9 +304,17 @@ struct RecorderViewModelTests {
         await harness.recorder.setInputs([AudioInputOption(id: "builtin", name: "iPhone Microphone", isBuiltIn: true)])
         await viewModel.loadInputs()
 
-        #expect(viewModel.inputChoice == .device("airpods"), "the preference survives; only the applied port changes")
+        #expect(viewModel.inputChoice == .device("airpods"), "the preference survives")
         #expect(viewModel.selectedInputID == "builtin")
-        #expect(await harness.recorder.selectedInputID == "builtin")
+        #expect(await harness.recorder.selectedInputID == "airpods", "route-change reloads never push a fallback; the recorder ignores an unplugged port and iOS uses the phone mic")
+
+        // Plugged back in: the menu follows without another push.
+        await harness.recorder.setInputs([
+            AudioInputOption(id: "builtin", name: "iPhone Microphone", isBuiltIn: true),
+            AudioInputOption(id: "airpods", name: "AirPods", isBuiltIn: false),
+        ])
+        await viewModel.loadInputs()
+        #expect(viewModel.selectedInputID == "airpods")
     }
 
     @Test("The Live Activity follows start, pause, bookmark, resume, and stop")

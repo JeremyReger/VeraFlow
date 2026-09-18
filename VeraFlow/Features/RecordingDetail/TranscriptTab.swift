@@ -467,7 +467,7 @@ struct TranscriptTab: View {
 }
 
 /// Rename and error alerts for the speaker controller, once it exists.
-private struct OptionalSpeakerAlerts: ViewModifier {
+struct OptionalSpeakerAlerts: ViewModifier {
     let controller: SpeakerActionsController?
 
     func body(content: Content) -> some View {

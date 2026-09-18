@@ -6,6 +6,8 @@ import Testing
 /// The queue and stage machine on fakes (SPEC §6.3). Real transcription is exercised on device.
 @MainActor
 struct LivePipelineCoordinatorTests {
+    /// Nested types don't inherit the outer actor isolation; the harness touches `mainContext`.
+    @MainActor
     private struct Harness {
         let container: ModelContainer
         let storage: RecordingStorage

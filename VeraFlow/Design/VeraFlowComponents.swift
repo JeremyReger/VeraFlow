@@ -217,6 +217,7 @@ public struct VFTabs<Tab: Hashable>: View {
                         .frame(height: 2)
                     }
                 }
+                .accessibilityLabel(item.title)
                 .accessibilityAddTraits(selection == item.tab ? [.isButton, .isSelected] : .isButton)
             }
             Spacer(minLength: 0)
@@ -412,6 +413,7 @@ public struct VFMiniPlayer: View {
                     .background(VFColor.accent, in: Circle())
             }
             .accessibilityLabel(isPlaying ? "Pause" : "Play")
+            .accessibilityIdentifier("player.playPause")
 
             VStack(spacing: 7) {
                 GeometryReader { geo in

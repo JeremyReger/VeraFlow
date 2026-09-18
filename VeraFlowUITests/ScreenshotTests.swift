@@ -40,11 +40,10 @@ final class ScreenshotTests: XCTestCase {
         if !app.navigationBars["Kitchen remodel walk-through"].waitForExistence(timeout: 3) {
             app.cells.containing(NSPredicate(format: "label CONTAINS %@", "Kitchen remodel")).firstMatch.tap()
         }
-        let tabs = app.segmentedControls.firstMatch
-        XCTAssertTrue(tabs.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Transcript"].waitForExistence(timeout: 5))
         snap(app, "04-summary")
 
-        tabs.buttons["Transcript"].tap()
+        app.buttons["Transcript"].tap()
         let search = app.textFields["transcript.search"]
         if search.waitForExistence(timeout: 5) {
             search.tap()

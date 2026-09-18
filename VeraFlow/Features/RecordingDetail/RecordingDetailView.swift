@@ -42,16 +42,7 @@ struct RecordingDetailView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Picker("Section", selection: $tab) {
-                ForEach(Tab.allCases) { tab in
-                    Text(tab.title).tag(tab)
-                }
-            }
-            .pickerStyle(.segmented)
-            .padding(.horizontal)
-            .padding(.vertical, 8)
-            .accessibilityIdentifier("detail.tabs")
-
+            header
             switch tab {
             case .summary:
                 SummaryTab(recording: recording, player: player)
@@ -61,16 +52,24 @@ struct RecordingDetailView: View {
                 audioTab
             }
         }
-        .safeAreaInset(edge: .bottom) {
+        .background(VFColor.background.ignoresSafeArea())
+        .safeAreaInset(edge: .bottom, spacing: 0) {
             if tab != .audio {
-                AudioPlayerView(player: player)
-                    .padding(.horizontal)
-                    .background(.bar)
+                MiniPlayerBar(player: player)
             }
         }
-        .navigationTitle(recording.title)
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(VFColor.background, for: .navigationBar)
         .toolbar {
+            if let controller {
+                ToolbarItem(placement: .primaryAction) {
+                    Button(recording.isFavorite ? "Unstar" : "Star", systemImage: recording.isFavorite ? "star.fill" : "star") {
+                        controller.toggleFavorite(recording)
+                    }
+                    .accessibilityIdentifier("detail.star")
+                }
+            }
             if let exportController {
                 ToolbarItem(placement: .primaryAction) {
                     Menu("Share", systemImage: "square.and.arrow.up") {
@@ -115,6 +114,37 @@ struct RecordingDetailView: View {
             player.load(url: services.storage.audioURL(for: recording.id, fileName: recording.audioFileName), title: recording.title)
         }
         .onDisappear { player.stop() }
+    }
+
+    /// Serif title, one metadata line, and the underline tabs (design spec §4 Summary / Transcript / Audio).
+    private var header: some View {
+        let card = LibraryCardModel(recording: recording)
+        return VStack(alignment: .leading, spacing: 8) {
+            Text(card.title)
+                .vfText(VFText.recordingTitle)
+                .lineLimit(3)
+                .accessibilityAddTraits(.isHeader)
+            HStack(spacing: 7) {
+                Text(recording.createdAt, format: .dateTime.month(.abbreviated).day().hour().minute())
+                Text("·").accessibilityHidden(true)
+                Text(card.duration)
+                    .accessibilityLabel(SpokenFormat.duration(recording.duration))
+                if card.speakerCount > 0 {
+                    Text("·").accessibilityHidden(true)
+                    Text("^[\(card.speakerCount) speaker](inflect: true)")
+                }
+                if card.isImported {
+                    Text("·").accessibilityHidden(true)
+                    Text("Imported")
+                }
+            }
+            .vfText(VFText.meta, color: VFColor.textTertiary)
+            VFTabs(tabs: Tab.allCases.map { (tab: $0, title: $0.title) }, selection: $tab)
+                .padding(.top, 6)
+                .accessibilityIdentifier("detail.tabs")
+        }
+        .padding(.horizontal, VFSpace.gutterTight)
+        .padding(.top, 4)
     }
 
     private var audioTab: some View {

@@ -12,6 +12,9 @@ final class AudioPlayerController {
     private(set) var currentTime: TimeInterval = 0
     private(set) var duration: TimeInterval = 0
     private(set) var errorMessage: String?
+    /// 1×, 1.5×, 2× (design spec §4 Audio: the speed pill).
+    private(set) var rate: Float = 1
+    static let rates: [Float] = [1, 1.5, 2]
     /// e.g. "4.6 MB · 44100 Hz · 1 ch · aac" for the Status section (diagnostic).
     private(set) var fileDescription: String?
 
@@ -30,6 +33,7 @@ final class AudioPlayerController {
         }
         do {
             let player = try AVAudioPlayer(contentsOf: url)
+            player.enableRate = true
             player.prepareToPlay()
             self.player = player
             // `AVAudioPlayer.duration` is an estimate for ADTS streams (no header carries the
@@ -64,6 +68,18 @@ final class AudioPlayerController {
         isPlaying ? pause() : play()
     }
 
+    /// Steps through `rates`; applies immediately if playing.
+    func cycleRate() {
+        let index = Self.rates.firstIndex(of: rate) ?? 0
+        rate = Self.rates[(index + 1) % Self.rates.count]
+        if isPlaying { player?.rate = rate }
+        updateNowPlaying()
+    }
+
+    var rateLabel: String {
+        rate == rate.rounded() ? "\(Int(rate))×" : "\(rate)×"
+    }
+
     func play() {
         guard let player else { return }
         do {
@@ -81,6 +97,7 @@ final class AudioPlayerController {
             errorMessage = "Playback couldn't start."
             return
         }
+        player.rate = rate
         isPlaying = true
         startTicker()
         updateNowPlaying()
@@ -127,7 +144,7 @@ final class AudioPlayerController {
             MPMediaItemPropertyArtist: "VeraFlow",
             MPMediaItemPropertyPlaybackDuration: duration,
             MPNowPlayingInfoPropertyElapsedPlaybackTime: currentTime,
-            MPNowPlayingInfoPropertyPlaybackRate: isPlaying ? 1.0 : 0.0,
+            MPNowPlayingInfoPropertyPlaybackRate: isPlaying ? Double(rate) : 0.0,
         ]
     }
 

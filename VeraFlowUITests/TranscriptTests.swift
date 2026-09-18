@@ -22,9 +22,7 @@ final class TranscriptTests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Kitchen remodel walk-through"].waitForExistence(timeout: 5), "detail did not open")
 
         // The sample recording has a summary, so the detail opens on the Summary tab.
-        let tabs = app.segmentedControls.firstMatch
-        XCTAssertTrue(tabs.waitForExistence(timeout: 5), "tab picker missing")
-        let transcriptTab = tabs.buttons["Transcript"]
+        let transcriptTab = app.buttons["Transcript"]
         XCTAssertTrue(transcriptTab.waitForExistence(timeout: 5), "Transcript segment missing")
         transcriptTab.tap()
 

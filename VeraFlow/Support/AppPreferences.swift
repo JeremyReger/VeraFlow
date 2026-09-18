@@ -6,6 +6,7 @@ enum AppPreferences {
     static let consentReminderKey = "recording.consentReminder"
     static let appLockKey = "privacy.appLock"
     static let diagnosticsUnlockedKey = "diagnostics.unlocked"
+    static let defaultTemplateKey = "recording.defaultTemplate"
 
     static func onboardingCompleted(in defaults: UserDefaults = .standard) -> Bool {
         defaults.bool(forKey: onboardingCompletedKey)
@@ -40,5 +41,15 @@ enum AppPreferences {
 
     static func setDiagnosticsUnlocked(_ value: Bool, in defaults: UserDefaults = .standard) {
         defaults.set(value, forKey: diagnosticsUnlockedKey)
+    }
+
+    /// The summary template offered on the Record screen (design spec §4 Record — ready). The
+    /// last choice is remembered; General until then.
+    static func defaultTemplate(in defaults: UserDefaults = .standard) -> TemplateID {
+        defaults.string(forKey: defaultTemplateKey).flatMap(TemplateID.init(rawValue:)) ?? .general
+    }
+
+    static func setDefaultTemplate(_ template: TemplateID, in defaults: UserDefaults = .standard) {
+        defaults.set(template.rawValue, forKey: defaultTemplateKey)
     }
 }

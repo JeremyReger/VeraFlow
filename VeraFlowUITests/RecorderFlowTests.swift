@@ -21,7 +21,8 @@ final class RecorderFlowTests: XCTestCase {
 
         let stop = app.buttons["recorder.stop"]
         XCTAssertTrue(stop.waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["recorder.status"].exists)
+        // The status chip is one accessibility element (dot + text), so it isn't a static text.
+        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "recorder.status").firstMatch.exists)
 
         app.buttons["recorder.bookmark"].tap()
         app.buttons["recorder.pause"].tap()

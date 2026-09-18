@@ -15,11 +15,12 @@ final class TranscriptTests: XCTestCase {
         let row = app.staticTexts["Kitchen remodel walk-through"]
         XCTAssertTrue(row.waitForExistence(timeout: 5))
         row.tap()
-        if !app.navigationBars["Kitchen remodel walk-through"].waitForExistence(timeout: 3) {
+        // The detail draws its own serif title; the tabs are the sign it opened.
+        if !app.buttons["Transcript"].waitForExistence(timeout: 3) {
             // Some iOS versions want the row itself, not its text.
             app.cells.containing(NSPredicate(format: "label CONTAINS %@", "Kitchen remodel")).firstMatch.tap()
         }
-        XCTAssertTrue(app.navigationBars["Kitchen remodel walk-through"].waitForExistence(timeout: 5), "detail did not open")
+        XCTAssertTrue(app.buttons["Transcript"].waitForExistence(timeout: 5), "detail did not open")
 
         // The sample recording has a summary, so the detail opens on the Summary tab.
         let transcriptTab = app.buttons["Transcript"]

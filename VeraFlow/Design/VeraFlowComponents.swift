@@ -459,27 +459,91 @@ public struct VFLiveChip: View {
     @State private var dimmed = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private let title: String
-    public init(_ title: String = "RECORDING") { self.title = title }
+    private let isLive: Bool
+
+    /// `isLive` false is the paused look (spec §5): grey, no pulse.
+    public init(_ title: String = "RECORDING", isLive: Bool = true) {
+        self.title = title
+        self.isLive = isLive
+    }
 
     public var body: some View {
         HStack(spacing: 7) {
             Circle()
-                .fill(VFColor.danger)
+                .fill(isLive ? VFColor.danger : VFColor.textTertiary)
                 .frame(width: 8, height: 8)
-                .opacity(dimmed ? 0.28 : 1)
+                .opacity(dimmed && isLive ? 0.28 : 1)
                 // Holds steady under Reduce Motion (spec §6).
-                .onAppear { if !reduceMotion { withAnimation(VFMotion.pulse) { dimmed = true } } }
+                .onAppear { if !reduceMotion, isLive { withAnimation(VFMotion.pulse) { dimmed = true } } }
             Text(title)
                 .font(.custom(VFFontName.sansBold, size: 10.5, relativeTo: .caption2))
                 .tracking(1.6)
-                .foregroundStyle(VFColor.dangerMuted)
+                .foregroundStyle(isLive ? VFColor.dangerMuted : VFColor.textSecondary)
         }
         .padding(.horizontal, 12)
         .frame(height: 30)
-        .background(VFColor.danger.opacity(0.14), in: Capsule())
-        .overlay { Capsule().strokeBorder(VFColor.danger.opacity(0.4), lineWidth: VFMetric.hairline) }
+        .background(isLive ? VFColor.danger.opacity(0.14) : VFColor.surfaceRaised, in: Capsule())
+        .overlay {
+            Capsule().strokeBorder(isLive ? VFColor.danger.opacity(0.4) : VFColor.borderStrong, lineWidth: VFMetric.hairline)
+        }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title == "RECORDING" ? "Recording in progress" : title.capitalized)
+    }
+}
+
+// MARK: - Hairline
+
+/// The one-point rule between rows in a settings card.
+public struct VFHairline: View {
+    public init() {}
+    public var body: some View {
+        Rectangle().fill(VFColor.separator).frame(height: VFMetric.hairline)
+    }
+}
+
+// MARK: - Picker row
+
+/// The 60 pt "MICROPHONE / iPhone Microphone" row on the Record screen: use it as a `Menu`
+/// label. The eyebrow says what is being chosen, the value says what is chosen.
+public struct VFPickerRowLabel: View {
+    private let eyebrow: String
+    private let value: String
+    private let systemName: String
+
+    public init(eyebrow: String, value: String, systemName: String) {
+        self.eyebrow = eyebrow
+        self.value = value
+        self.systemName = systemName
+    }
+
+    public var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: systemName)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(VFColor.iconPrimary)
+                .frame(width: 24)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(eyebrow.uppercased())
+                    .vfText(VFText.sectionLabel, color: VFColor.textTertiary)
+                Text(value)
+                    .vfText(VFText.rowLabel)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Image(systemName: "chevron.up.chevron.down")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(VFColor.textTertiary)
+                .accessibilityHidden(true)
+        }
+        .padding(.horizontal, VFSpace.cardPaddingH)
+        .frame(minHeight: 60)
+        .background(VFColor.surface, in: RoundedRectangle(cornerRadius: VFRadius.block, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: VFRadius.block, style: .continuous)
+                .strokeBorder(VFColor.border, lineWidth: VFMetric.hairline)
+        }
+        .contentShape(RoundedRectangle(cornerRadius: VFRadius.block, style: .continuous))
     }
 }
 

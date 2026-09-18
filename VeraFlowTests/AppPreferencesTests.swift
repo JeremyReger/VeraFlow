@@ -24,4 +24,17 @@ struct AppPreferencesTests {
         #expect(AppPreferences.appLockEnabled(in: defaults))
         #expect(AppPreferences.diagnosticsUnlocked(in: defaults))
     }
+
+    @Test("Default template is General until chosen, then remembered; junk falls back to General")
+    func defaultTemplate() throws {
+        let suite = "AppPreferencesTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        #expect(AppPreferences.defaultTemplate(in: defaults) == .general)
+        AppPreferences.setDefaultTemplate(.walkthrough, in: defaults)
+        #expect(AppPreferences.defaultTemplate(in: defaults) == .walkthrough)
+        defaults.set("not-a-template", forKey: AppPreferences.defaultTemplateKey)
+        #expect(AppPreferences.defaultTemplate(in: defaults) == .general)
+    }
 }

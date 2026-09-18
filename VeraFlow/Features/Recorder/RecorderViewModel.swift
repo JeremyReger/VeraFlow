@@ -40,6 +40,8 @@ final class RecorderViewModel {
     private(set) var selectedInputID: String?
     /// What the user asked for (remembered in `UserDefaults`).
     private(set) var inputChoice: AudioInputChoice
+    /// Summary template for the next recording, picked before recording starts (design spec §4).
+    private(set) var selectedTemplate: TemplateID
     /// Free bytes when the low-disk warning fired; `nil` when there is no warning.
     private(set) var lowDiskBytes: Int64?
     /// True after a phone call ends and the system says we may resume (SPEC §8.3).
@@ -73,6 +75,13 @@ final class RecorderViewModel {
         self.defaults = defaults
         self.now = now
         self.inputChoice = AudioInputChoice(stored: defaults.string(forKey: Self.inputChoiceKey))
+        self.selectedTemplate = AppPreferences.defaultTemplate(in: defaults)
+    }
+
+    /// Chooses the template the summary will use, and remembers it for next time.
+    func selectTemplate(_ template: TemplateID) {
+        selectedTemplate = template
+        AppPreferences.setDefaultTemplate(template, in: defaults)
     }
 
     // MARK: Inputs
@@ -149,7 +158,12 @@ final class RecorderViewModel {
         let interruptions = await services.recorder.interruptions()
 
         let startedAt = now()
-        let recording = Recording(title: Recording.suggestedTitle(for: startedAt), createdAt: startedAt, stage: .recording)
+        let recording = Recording(
+            title: Recording.suggestedTitle(for: startedAt),
+            createdAt: startedAt,
+            stage: .recording,
+            templateID: selectedTemplate
+        )
         do {
             try services.storage.folder(for: recording.id)
             let url = services.storage.audioURL(for: recording.id, fileName: recording.audioFileName)

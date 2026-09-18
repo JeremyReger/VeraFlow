@@ -37,7 +37,8 @@ final class ScreenshotTests: XCTestCase {
         let row = app.staticTexts["Kitchen remodel walk-through"]
         XCTAssertTrue(row.waitForExistence(timeout: 5))
         row.tap()
-        if !app.navigationBars["Kitchen remodel walk-through"].waitForExistence(timeout: 3) {
+        // The detail draws its own serif title; the tabs are the sign it opened.
+        if !app.buttons["Transcript"].waitForExistence(timeout: 3) {
             app.cells.containing(NSPredicate(format: "label CONTAINS %@", "Kitchen remodel")).firstMatch.tap()
         }
         XCTAssertTrue(app.buttons["Transcript"].waitForExistence(timeout: 5))

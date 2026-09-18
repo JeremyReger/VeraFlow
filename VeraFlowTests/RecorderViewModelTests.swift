@@ -69,6 +69,22 @@ struct RecorderViewModelTests {
         #expect(try harness.context.fetchCount(FetchDescriptor<Recording>()) == 1)
     }
 
+    @Test("The template picked before recording lands on the recording and is remembered")
+    func template() async throws {
+        let harness = try makeHarness()
+        defer { harness.cleanUp() }
+        let viewModel = harness.viewModel
+        #expect(viewModel.selectedTemplate == .general)
+
+        viewModel.selectTemplate(.client)
+        await viewModel.start()
+
+        let recording = try #require(viewModel.recording)
+        #expect(recording.templateID == .client)
+        let again = try makeHarness(defaultsSuite: harness.defaultsSuite)
+        #expect(again.viewModel.selectedTemplate == .client)
+    }
+
     @Test("Denied permission moves to permissionDenied without creating a row")
     func permissionDenied() async throws {
         let harness = try makeHarness(permissionGranted: false)

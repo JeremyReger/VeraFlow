@@ -156,16 +156,25 @@ actor LiveAudioRecorderService: AudioRecorderService {
         startDiskWatch()
     }
 
+    /// Pause keeps the engine running and just stops writing: with audio I/O still active iOS
+    /// keeps the app alive, so Resume from the Lock Screen works (a backgrounded app may not
+    /// *start* recording, only continue it). The mic indicator stays on while paused.
     func pause() async throws {
-        guard status == .recording else { throw AudioRecorderError.notRecording }
-        engine?.pause()
+        guard status == .recording, let writer else { throw AudioRecorderError.notRecording }
+        writer.isPaused = true
         status = .paused
         publishSnapshot()
     }
 
     func resume() async throws {
         guard status == .paused, let writer, let recordFormat else { throw AudioRecorderError.notRecording }
-        try await restartCaptureRetrying(writer: writer, recordFormat: recordFormat)
+        if let engine, engine.isRunning, !engineNeedsRebuild {
+            writer.isPaused = false
+        } else {
+            // The engine stopped (interruption, route change, media reset): rebuild it.
+            try await restartCaptureRetrying(writer: writer, recordFormat: recordFormat)
+            writer.isPaused = false
+        }
         status = .recording
         publishSnapshot()
     }
@@ -576,13 +585,26 @@ private final class TapWriter: @unchecked Sendable {
     private var peak: Float = 0
     private var largestPeak: Float = 0
     private var isClosed = false
+    private var _isPaused = false
 
     init(file: AVAudioFile, sampleRate: Double) {
         self.file = file
         self.sampleRate = sampleRate
     }
 
+    /// While paused, buffers are dropped: the file, the elapsed time, and the meter stand still.
+    var isPaused: Bool {
+        get { lock.withLock { _isPaused } }
+        set {
+            lock.withLock {
+                _isPaused = newValue
+                if newValue { peak = 0 }
+            }
+        }
+    }
+
     func append(_ buffer: AVAudioPCMBuffer) {
+        if isPaused { return }
         var bufferPeak: Float = 0
         if let channels = buffer.floatChannelData {
             let frameCount = Int(buffer.frameLength)

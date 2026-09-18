@@ -58,57 +58,66 @@ private struct RecordingBanner: View {
     let state: RecordingActivityAttributes.ContentState
 
     var body: some View {
-        HStack(spacing: 12) {
-            StatusIcon(isPaused: state.isPaused)
-                .font(.title)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(state.isPaused ? "Paused" : "Recording")
-                    .font(.headline)
-                Text(title)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                BookmarkCount(count: state.bookmarkCount)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-            VStack(alignment: .trailing, spacing: 8) {
+        VStack(spacing: 12) {
+            HStack(spacing: 12) {
+                StatusIcon(isPaused: state.isPaused)
+                    .font(.title)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(state.isPaused ? "Paused" : "Recording")
+                        .font(.headline)
+                    Text(title)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                    BookmarkCount(count: state.bookmarkCount)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
                 RecordingTimer(state: state)
                     .font(.title2.monospacedDigit().weight(.semibold))
-                ControlButtons(isPaused: state.isPaused)
             }
+            ControlButtons(isPaused: state.isPaused, large: true)
         }
         .padding()
     }
 }
 
 /// Pause/Resume and Bookmark. Each press runs its intent in the app, which updates the activity.
+/// `large` is the Lock Screen row (thumb-sized); the Dynamic Island gets the compact pair.
 private struct ControlButtons: View {
     let isPaused: Bool
+    var large = false
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: large ? 12 : 8) {
             if isPaused {
                 Button(intent: ResumeRecordingIntent()) {
                     Label("Resume", systemImage: "record.circle")
+                        .frame(maxWidth: large ? .infinity : nil)
                 }
                 .tint(.red)
             } else {
                 Button(intent: PauseRecordingIntent()) {
                     Label("Pause", systemImage: "pause.fill")
+                        .frame(maxWidth: large ? .infinity : nil)
                 }
                 .tint(.orange)
             }
             Button(intent: AddBookmarkIntent()) {
-                Image(systemName: "bookmark.fill")
+                if large {
+                    Label("Bookmark", systemImage: "bookmark.fill")
+                        .frame(maxWidth: .infinity)
+                } else {
+                    Image(systemName: "bookmark.fill")
+                }
             }
             .tint(.blue)
             .accessibilityLabel("Add bookmark")
         }
         .buttonStyle(.borderedProminent)
-        .controlSize(.small)
-        .font(.caption.weight(.semibold))
+        .controlSize(large ? .large : .small)
+        .font(large ? .body.weight(.semibold) : .caption.weight(.semibold))
     }
 }
 

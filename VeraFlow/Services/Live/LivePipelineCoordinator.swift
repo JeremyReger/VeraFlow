@@ -284,7 +284,8 @@ actor LivePipelineCoordinator: PipelineCoordinating {
             // Free tier: 3 summaries in total, any template (SPEC §13.2). Checked here so a queued
             // 4th summary stops cleanly with the paywall reason instead of a model call.
             let unlocked = await purchases.isUnlocked()
-            guard unlocked || await purchases.freeSummariesUsed() < FreeTier.summaryLimit else {
+            let freeUsed = await purchases.freeSummariesUsed()
+            guard unlocked || freeUsed < FreeTier.summaryLimit else {
                 throw SummarizationError.freeLimitReached
             }
             let input = SummarizationInput.make(from: recording)

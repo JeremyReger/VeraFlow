@@ -33,4 +33,14 @@ struct AudioInputPolicyTests {
             #expect(AudioInputChoice(stored: choice.stored) == choice)
         }
     }
+
+    @Test("Routing: prefer the wanted port, clear when automatic, skip when already set or missing")
+    func routing() {
+        #expect(AudioInputRouting.action(wanted: "builtin", available: ["buds", "builtin"], sessionPreferred: nil) == .prefer("builtin"))
+        #expect(AudioInputRouting.action(wanted: "builtin", available: ["buds", "builtin"], sessionPreferred: "buds") == .prefer("builtin"))
+        #expect(AudioInputRouting.action(wanted: "builtin", available: ["buds", "builtin"], sessionPreferred: "builtin") == .unchanged)
+        #expect(AudioInputRouting.action(wanted: "buds", available: ["builtin"], sessionPreferred: nil) == .unavailable)
+        #expect(AudioInputRouting.action(wanted: nil, available: ["builtin"], sessionPreferred: "builtin") == .clear)
+        #expect(AudioInputRouting.action(wanted: nil, available: ["builtin"], sessionPreferred: nil) == .unchanged)
+    }
 }

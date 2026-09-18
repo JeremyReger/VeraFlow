@@ -34,6 +34,9 @@ actor LiveAudioRecorderService: AudioRecorderService {
     /// True while `restartCapture(retrying:)` is mid-retry, so overlapping configuration-change
     /// notifications don't start a second restart.
     private var isRestarting = false
+    /// The port UID the user wants (`nil` = let iOS choose). Applied after every activation:
+    /// iOS ignores `setPreferredInput` on an inactive session.
+    private var wantedInputID: String?
 
     /// Thrown by `restartCapture` when the input node reports no usable format yet (0 Hz or 0
     /// channels), which happens for a moment while a route change settles. Retried, never shown.
@@ -90,6 +93,7 @@ actor LiveAudioRecorderService: AudioRecorderService {
         } catch {
             throw AudioRecorderError.sessionFailed(error.localizedDescription)
         }
+        await applyWantedInput(to: session)
 
         guard let recordFormat = AVAudioFormat(
             commonFormat: .pcmFormatFloat32,
@@ -235,30 +239,63 @@ actor LiveAudioRecorderService: AudioRecorderService {
         }
     }
 
+    /// Remembers the choice. While idle it is only validated; the session is inactive then and
+    /// iOS would ignore `setPreferredInput`, so `start()` applies it right after activating.
+    /// While recording it takes effect now; the engine's configuration-change notification then
+    /// re-taps the mic in the new route's format.
     func selectInput(id: String?) async throws {
         let session = AVAudioSession.sharedInstance()
-        do {
-            if status == .idle {
-                try Self.configureSession(session)
-            }
-            guard let id else {
-                try session.setPreferredInput(nil)
-                return
-            }
-            guard let port = session.availableInputs?.first(where: { $0.uid == id }) else {
-                throw AudioRecorderError.sessionFailed("That microphone is no longer available")
-            }
-            // Already routed through that port: leave the session alone (no route change, no
-            // engine reconfiguration mid-recording).
-            if session.currentRoute.inputs.contains(where: { $0.uid == id }), session.preferredInput?.uid == id || session.preferredInput == nil {
-                return
-            }
-            try session.setPreferredInput(port)
-        } catch let error as AudioRecorderError {
-            throw error
-        } catch {
-            throw AudioRecorderError.sessionFailed(error.localizedDescription)
+        if status == .idle {
+            try? Self.configureSession(session)
         }
+        if let id, !(session.availableInputs ?? []).contains(where: { $0.uid == id }) {
+            throw AudioRecorderError.sessionFailed("That microphone is no longer available")
+        }
+        wantedInputID = id
+        guard status != .idle else { return }
+        await applyWantedInput(to: session)
+    }
+
+    /// Applies `wantedInputID` to an *active* session and waits briefly for the route to follow,
+    /// so the engine built next taps the mic in the right format.
+    private func applyWantedInput(to session: AVAudioSession) async {
+        let available = (session.availableInputs ?? [])
+        let action = AudioInputRouting.action(
+            wanted: wantedInputID,
+            available: available.map(\.uid),
+            sessionPreferred: session.preferredInput?.uid
+        )
+        do {
+            switch action {
+            case .unchanged:
+                return
+            case .unavailable:
+                Self.log.info("input \(self.wantedInputID ?? "-", privacy: .public) not available; keeping \(Self.describeRoute(session), privacy: .public)")
+                return
+            case .clear:
+                try session.setPreferredInput(nil)
+            case .prefer(let id):
+                if let port = available.first(where: { $0.uid == id }) {
+                    try session.setPreferredInput(port)
+                }
+            }
+        } catch {
+            Self.log.error("setPreferredInput failed: \(error.localizedDescription, privacy: .public)")
+            return
+        }
+        // The route change is asynchronous; give it up to a second before reading the input format.
+        if case .prefer(let id) = action {
+            for _ in 0..<10 where !session.currentRoute.inputs.contains(where: { $0.uid == id }) {
+                try? await Task.sleep(for: .milliseconds(100))
+            }
+        }
+        Self.log.info("input preference applied (\(String(describing: action), privacy: .public)); route \(Self.describeRoute(session), privacy: .public)")
+    }
+
+    private static func describeRoute(_ session: AVAudioSession) -> String {
+        let inputs = session.currentRoute.inputs.map(\.portName).joined(separator: ",")
+        let outputs = session.currentRoute.outputs.map(\.portName).joined(separator: ",")
+        return "\(inputs) -> \(outputs)"
     }
 
     // MARK: Session
@@ -416,6 +453,15 @@ actor LiveAudioRecorderService: AudioRecorderService {
         do {
             try Self.configureSession(session)
             try session.setActive(true)
+            if case .prefer(let id) = AudioInputRouting.action(
+                wanted: wantedInputID,
+                available: (session.availableInputs ?? []).map(\.uid),
+                sessionPreferred: session.preferredInput?.uid
+            ), let port = session.availableInputs?.first(where: { $0.uid == id }) {
+                // Re-assert after an interruption or reset; a later route change re-taps via the
+                // configuration-change observer.
+                try session.setPreferredInput(port)
+            }
         } catch {
             throw AudioRecorderError.sessionFailed(error.localizedDescription)
         }

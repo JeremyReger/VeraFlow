@@ -43,3 +43,24 @@ enum AudioInputPolicy {
         }
     }
 }
+
+/// What `setPreferredInput` should be called with once the session is active. Kept pure so the
+/// timing rule (Apple: set the preferred input only after activating the session) is testable.
+enum AudioInputRouting: Equatable, Sendable {
+    /// The session already prefers this port (or no preference is wanted and none is set).
+    case unchanged
+    /// Call `setPreferredInput(nil)`: let iOS choose.
+    case clear
+    /// Call `setPreferredInput(port)` for this UID.
+    case prefer(String)
+    /// The wanted port isn't in `availableInputs` right now; leave routing alone.
+    case unavailable
+
+    static func action(wanted: String?, available: [String], sessionPreferred: String?) -> AudioInputRouting {
+        guard let wanted else {
+            return sessionPreferred == nil ? .unchanged : .clear
+        }
+        guard available.contains(wanted) else { return .unavailable }
+        return sessionPreferred == wanted ? .unchanged : .prefer(wanted)
+    }
+}

@@ -44,7 +44,7 @@ struct LivePipelineCoordinatorTests {
         }
     }
 
-    private func makeHarness(speakerHint: SpeakerCountHint = .automatic, unlocked: Bool = true, freeSummariesUsed: Int = 0) throws -> Harness {
+    private func makeHarness(speakerHint: SpeakerCountHint = .automatic, unlocked: Bool = true, freeSummariesUsed: Int = 0, rateLimitRetryDelay: Duration = .seconds(180)) throws -> Harness {
         let storage = RecordingStorage(rootDirectory: try TestAudioFiles.temporaryDirectory())
         let container = try ModelContainerFactory.makeInMemory()
         let transcription = FakeTranscriptionService()
@@ -62,7 +62,8 @@ struct LivePipelineCoordinatorTests {
             purchases: purchases,
             storage: storage,
             background: background,
-            speakerHint: { speakerHint }
+            speakerHint: { speakerHint },
+            rateLimitRetryDelay: rateLimitRetryDelay
         )
         return Harness(
             container: container,
@@ -173,6 +174,24 @@ struct LivePipelineCoordinatorTests {
         #expect(recording.failureMessage == "AI summaries need an Apple Intelligence–capable iPhone. Transcripts still work.")
         #expect(recording.summaries.isEmpty)
         #expect(recording.speakers.count == 2, "speaker labels are untouched")
+    }
+
+    @Test("A rate-limited summary is retried on its own after the delay")
+    func rateLimitedSummaryRetries() async throws {
+        let harness = try makeHarness(rateLimitRetryDelay: .milliseconds(200))
+        defer { harness.cleanUp() }
+        await harness.summarization.setError(.rateLimited)
+        let id = try harness.insert()
+
+        await harness.coordinator.enqueue(recordingID: id)
+        try await waitUntil { try harness.fetch(id)?.failureMessage == SummarizationError.rateLimitedMessage }
+        #expect(try harness.stage(of: id) == .ready)
+
+        await harness.summarization.setError(nil)
+        try await waitUntil { try harness.fetch(id)?.summaries.count == 1 }
+        let recording = try #require(try harness.fetch(id))
+        #expect(recording.failedStage == nil)
+        #expect(recording.failureMessage == nil)
     }
 
     @Test("Re-running speaker labels on a summarized recording keeps the summary and spends nothing")

@@ -124,8 +124,16 @@ actor LiveSummarizationService: SummarizationService {
     private static let schemaOverheadEstimate = 600
     /// How many times to shrink the chunks after the model reports a context overflow.
     private static let maxOverflowRetries = 3
+    /// SPEC §11.2's iOS 26 figure, used only when the model can't report its context size
+    /// (it returns 0 while the system is rate limiting metadata lookups).
+    private static let fallbackContextSize = 4_096
+    /// Back-off before retrying a rate-limited request, per attempt.
+    private static let rateLimitDelays: [Duration] = [.seconds(10), .seconds(30)]
 
     private var model: SystemLanguageModel { .default }
+    /// Instruction/schema token counts don't change per launch; counting them costs model
+    /// requests, which is exactly what the system rate-limits.
+    private var budgetCache: [TemplateID: ContextBudget] = [:]
 
     // MARK: SummarizationService
 
@@ -169,12 +177,14 @@ actor LiveSummarizationService: SummarizationService {
             do {
                 return try await run(input, inputTokens: inputTokens, tokenCount: counter, progress: progress)
             } catch let error as LanguageModelSession.GenerationError {
-                if case .rateLimited = error, rateLimitWaits < 2 {
-                    // The system throttles the model briefly (e.g. right after another request);
-                    // wait it out instead of failing the summary.
+                if case .rateLimited = error {
+                    // The system throttles the model (often for minutes). Wait briefly twice, then
+                    // hand back `.rateLimited` so the pipeline retries later instead of failing.
+                    guard rateLimitWaits < Self.rateLimitDelays.count else { throw SummarizationError.rateLimited }
+                    let delay = Self.rateLimitDelays[rateLimitWaits]
                     rateLimitWaits += 1
-                    Self.log.notice("model rate limited; retrying in 5 s (\(rateLimitWaits, privacy: .public)/2)")
-                    try await Task.sleep(for: .seconds(5))
+                    Self.log.notice("model rate limited; retrying in \(delay.description, privacy: .public)")
+                    try await Task.sleep(for: delay)
                     continue
                 }
                 guard case .exceededContextWindowSize = error, attempt < Self.maxOverflowRetries else {
@@ -332,7 +342,13 @@ actor LiveSummarizationService: SummarizationService {
     /// Context size read from the model at runtime; instruction and schema costs counted by the
     /// model where it can (iOS 26.4+), estimated otherwise (SPEC §11.2).
     private func makeBudget(for template: TemplateID) async throws -> ContextBudget {
-        let contextSize = model.contextSize
+        if let cached = budgetCache[template] { return cached }
+        var contextSize = model.contextSize
+        if contextSize < 1_024 {
+            // 0 means the lookup failed (rate limited); don't shrink chunks to nothing.
+            Self.log.notice("context size unavailable (\(contextSize, privacy: .public)); assuming \(Self.fallbackContextSize, privacy: .public)")
+            contextSize = Self.fallbackContextSize
+        }
         let instructions = Prompts.instructions(Prompts.final(for: template))
         var instructionTokens = TranscriptChunker.estimateTokens(instructions)
         var schemaTokens = Self.schemaOverheadEstimate
@@ -351,6 +367,9 @@ actor LiveSummarizationService: SummarizationService {
         }
         let budget = ContextBudget(contextSize: contextSize, instructionsTokens: instructionTokens, schemaOverhead: schemaTokens)
         Self.log.info("context \(contextSize, privacy: .public) tokens; instructions \(instructionTokens, privacy: .public); schema \(schemaTokens, privacy: .public); input budget \(budget.inputTokens, privacy: .public)")
+        if model.contextSize >= 1_024 {
+            budgetCache[template] = budget // only cache counts made with a healthy model
+        }
         return budget
     }
 
@@ -366,7 +385,8 @@ actor LiveSummarizationService: SummarizationService {
     /// can count tokens, so chunking stays synchronous but tracks the real tokenizer.
     private func tokenCounter(calibratedOn sample: String) async -> @Sendable (String) -> Int {
         var ratio = 1.0
-        if #available(iOS 26.4, *), !sample.isEmpty, let counted = try? await model.tokenCount(for: Prompt { sample }) {
+        // Skip the calibration request while the model can't even report its size.
+        if #available(iOS 26.4, *), !sample.isEmpty, model.contextSize >= 1_024, let counted = try? await model.tokenCount(for: Prompt { sample }) {
             let estimated = TranscriptChunker.estimateTokens(sample)
             if estimated > 0, counted > 0 {
                 ratio = Double(counted) / Double(estimated)
@@ -472,7 +492,7 @@ actor LiveSummarizationService: SummarizationService {
         case .refusal:
             return .generationFailed("The on-device model declined to summarize this recording.")
         case .rateLimited:
-            return .generationFailed("The on-device model is busy. Try again in a moment.")
+            return .rateLimited
         case .decodingFailure:
             return .generationFailed("The model's answer couldn't be read. Try again.")
         case .unsupportedLanguageOrLocale:

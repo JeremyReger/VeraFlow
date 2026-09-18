@@ -73,7 +73,7 @@ struct SummaryTab: View {
         } else if recording.failedStage == .summarizing, let message = recording.failureMessage {
             let unlockedNow = isFreeLimitReached && appState?.isUnlocked == true
             HStack(spacing: 10) {
-                Image(systemName: unlockedNow ? "lock.open.fill" : isFreeLimitReached ? "lock.fill" : "sparkles.slash").foregroundStyle(.orange)
+                Image(systemName: unlockedNow ? "lock.open.fill" : isFreeLimitReached ? "lock.fill" : "exclamationmark.triangle").foregroundStyle(.orange)
                 Text(unlockedNow ? "Unlocked. Tap Retry to write this summary." : message).font(.footnote)
                 Spacer(minLength: 0)
                 if isFreeLimitReached, appState?.isUnlocked != true {

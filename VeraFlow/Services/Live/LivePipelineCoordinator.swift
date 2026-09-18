@@ -34,6 +34,10 @@ actor LivePipelineCoordinator: PipelineCoordinating {
     private var cancelledIDs: Set<UUID> = []
     /// "Re-run speaker labels" on a recording that already has a summary: relabel, keep the summary.
     private var relabelOnly: Set<UUID> = []
+    /// Pending automatic retries after the on-device model rate-limited a summary.
+    private var rateLimitRetries: [UUID: Task<Void, Never>] = [:]
+    /// How long to wait before retrying a rate-limited summary.
+    private let rateLimitRetryDelay: Duration
 
     init(
         container: ModelContainer,
@@ -45,8 +49,10 @@ actor LivePipelineCoordinator: PipelineCoordinating {
         purchases: any PurchaseService,
         storage: RecordingStorage,
         background: any BackgroundProcessing,
-        speakerHint: @escaping @Sendable () -> SpeakerCountHint = { .automatic }
+        speakerHint: @escaping @Sendable () -> SpeakerCountHint = { .automatic },
+        rateLimitRetryDelay: Duration = .seconds(180)
     ) {
+        self.rateLimitRetryDelay = rateLimitRetryDelay
         self.container = container
         self.transcription = transcription
         self.diarization = diarization
@@ -100,6 +106,7 @@ actor LivePipelineCoordinator: PipelineCoordinating {
     }
 
     func cancel(recordingID: UUID) async {
+        rateLimitRetries.removeValue(forKey: recordingID)?.cancel()
         queue.removeAll { $0 == recordingID }
         if current == recordingID {
             cancelledIDs.insert(recordingID)
@@ -349,7 +356,30 @@ actor LivePipelineCoordinator: PipelineCoordinating {
             events.emit(.failed(recordingID: id, stage: .summarizing, message: message))
             events.emit(.stageChanged(recordingID: id, stage: .ready))
             Self.log.error("summary skipped for \(id.uuidString, privacy: .public): \(message, privacy: .public)")
+            if case SummarizationError.rateLimited = error {
+                scheduleRateLimitRetry(for: id)
+            }
         }
+    }
+
+    /// The system throttles the on-device model for minutes at a time; try once more later.
+    private func scheduleRateLimitRetry(for id: UUID) {
+        rateLimitRetries[id]?.cancel()
+        let delay = rateLimitRetryDelay
+        rateLimitRetries[id] = Task { [weak self] in
+            try? await Task.sleep(for: delay)
+            guard !Task.isCancelled, let self else { return }
+            await self.retryIfStillRateLimited(id)
+        }
+    }
+
+    private func retryIfStillRateLimited(_ id: UUID) async {
+        rateLimitRetries[id] = nil
+        guard let recording = try? fetchRecording(id),
+              recording.failedStage == .summarizing,
+              recording.failureMessage == SummarizationError.rateLimitedMessage else { return }
+        Self.log.info("retrying rate-limited summary for \(id.uuidString, privacy: .public)")
+        await retry(recordingID: id, from: .summarizing)
     }
 
     /// Rebuilds the paragraphs by speaker (SPEC §10.2) unless the user has edited the transcript,
@@ -455,6 +485,7 @@ enum PipelineFailure {
                 case .unknown(let detail): return "Summaries aren't available: \(detail)"
                 }
             case .freeLimitReached: return SummarizationError.freeLimitMessage
+            case .rateLimited: return SummarizationError.rateLimitedMessage
             case .contextOverflow: return "The recording was too long to summarize in one pass."
             case .generationFailed(let detail): return "The summary couldn't be generated: \(detail)"
             case .cancelled: return "The summary was cancelled."

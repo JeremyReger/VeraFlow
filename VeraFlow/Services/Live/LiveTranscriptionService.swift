@@ -272,10 +272,13 @@ actor LiveTranscriptionService: TranscriptionService {
             let resampler = BufferResampler(converter: converter, outputFormat: analyzerFormat)
             while !Task.isCancelled {
                 guard let chunk = AVAudioPCMBuffer(pcmFormat: readFormat, frameCapacity: readChunkFrames) else { return }
+                guard box.file.framePosition < box.file.length else { break }
                 do {
                     try box.file.read(into: chunk, frameCount: readChunkFrames)
                 } catch {
-                    log.error("read failed: \(error.localizedDescription, privacy: .public)")
+                    // ADTS streams report an estimated length; a failure at the tail is just the end.
+                    if box.file.framePosition >= box.file.length - Int64(readChunkFrames) { break }
+                    log.error("read failed at frame \(box.file.framePosition, privacy: .public) of \(box.file.length, privacy: .public): \(error.localizedDescription, privacy: .public)")
                     reader.error = error.localizedDescription
                     return
                 }

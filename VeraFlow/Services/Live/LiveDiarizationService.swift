@@ -43,6 +43,10 @@ actor LiveDiarizationService: DiarizationService {
         expectedSpeakers: SpeakerCountHint,
         progress: @Sendable @escaping (Double) -> Void
     ) async throws -> [SpeakerTurn] {
+        if models == nil {
+            // Files are cached from an earlier launch; load them now (no download needed).
+            try await prepareModels { _ in }
+        }
         guard let models else { throw DiarizationError.modelsNotReady }
 
         var config = OfflineDiarizerConfig.default

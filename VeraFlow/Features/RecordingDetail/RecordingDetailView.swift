@@ -1,8 +1,8 @@
 import SwiftData
 import SwiftUI
 
-/// Summary / Transcript / Audio tabs for one recording (SPEC §4.4). Transcript lands in M3,
-/// Summary in M5, the full Audio tab (waveform, speed) in M9.
+/// Summary / Transcript / Audio tabs for one recording (SPEC §4.4). The full Audio tab
+/// (waveform, speed) lands in M9.
 struct RecordingDetailView: View {
     enum Tab: String, CaseIterable, Identifiable {
         case summary
@@ -50,7 +50,7 @@ struct RecordingDetailView: View {
 
             switch tab {
             case .summary:
-                summaryTab
+                SummaryTab(recording: recording, player: player)
             case .transcript:
                 TranscriptTab(recording: recording, player: player)
             case .audio:
@@ -58,7 +58,7 @@ struct RecordingDetailView: View {
             }
         }
         .safeAreaInset(edge: .bottom) {
-            if tab == .transcript {
+            if tab != .audio {
                 AudioPlayerView(player: player)
                     .padding(.horizontal)
                     .background(.bar)
@@ -87,14 +87,6 @@ struct RecordingDetailView: View {
             player.load(url: services.storage.audioURL(for: recording.id, fileName: recording.audioFileName))
         }
         .onDisappear { player.stop() }
-    }
-
-    private var summaryTab: some View {
-        ContentUnavailableView(
-            "No summary yet",
-            systemImage: "text.document",
-            description: Text("Summaries and action items arrive in a later build. The transcript is ready to read now.")
-        )
     }
 
     private var audioTab: some View {

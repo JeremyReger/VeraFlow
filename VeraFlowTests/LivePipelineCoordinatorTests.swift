@@ -11,6 +11,7 @@ struct LivePipelineCoordinatorTests {
         let storage: RecordingStorage
         let transcription: FakeTranscriptionService
         let diarization: FakeDiarizationService
+        let summarization: FakeSummarizationService
         let background: FakeBackgroundProcessing
         let coordinator: LivePipelineCoordinator
 
@@ -45,12 +46,15 @@ struct LivePipelineCoordinatorTests {
         let container = try ModelContainerFactory.makeInMemory()
         let transcription = FakeTranscriptionService()
         let diarization = FakeDiarizationService()
+        let summarization = FakeSummarizationService()
         let background = FakeBackgroundProcessing()
         let coordinator = LivePipelineCoordinator(
             container: container,
             transcription: transcription,
             diarization: diarization,
             aligner: LiveTranscriptAligner(),
+            summarization: summarization,
+            dueDates: FakeDueDateResolver(),
             storage: storage,
             background: background,
             speakerHint: { speakerHint }
@@ -60,6 +64,7 @@ struct LivePipelineCoordinatorTests {
             storage: storage,
             transcription: transcription,
             diarization: diarization,
+            summarization: summarization,
             background: background,
             coordinator: coordinator
         )
@@ -82,7 +87,7 @@ struct LivePipelineCoordinatorTests {
         let collector = Task { for await event in events { seen.append(event) } }
 
         await harness.coordinator.enqueue(recordingID: id)
-        try await waitUntil { try harness.stage(of: id) == .diarized }
+        try await waitUntil { try harness.stage(of: id) == .ready }
         collector.cancel()
 
         let recording = try #require(try harness.fetch(id))
@@ -105,7 +110,60 @@ struct LivePipelineCoordinatorTests {
         #expect(seen.contains(.stageChanged(recordingID: id, stage: .transcribed)))
         #expect(seen.contains(.stageChanged(recordingID: id, stage: .diarizing)))
         #expect(seen.contains(.progress(recordingID: id, stage: .diarizing, fraction: 1)))
-        #expect(seen.last == .stageChanged(recordingID: id, stage: .diarized))
+        #expect(seen.contains(.stageChanged(recordingID: id, stage: .diarized)))
+        #expect(seen.contains(.stageChanged(recordingID: id, stage: .summarizing)))
+        #expect(seen.last == .stageChanged(recordingID: id, stage: .ready))
+        // The summary is post-processed: the fake's action item quotes Speaker 1's first line.
+        let summary = try #require(recording.currentSummary)
+        #expect(summary.templateID == .general)
+        #expect(summary.modelInfo == "FakeSummarizationService · prompt v1")
+        let payload = try summary.payload()
+        #expect(payload.actionItems.count == 1)
+        #expect(payload.actionItems.first?.ownerSpeakerKey == "S1")
+        #expect(payload.actionItems.first?.timestamp == 0)
+        let inputs = await harness.summarization.inputs
+        #expect(inputs.count == 1)
+        #expect(inputs.first?.lines.map(\.speakerDisplayName) == ["Speaker 1", "Speaker 2"])
+        #expect(inputs.first?.template == .general)
+    }
+
+    @Test("No Apple Intelligence: the recording is still ready, with the reason kept for the Summary tab")
+    func summaryUnavailableIsNonFatal() async throws {
+        let harness = try makeHarness()
+        defer { harness.cleanUp() }
+        await harness.summarization.setAvailability(.deviceNotEligible)
+        let id = try harness.insert()
+
+        await harness.coordinator.enqueue(recordingID: id)
+        try await waitUntil { try harness.stage(of: id) == .ready }
+
+        let recording = try #require(try harness.fetch(id))
+        #expect(recording.failedStage == .summarizing)
+        #expect(recording.failureMessage == "AI summaries need an Apple Intelligence–capable iPhone. Transcripts still work.")
+        #expect(recording.summaries.isEmpty)
+        #expect(recording.speakers.count == 2, "speaker labels are untouched")
+    }
+
+    @Test("Re-running with another template adds a summary to the history and keeps the old one")
+    func rerunWithTemplate() async throws {
+        let harness = try makeHarness()
+        defer { harness.cleanUp() }
+        let id = try harness.insert()
+        await harness.coordinator.enqueue(recordingID: id)
+        try await waitUntil { try harness.stage(of: id) == .ready }
+
+        let recording = try #require(try harness.fetch(id))
+        recording.templateID = .walkthrough
+        try recording.modelContext?.save()
+        await harness.coordinator.retry(recordingID: id, from: .summarizing)
+        try await waitUntil { try harness.fetch(id)?.summaries.count == 2 }
+
+        let updated = try #require(try harness.fetch(id))
+        #expect(updated.stage == .ready)
+        #expect(updated.currentSummary?.templateID == .walkthrough)
+        #expect(Set(updated.summaries.map(\.templateID)) == [.general, .walkthrough])
+        #expect(await harness.transcription.transcribedURLs.count == 1)
+        #expect(await harness.diarization.diarizedURLs.count == 1, "only the summary is redone")
     }
 
     @Test("Missing speaker-label models are downloaded first; the Settings hint reaches the diarizer")
@@ -119,7 +177,7 @@ struct LivePipelineCoordinatorTests {
         let collector = Task { for await event in events { seen.append(event) } }
 
         await harness.coordinator.enqueue(recordingID: id)
-        try await waitUntil { try harness.stage(of: id) == .diarized }
+        try await waitUntil { try harness.stage(of: id) == .ready }
         collector.cancel()
 
         #expect(await harness.diarization.prepareCount == 1)
@@ -138,11 +196,11 @@ struct LivePipelineCoordinatorTests {
         let collector = Task { for await event in events { seen.append(event) } }
 
         await harness.coordinator.enqueue(recordingID: id)
-        try await waitUntil { try harness.stage(of: id) == .diarized }
+        try await waitUntil { try harness.stage(of: id) == .ready }
         collector.cancel()
 
         var recording = try #require(try harness.fetch(id))
-        #expect(recording.failedStage == .diarizing)
+        #expect(recording.failedStage == .diarizing, "the later summary stage does not erase the diarization reason")
         #expect(recording.failureMessage == "Speaker labeling failed: no models")
         #expect(recording.speakers.map(\.key) == ["S1"])
         #expect(recording.orderedSegments.count == 1)
@@ -151,9 +209,9 @@ struct LivePipelineCoordinatorTests {
 
         await harness.diarization.setError(nil)
         await harness.coordinator.retry(recordingID: id, from: .diarizing)
-        try await waitUntil { try harness.fetch(id)?.speakers.count == 2 }
+        try await waitUntil { try harness.fetch(id)?.speakers.count == 2 && harness.stage(of: id) == .ready }
         recording = try #require(try harness.fetch(id))
-        #expect(recording.stage == .diarized)
+        #expect(recording.stage == .ready)
         #expect(recording.failedStage == nil)
         #expect(recording.failureMessage == nil)
         #expect(await harness.transcription.transcribedURLs.count == 1, "Retry from diarizing does not transcribe again")
@@ -178,7 +236,7 @@ struct LivePipelineCoordinatorTests {
         let id = recording.id
 
         await harness.coordinator.enqueue(recordingID: id)
-        try await waitUntil { try harness.stage(of: id) == .diarized }
+        try await waitUntil { try harness.stage(of: id) == .ready }
 
         let saved = try #require(try harness.fetch(id))
         #expect(saved.orderedSegments.map(\.text) == ["Corrected by hand"])
@@ -199,7 +257,7 @@ struct LivePipelineCoordinatorTests {
         let collector = Task { for await event in events { seen.append(event) } }
 
         await harness.coordinator.enqueue(recordingID: id)
-        try await waitUntil { try harness.stage(of: id) == .diarized }
+        try await waitUntil { try harness.stage(of: id) == .ready }
         collector.cancel()
 
         #expect(await harness.transcription.prepareCount == 1)
@@ -221,7 +279,7 @@ struct LivePipelineCoordinatorTests {
 
         await harness.transcription.setError(nil)
         await harness.coordinator.retry(recordingID: id, from: .transcribing)
-        try await waitUntil { try harness.stage(of: id) == .diarized }
+        try await waitUntil { try harness.stage(of: id) == .ready }
         recording = try #require(try harness.fetch(id))
         #expect(recording.failedStage == nil)
         #expect(recording.failureMessage == nil)
@@ -234,10 +292,10 @@ struct LivePipelineCoordinatorTests {
         let base = Date(timeIntervalSince1970: 1_789_000_000)
         let newer = try harness.insert(title: "newer", stage: .recorded, createdAt: base.addingTimeInterval(60))
         let older = try harness.insert(title: "older", stage: .transcribing, createdAt: base)
-        let done = try harness.insert(title: "done", stage: .diarized, createdAt: base.addingTimeInterval(30))
+        let done = try harness.insert(title: "done", stage: .ready, createdAt: base.addingTimeInterval(30))
 
         await harness.coordinator.resumePendingWork()
-        try await waitUntil { try harness.stage(of: newer) == .diarized && harness.stage(of: older) == .diarized }
+        try await waitUntil { try harness.stage(of: newer) == .ready && harness.stage(of: older) == .ready }
 
         let urls = await harness.transcription.transcribedURLs
         #expect(urls.map { $0.deletingLastPathComponent().lastPathComponent } == [older.uuidString, newer.uuidString])

@@ -6,8 +6,9 @@ import SwiftData
 /// after every step so work resumes after a crash or relaunch (SPEC §6.3).
 ///
 /// M3: recorded → transcribing → transcribed. M4: → diarizing → diarized (speaker labels;
-/// failure is non-fatal). M5 adds summarization behind the same queue. Each drain runs inside a
-/// background-processing task so it can finish after the user leaves the app.
+/// failure is non-fatal). M5: → summarizing → ready (skipped, not failed, when the on-device model
+/// isn't available). Each drain runs inside a background-processing task so it can finish after
+/// the user leaves the app.
 actor LivePipelineCoordinator: PipelineCoordinating {
     private static let log = Logger(subsystem: "com.jeremyreger.veraflow", category: "pipeline")
 
@@ -15,6 +16,8 @@ actor LivePipelineCoordinator: PipelineCoordinating {
     private let transcription: any TranscriptionService
     private let diarization: any DiarizationService
     private let aligner: any TranscriptAligning
+    private let summarization: any SummarizationService
+    private let dueDates: any DueDateResolving
     private let storage: RecordingStorage
     private let background: any BackgroundProcessing
     /// Reads the "Expected speakers" setting at the moment diarization starts.
@@ -34,6 +37,8 @@ actor LivePipelineCoordinator: PipelineCoordinating {
         transcription: any TranscriptionService,
         diarization: any DiarizationService,
         aligner: any TranscriptAligning,
+        summarization: any SummarizationService,
+        dueDates: any DueDateResolving,
         storage: RecordingStorage,
         background: any BackgroundProcessing,
         speakerHint: @escaping @Sendable () -> SpeakerCountHint = { .automatic }
@@ -42,6 +47,8 @@ actor LivePipelineCoordinator: PipelineCoordinating {
         self.transcription = transcription
         self.diarization = diarization
         self.aligner = aligner
+        self.summarization = summarization
+        self.dueDates = dueDates
         self.storage = storage
         self.background = background
         self.speakerHint = speakerHint
@@ -88,10 +95,10 @@ actor LivePipelineCoordinator: PipelineCoordinating {
 
     // MARK: Queue
 
-    /// Stages with automatic work still ahead of them (M4: up to speaker labels).
+    /// Stages with automatic work still ahead of them (M5: everything up to `.ready`).
     static func needsWork(_ stage: PipelineStage) -> Bool {
         switch stage {
-        case .recorded, .transcribing, .transcribed, .diarizing: true
+        case .recorded, .transcribing, .transcribed, .diarizing, .diarized, .summarizing: true
         default: false
         }
     }
@@ -146,6 +153,8 @@ actor LivePipelineCoordinator: PipelineCoordinating {
         }
         guard !Task.isCancelled, recording.stage == .transcribed || recording.stage == .diarizing else { return }
         await diarize(recording, progress: progress)
+        guard !Task.isCancelled, recording.stage == .diarized || recording.stage == .summarizing else { return }
+        await summarize(recording, progress: progress)
     }
 
     private func transcribe(_ recording: Recording, progress: @Sendable @escaping (Double) -> Void) async {
@@ -250,6 +259,61 @@ actor LivePipelineCoordinator: PipelineCoordinating {
         }
     }
 
+    /// Template summary (SPEC §11). When the on-device model isn't available the recording still
+    /// becomes `.ready` (transcripts work everywhere, SPEC §15) with the reason kept for the Summary tab.
+    /// A model failure is recorded the same way so the transcript stays usable; Retry re-runs it.
+    private func summarize(_ recording: Recording, progress: @Sendable @escaping (Double) -> Void) async {
+        let id = recording.id
+        recording.stage = .summarizing
+        // A non-fatal speaker-label reason stays visible; only a previous summary failure is cleared.
+        if recording.failedStage == .summarizing {
+            recording.failureMessage = nil
+            recording.failedStage = nil
+        }
+        save()
+        events.emit(.stageChanged(recordingID: id, stage: .summarizing))
+
+        let hub = events
+        do {
+            let availability = await summarization.availability()
+            guard availability.isAvailable else { throw SummarizationError.unavailable(availability) }
+            guard !recording.segments.isEmpty else { throw SummarizationError.generationFailed("There is no transcript to summarize.") }
+            let input = SummarizationInput.make(from: recording)
+            let raw = try await summarization.summarize(input) { update in
+                hub.emit(.progress(recordingID: id, stage: .summarizing, fraction: update.fraction))
+                progress(update.fraction)
+            }
+            try Task.checkCancellation()
+            let processor = ActionItemPostProcessor(dueDates: dueDates)
+            let payload = raw.postProcessed(with: processor, context: .init(recording: recording))
+            let record = SummaryRecord(
+                templateID: payload.templateID,
+                payloadJSON: try payload.encoded(),
+                modelInfo: "\(await summarization.modelInfo()) · prompt v\(Prompts.version)"
+            )
+            recording.summaries.append(record)
+            recording.stage = .ready
+            save()
+            events.emit(.stageChanged(recordingID: id, stage: .ready))
+            Self.log.info("summarized \(id.uuidString, privacy: .public) with \(payload.templateID.rawValue, privacy: .public): \(payload.actionItems.count, privacy: .public) action items")
+        } catch is CancellationError {
+            handleCancellation(recording, resumeFrom: .diarized)
+        } catch {
+            if Task.isCancelled {
+                handleCancellation(recording, resumeFrom: .diarized)
+                return
+            }
+            let message = PipelineFailure.message(for: error)
+            recording.stage = .ready
+            recording.failedStage = .summarizing
+            recording.failureMessage = message
+            save()
+            events.emit(.failed(recordingID: id, stage: .summarizing, message: message))
+            events.emit(.stageChanged(recordingID: id, stage: .ready))
+            Self.log.error("summary skipped for \(id.uuidString, privacy: .public): \(message, privacy: .public)")
+        }
+    }
+
     /// Rebuilds the paragraphs by speaker (SPEC §10.2) unless the user has edited the transcript,
     /// in which case the existing paragraphs are only labeled so no edit is lost. No turns → one speaker.
     private func applySpeakers(turns: [SpeakerTurn], to recording: Recording) {
@@ -340,6 +404,21 @@ enum PipelineFailure {
                 return "The iPhone was too busy to transcribe. Tap Retry to try again."
             case .analysisFailed(let detail):
                 return "Transcription failed: \(detail)"
+            }
+        }
+        if let error = error as? SummarizationError {
+            switch error {
+            case .unavailable(let availability):
+                switch availability {
+                case .available: return "Summaries aren't available right now."
+                case .deviceNotEligible: return "AI summaries need an Apple Intelligence–capable iPhone. Transcripts still work."
+                case .appleIntelligenceNotEnabled: return "Turn on Apple Intelligence in Settings to get summaries."
+                case .modelNotReady: return "Apple Intelligence is still downloading. Try again later."
+                case .unknown(let detail): return "Summaries aren't available: \(detail)"
+                }
+            case .contextOverflow: return "The recording was too long to summarize in one pass."
+            case .generationFailed(let detail): return "The summary couldn't be generated: \(detail)"
+            case .cancelled: return "The summary was cancelled."
             }
         }
         if let error = error as? DiarizationError {

@@ -69,7 +69,19 @@ Update this file at the end of every session. Check an item only when its "Done 
   - [ ] Device: 10-minute 2-person fixture: spot-check 20 turns, ≥ 85 % correct (SPEC §16)
   - [ ] Device: rename propagates to every paragraph; merge two speakers; change speaker on one paragraph; new speaker
   - [ ] Device: with the models not downloaded and no network, the transcript still appears with one speaker and Retry works once online
-- [ ] M5 — Summaries and templates
+- [ ] M5 — Summaries and templates — half A written while Jeremy was away (plan: `docs/plans/2026-09-17-m5-summaries.md`); half B (Foundation Models service) waits for the compile round
+  - [x] `LiveDueDateResolver` (rules + `NSDataDetector` fallback, re-anchored to the recording date, 5 PM default) with a 40-row table test on a fixed Thursday
+  - [x] `TranscriptChunker` + `ContextBudget`: `[mm:ss] Name: text` lines, chunks that never split a line and overlap by one, chars ÷ 3.5 estimate, 1,000 / 1,500 output reserve, 30 % shrink
+  - [x] `ActionItemPostProcessor`: de-dupe (> 0.8 token-set similarity, compatible owners), owner → speaker key, due dates in Swift, timestamps parsed / clamped / recovered from the transcript
+  - [x] `Prompts` v1 (shared rules, MAP, FINAL per template, follow-up email)
+  - [x] Pipeline: diarized → summarizing → ready; unavailable model or a failure keeps the row usable with the reason + Retry; "Change template" re-runs only the summary and keeps the history
+  - [x] Summary tab: title / overview, template sections, action items with checkboxes (persisted), owner, due date, ▶︎ timestamp, walk-through measurements with the "check against the audio" note, history picker, Model row
+  - [x] Tests: due dates (43), chunker + budget (5), post-processor (5), input builder (2), coordinator summary path (3 new)
+  - [ ] `LiveSummarizationService` on Foundation Models (availability, `@Generable` drafts, fresh session per call, overflow shrink + retry, iOS 27 `contextSize` / `tokenCount` behind `#available`)
+  - [ ] `scripts/test.sh` green on Jeremy's Mac
+  - [ ] Device: 60-min lecture and 30-min meeting summarize with no context-overflow failure
+  - [ ] Device: walk-through fixture has zero invented measurements; action items link to the right moment (±10 s)
+  - [ ] `docs/EVALS.md` golden results per fixture × template
 - [ ] M6 — Exports
 - [ ] M7 — Onboarding, settings, capability messaging, privacy
 - [ ] M8 — Purchases

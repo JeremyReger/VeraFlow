@@ -141,4 +141,9 @@ actor FakeSummarizationService: SummarizationService {
     }
 
     func modelInfo() async -> String { "FakeSummarizationService" }
+
+    // MARK: Test controls
+
+    func setAvailability(_ availability: SummarizationAvailability) { availabilityToReport = availability }
+    func setError(_ error: SummarizationError?) { errorToThrow = error }
 }

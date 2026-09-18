@@ -60,12 +60,17 @@ struct AppServices: Sendable {
         services.benchmarkEngines = [.init(name: "Apple Speech", service: apple), .init(name: "Parakeet", service: parakeet)]
         services.diarization = LiveDiarizationService()
         services.aligner = LiveTranscriptAligner()
+        services.dueDates = LiveDueDateResolver()
+        // `summarization` stays the fake until the Foundation Models service lands (M5 half B,
+        // docs/plans/2026-09-17-m5-summaries.md); the fake reports itself as available.
         services.background = LiveBackgroundProcessing()
         services.pipeline = LivePipelineCoordinator(
             container: container,
             transcription: services.transcription,
             diarization: services.diarization,
             aligner: services.aligner,
+            summarization: services.summarization,
+            dueDates: services.dueDates,
             storage: storage,
             background: services.background,
             speakerHint: { SpeakerCountHint(DiarizationPreference.expectedSpeakers()) }

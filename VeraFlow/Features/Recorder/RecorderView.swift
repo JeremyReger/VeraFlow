@@ -120,59 +120,10 @@ private struct RecorderContent: View {
         .padding()
     }
 
-    /// "Microphone: iPhone Microphone ▾". Shown before and during recording; switching
-    /// mid-recording restarts capture on the new input without a pause.
-    @ViewBuilder
+    /// "Microphone: iPhone Microphone ▾". Its own view so the 10 Hz timer/level redraws of this
+    /// screen don't rebuild the open menu, which dropped taps on device.
     private var microphoneRow: some View {
-        if !viewModel.inputs.isEmpty {
-            Menu {
-                ForEach(viewModel.inputs) { input in
-                    Button {
-                        Task { await viewModel.selectInput(id: input.id) }
-                    } label: {
-                        if input.id == viewModel.selectedInputID {
-                            Label(input.name, systemImage: "checkmark")
-                        } else {
-                            Text(input.name)
-                        }
-                    }
-                }
-                Divider()
-                Button {
-                    Task { await viewModel.selectInput(id: nil) }
-                } label: {
-                    if viewModel.inputChoice == .automatic {
-                        Label("Automatic", systemImage: "checkmark")
-                    } else {
-                        Text("Automatic")
-                    }
-                }
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "mic.fill")
-                    Text("Microphone")
-                        .foregroundStyle(.secondary)
-                    Text(selectedInputName)
-                        .fontWeight(.medium)
-                    Image(systemName: "chevron.up.chevron.down")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-                .font(.subheadline)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(.thinMaterial, in: Capsule())
-            }
-            .accessibilityLabel("Microphone: \(selectedInputName)")
-            .accessibilityIdentifier("recorder.inputPicker")
-        }
-    }
-
-    private var selectedInputName: String {
-        if let selected = viewModel.inputs.first(where: { $0.id == viewModel.selectedInputID }) {
-            return selected.name
-        }
-        return viewModel.inputChoice == .automatic ? "Automatic" : "iPhone Microphone"
+        MicrophoneMenu(viewModel: viewModel)
     }
 
     // MARK: Permission denied
@@ -408,4 +359,62 @@ struct LowDiskBanner: View {
     RecorderView()
         .environment(\.services, .fakes())
         .modelContainer(PreviewData.container(populated: false))
+}
+
+/// The microphone picker. Reads only the input-related state, so it re-renders on route changes
+/// and taps, never on the recorder's 100 ms snapshots.
+private struct MicrophoneMenu: View {
+    let viewModel: RecorderViewModel
+
+    var body: some View {
+        if !viewModel.inputs.isEmpty {
+            Menu {
+                ForEach(viewModel.inputs) { input in
+                    Button {
+                        Task { await viewModel.selectInput(id: input.id) }
+                    } label: {
+                        if input.id == viewModel.selectedInputID {
+                            Label(input.name, systemImage: "checkmark")
+                        } else {
+                            Text(input.name)
+                        }
+                    }
+                }
+                Divider()
+                Button {
+                    Task { await viewModel.selectInput(id: nil) }
+                } label: {
+                    if viewModel.inputChoice == .automatic {
+                        Label("Automatic", systemImage: "checkmark")
+                    } else {
+                        Text("Automatic")
+                    }
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "mic.fill")
+                    Text("Microphone")
+                        .foregroundStyle(.secondary)
+                    Text(selectedInputName)
+                        .fontWeight(.medium)
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                .font(.subheadline)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(.thinMaterial, in: Capsule())
+            }
+            .accessibilityLabel("Microphone: \(selectedInputName)")
+            .accessibilityIdentifier("recorder.inputPicker")
+        }
+    }
+
+    private var selectedInputName: String {
+        if let selected = viewModel.inputs.first(where: { $0.id == viewModel.selectedInputID }) {
+            return selected.name
+        }
+        return viewModel.inputChoice == .automatic ? "Automatic" : "iPhone Microphone"
+    }
 }

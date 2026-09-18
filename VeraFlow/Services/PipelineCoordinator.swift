@@ -24,6 +24,12 @@ protocol PipelineCoordinating: Sendable {
     func cancel(recordingID: UUID) async
     /// After an unlock: re-runs the summaries that stopped at the free limit (SPEC §13.3).
     func retrySummariesBlockedByFreeLimit() async
+    /// "Process next": moves the recording to the front of the queue, retrying its failed stage
+    /// right away if it has one.
+    func prioritize(recordingID: UUID) async
+    /// The app came to the foreground: run any retry whose wait already elapsed (iOS suspends
+    /// timers in the background).
+    func resumeDeferredRetries() async
     func events() async -> AsyncStream<PipelineEvent>
 }
 
@@ -52,9 +58,19 @@ actor FakePipelineCoordinator: PipelineCoordinating {
     }
 
     private(set) var freeLimitRetryCount = 0
+    private(set) var prioritized: [UUID] = []
+    private(set) var deferredRetryCount = 0
 
     func retrySummariesBlockedByFreeLimit() async {
         freeLimitRetryCount += 1
+    }
+
+    func prioritize(recordingID: UUID) async {
+        prioritized.append(recordingID)
+    }
+
+    func resumeDeferredRetries() async {
+        deferredRetryCount += 1
     }
 
     func events() async -> AsyncStream<PipelineEvent> {

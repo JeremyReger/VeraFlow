@@ -93,6 +93,8 @@ targets:
               - com.microsoft.waveform-audio
               - com.apple.coreaudio-format
               - public.audio
+              - public.mpeg-4          # Teams / Zoom recordings: the audio track is extracted
+              - com.apple.quicktime-movie
 
   # Widget extension that renders the recording Live Activity (Lock Screen + Dynamic Island).
   # Shares only the top-level Shared/ folder with the app; ActivityKit state is plain data.

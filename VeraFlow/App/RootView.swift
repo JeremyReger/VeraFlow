@@ -29,8 +29,13 @@ struct RootView: View {
             }
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .background {
+            switch phase {
+            case .background:
                 lock.lock()
+            case .active:
+                Task { await appState.didBecomeActive() }
+            default:
+                break
             }
         }
         .alert("Interrupted recording", isPresented: Binding(

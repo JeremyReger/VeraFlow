@@ -84,7 +84,8 @@ struct SummaryTab: View {
                         .accessibilityIdentifier("summary.unlock")
                 } else {
                     Button("Retry") {
-                        Task { await services.pipeline.retry(recordingID: recording.id, from: .summarizing) }
+                        // Jumps the queue and clears any pending wait.
+                        Task { await services.pipeline.prioritize(recordingID: recording.id) }
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)

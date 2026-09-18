@@ -121,6 +121,12 @@ final class AppState {
         }
     }
 
+    /// The scene became active: fire retries whose wait elapsed while iOS had the app suspended.
+    func didBecomeActive() async {
+        guard didFinishStartup else { return }
+        await services.pipeline.resumeDeferredRetries()
+    }
+
     /// Re-reads the free-summary counter (after a summary or a purchase).
     func refreshFreeSummaries() async {
         freeSummariesUsed = await services.purchases.freeSummariesUsed()

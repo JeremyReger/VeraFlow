@@ -36,7 +36,11 @@ actor LivePipelineCoordinator: PipelineCoordinating {
     private var relabelOnly: Set<UUID> = []
     /// Pending automatic retries after the on-device model rate-limited a summary.
     private var rateLimitRetries: [UUID: Task<Void, Never>] = [:]
-    /// How long to wait before retrying a rate-limited summary.
+    /// When each pending retry is due, so a foreground return can fire the ones that lapsed.
+    private var rateLimitDue: [UUID: Date] = [:]
+    /// How many times each recording has been rate limited in a row (drives the back-off).
+    private var rateLimitStrikes: [UUID: Int] = [:]
+    /// Base wait before retrying a rate-limited summary; doubles per strike up to 8×.
     private let rateLimitRetryDelay: Duration
 
     init(
@@ -74,6 +78,33 @@ actor LivePipelineCoordinator: PipelineCoordinating {
         startDrainIfNeeded()
     }
 
+    func prioritize(recordingID: UUID) async {
+        cancelledIDs.remove(recordingID)
+        guard current != recordingID else { return }
+        queue.removeAll { $0 == recordingID }
+        if let recording = try? fetchRecording(recordingID), let stage = recording.failedStage {
+            // A failed or rate-limited stage: retry it now instead of waiting for the timer.
+            rateLimitRetries.removeValue(forKey: recordingID)?.cancel()
+            rateLimitDue[recordingID] = nil
+            recording.stage = Self.stageBefore(stage)
+            recording.failureMessage = nil
+            recording.failedStage = nil
+            try? context.save()
+        }
+        queue.insert(recordingID, at: 0)
+        Self.log.info("prioritized \(recordingID.uuidString, privacy: .public)")
+        startDrainIfNeeded()
+    }
+
+    func resumeDeferredRetries() async {
+        let now = Date()
+        let due = rateLimitDue.filter { $0.value <= now }.map(\.key)
+        for id in due {
+            rateLimitRetries.removeValue(forKey: id)?.cancel()
+            await retryIfStillRateLimited(id)
+        }
+    }
+
     func retry(recordingID: UUID, from stage: PipelineStage) async {
         guard let recording = try? fetchRecording(recordingID) else { return }
         if stage == .diarizing, !recording.summaries.isEmpty {
@@ -107,6 +138,7 @@ actor LivePipelineCoordinator: PipelineCoordinating {
 
     func cancel(recordingID: UUID) async {
         rateLimitRetries.removeValue(forKey: recordingID)?.cancel()
+        rateLimitDue[recordingID] = nil
         queue.removeAll { $0 == recordingID }
         if current == recordingID {
             cancelledIDs.insert(recordingID)
@@ -335,6 +367,7 @@ actor LivePipelineCoordinator: PipelineCoordinating {
             )
             recording.summaries.append(record)
             recording.stage = .ready
+            rateLimitStrikes[id] = nil
             save()
             if !unlocked {
                 await purchases.recordFreeSummaryUsed()
@@ -362,10 +395,15 @@ actor LivePipelineCoordinator: PipelineCoordinating {
         }
     }
 
-    /// The system throttles the on-device model for minutes at a time; try once more later.
+    /// The system throttles the on-device model for minutes at a time; try again later, waiting
+    /// longer each time it keeps happening (base, 2×, 4×, 8×). Timers don't run while the app is
+    /// suspended, so `resumeDeferredRetries()` catches up on the next foreground.
     private func scheduleRateLimitRetry(for id: UUID) {
         rateLimitRetries[id]?.cancel()
-        let delay = rateLimitRetryDelay
+        let strikes = min(rateLimitStrikes[id, default: 0], 3)
+        rateLimitStrikes[id] = strikes + 1
+        let delay = rateLimitRetryDelay * (1 << strikes)
+        rateLimitDue[id] = Date().addingTimeInterval(Double(delay.components.seconds))
         rateLimitRetries[id] = Task { [weak self] in
             try? await Task.sleep(for: delay)
             guard !Task.isCancelled, let self else { return }
@@ -375,6 +413,7 @@ actor LivePipelineCoordinator: PipelineCoordinating {
 
     private func retryIfStillRateLimited(_ id: UUID) async {
         rateLimitRetries[id] = nil
+        rateLimitDue[id] = nil
         guard let recording = try? fetchRecording(id),
               recording.failedStage == .summarizing,
               recording.failureMessage == SummarizationError.rateLimitedMessage else { return }

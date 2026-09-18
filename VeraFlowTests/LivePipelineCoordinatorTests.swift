@@ -176,6 +176,45 @@ struct LivePipelineCoordinatorTests {
         #expect(recording.speakers.count == 2, "speaker labels are untouched")
     }
 
+    @Test("Process next moves a recording to the front of the queue")
+    func prioritize() async throws {
+        let harness = try makeHarness()
+        defer { harness.cleanUp() }
+        await harness.transcription.setDelay(.milliseconds(300))
+        let first = try harness.insert(title: "first")
+        let second = try harness.insert(title: "second")
+        let third = try harness.insert(title: "third")
+
+        await harness.coordinator.enqueue(recordingID: first)
+        await harness.coordinator.enqueue(recordingID: second)
+        await harness.coordinator.enqueue(recordingID: third)
+        await harness.coordinator.prioritize(recordingID: third)
+        try await waitUntil(timeout: .seconds(10)) { try harness.stage(of: second) == .ready }
+
+        let order = await harness.transcription.transcribedURLs.map { $0.deletingLastPathComponent().lastPathComponent }
+        #expect(order == [first.uuidString, third.uuidString, second.uuidString])
+    }
+
+    @Test("Returning to the foreground fires a rate-limit retry whose wait already elapsed")
+    func deferredRetryOnForeground() async throws {
+        let harness = try makeHarness(rateLimitRetryDelay: .seconds(120))
+        defer { harness.cleanUp() }
+        await harness.summarization.setError(.rateLimited)
+        let id = try harness.insert()
+        await harness.coordinator.enqueue(recordingID: id)
+        try await waitUntil { try harness.fetch(id)?.failureMessage == SummarizationError.rateLimitedMessage }
+
+        await harness.summarization.setError(nil)
+        await harness.coordinator.resumeDeferredRetries()
+        try? await Task.sleep(for: .milliseconds(200))
+        #expect(try harness.fetch(id)?.summaries.isEmpty == true, "not due yet, so nothing runs")
+
+        // Prioritize retries right away regardless of the wait.
+        await harness.coordinator.prioritize(recordingID: id)
+        try await waitUntil { try harness.fetch(id)?.summaries.count == 1 }
+        #expect(try harness.fetch(id)?.failedStage == nil)
+    }
+
     @Test("A rate-limited summary is retried on its own after the delay")
     func rateLimitedSummaryRetries() async throws {
         let harness = try makeHarness(rateLimitRetryDelay: .milliseconds(200))

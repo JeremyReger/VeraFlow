@@ -85,6 +85,11 @@ struct RecordingMenuItems: View {
     let controller: RecordingActionsController
 
     var body: some View {
+        if recording.stage != .ready || recording.failedStage != nil {
+            Button("Process next", systemImage: "arrow.up.to.line") {
+                Task { await controller.actions.services.pipeline.prioritize(recordingID: recording.id) }
+            }
+        }
         Button("Rename", systemImage: "pencil") {
             controller.beginRename(recording)
         }

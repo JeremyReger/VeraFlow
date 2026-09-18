@@ -111,6 +111,9 @@ Update this file at the end of every session. Check an item only when its "Done 
 
 ## Requests from device testing
 
+- Retry in the background + "Process next" (Jeremy, 2026-09-18): built the same day. iOS suspends the app in the background, so retries that fall due while suspended fire on the next foreground; the wait backs off (3, 6, 12, 24 min); "Process next" in a row's menu (and Retry on the Summary tab) jumps the queue and retries at once.
+- Record Teams/Zoom call audio + Bluetooth mic (Jeremy, 2026-09-18): not possible on iOS (no app can capture another app's audio, and the call app owns the microphone). Instead, mp4/mov meeting recordings can now be imported; the audio track is extracted on device.
+
 - Lock Screen controls (Jeremy, 2026-09-18): Pause/Resume + Bookmark buttons on the recording Live Activity, and standard playback controls for the player. Built the same day; needs the device check.
 
 - Live transcription while recording (Jeremy, 2026-09-18): start showing words about 10 s into a recording instead of after Stop. `SpeechAnalyzer` accepts streaming input, so the tap's buffers could feed it live and the file pass at the end would still produce the final, timed transcript. Planned after the pipeline is verified on device, because it adds CPU load during recording (the exact thing being debugged).

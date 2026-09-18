@@ -51,3 +51,22 @@ struct LiveAudioImportServiceTests {
         #expect(!FileManager.default.fileExists(at: destination.appending(path: "audio.mp3")))
     }
 }
+
+extension LiveAudioImportServiceTests {
+    @Test("An mp4 (Teams/Zoom recording) imports as its extracted audio track")
+    func importsVideoAudioTrack() async throws {
+        let directory = try TestAudioFiles.temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        // An AAC-in-MPEG-4 file is a valid .mp4 container; that's what the export reads.
+        let source = directory.appending(path: "Teams meeting.mp4")
+        try TestAudioFiles.writeToneAAC(to: source, seconds: 2)
+        let destination = directory.appending(path: "dest", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
+
+        let imported = try await LiveAudioImportService().importAudio(from: source, into: destination)
+
+        #expect(imported.fileName == "audio.m4a")
+        #expect(abs(imported.duration - 2) < 0.3)
+        #expect(FileManager.default.fileExists(at: destination.appending(path: "audio.m4a")))
+    }
+}

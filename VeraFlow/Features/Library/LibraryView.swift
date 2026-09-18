@@ -17,12 +17,15 @@ struct LibraryView: View {
     @State private var isImporting = false
     @State private var importMessage: String?
 
-    /// Types the Files picker offers (SPEC M2: m4a, mp3, wav, caf).
+    /// Types the Files picker offers (SPEC M2: m4a, mp3, wav, caf) plus mp4/mov video, whose
+    /// audio track is extracted (Teams and Zoom recordings).
     static let importTypes: [UTType] = [
         .mpeg4Audio,
         .mp3,
         .wav,
         UTType("com.apple.coreaudio-format") ?? .audio,
+        .mpeg4Movie,
+        .quickTimeMovie,
     ]
 
     private var allTags: [String] { LibraryFilter.allTags(in: recordings) }
@@ -223,7 +226,7 @@ struct LibraryView: View {
         if let error = error as? AudioImportError {
             switch error {
             case .unsupportedType(let ext):
-                return "\(ext.isEmpty ? "This file type" : ".\(ext)") isn't supported. Use m4a, mp3, wav, or caf."
+                return "\(ext.isEmpty ? "This file type" : ".\(ext)") isn't supported. Use m4a, mp3, wav, caf, or an mp4/mov video."
             case .unreadable:
                 return "The file couldn't be read as audio."
             case .copyFailed(let detail):

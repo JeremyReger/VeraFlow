@@ -102,11 +102,13 @@ struct LibraryView: View {
         if recordings.isEmpty {
             emptyState
         } else {
-            List {
+            // The header and the search field stay put above the list: a text field inside a
+            // List row doesn't reliably take focus, and the design keeps the title fixed anyway.
+            VStack(spacing: 0) {
                 header
-                    .listRowInsets(EdgeInsets(top: 8, leading: VFSpace.gutter, bottom: 6, trailing: VFSpace.gutter))
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
+                    .padding(.horizontal, VFSpace.gutter)
+                    .padding(.top, 8)
+                    .padding(.bottom, 6)
                 if isSearching {
                     VFField("Search titles", text: $filter.searchText, identifier: "library.search") {
                         if !filter.searchText.isEmpty {
@@ -121,76 +123,83 @@ struct LibraryView: View {
                             .accessibilityLabel("Clear search")
                         }
                     }
-                    .listRowInsets(EdgeInsets(top: 4, leading: VFSpace.gutter, bottom: 6, trailing: VFSpace.gutter))
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
+                    .padding(.horizontal, VFSpace.gutter)
+                    .padding(.top, 4)
+                    .padding(.bottom, 6)
+                    .transition(.move(edge: .top).combined(with: .opacity))
                 }
-                chips
-                    .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 10, trailing: 0))
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-                ForEach(LibraryGrouping.sections(visibleRecordings, sort: filter.sort)) { section in
-                    Section {
-                        ForEach(section.recordings) { recording in
-                            LibraryCard(recording: recording, progress: appState.pipelineProgress[recording.id])
-                                .overlay {
-                                    // Hidden link keeps the card free of the list's disclosure chevron.
-                                    NavigationLink(value: recording.id) { EmptyView() }.opacity(0)
+                list(controller)
+            }
+        }
+    }
+
+    private func list(_ controller: RecordingActionsController) -> some View {
+        List {
+            chips
+                .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 10, trailing: 0))
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+            ForEach(LibraryGrouping.sections(visibleRecordings, sort: filter.sort)) { section in
+                Section {
+                    ForEach(section.recordings) { recording in
+                        LibraryCard(recording: recording, progress: appState.pipelineProgress[recording.id])
+                            .overlay {
+                                // Hidden link keeps the card free of the list's disclosure chevron.
+                                NavigationLink(value: recording.id) { EmptyView() }.opacity(0)
+                            }
+                            .listRowInsets(EdgeInsets(top: VFSpace.listGap / 2, leading: VFSpace.gutter, bottom: VFSpace.listGap / 2, trailing: VFSpace.gutter))
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                            .swipeActions(edge: .trailing) {
+                                Button("Delete", systemImage: "trash", role: .destructive) {
+                                    controller.requestDelete(recording)
                                 }
-                                .listRowInsets(EdgeInsets(top: VFSpace.listGap / 2, leading: VFSpace.gutter, bottom: VFSpace.listGap / 2, trailing: VFSpace.gutter))
-                                .listRowBackground(Color.clear)
-                                .listRowSeparator(.hidden)
-                                .swipeActions(edge: .trailing) {
-                                    Button("Delete", systemImage: "trash", role: .destructive) {
-                                        controller.requestDelete(recording)
-                                    }
+                            }
+                            .swipeActions(edge: .leading) {
+                                Button(recording.isFavorite ? "Unstar" : "Star",
+                                       systemImage: recording.isFavorite ? "star.slash" : "star") {
+                                    controller.toggleFavorite(recording)
                                 }
-                                .swipeActions(edge: .leading) {
-                                    Button(recording.isFavorite ? "Unstar" : "Star",
-                                           systemImage: recording.isFavorite ? "star.slash" : "star") {
-                                        controller.toggleFavorite(recording)
-                                    }
-                                    .tint(VFColor.accent)
-                                }
-                                .contextMenu {
-                                    RecordingMenuItems(recording: recording, controller: controller)
-                                }
-                        }
-                    } header: {
-                        if !section.title.isEmpty {
-                            VFSectionLabel(section.title)
-                                .padding(.top, 6)
-                        }
+                                .tint(VFColor.accent)
+                            }
+                            .contextMenu {
+                                RecordingMenuItems(recording: recording, controller: controller)
+                            }
+                    }
+                } header: {
+                    if !section.title.isEmpty {
+                        VFSectionLabel(section.title)
+                            .padding(.top, 6)
                     }
                 }
-                // Room for the pinned Record row.
-                Color.clear
-                    .frame(height: VFMetric.primaryPillHeight + VFSpace.bottomInset)
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
             }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
-            .scrollDismissesKeyboard(.interactively)
-            .navigationDestination(for: UUID.self) { id in
-                if let recording = recordings.first(where: { $0.id == id }) {
-                    RecordingDetailView(recording: recording)
-                }
+            // Room for the pinned Record row.
+            Color.clear
+                .frame(height: VFMetric.primaryPillHeight + VFSpace.bottomInset)
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+        }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .scrollDismissesKeyboard(.interactively)
+        .navigationDestination(for: UUID.self) { id in
+            if let recording = recordings.first(where: { $0.id == id }) {
+                RecordingDetailView(recording: recording)
             }
-            .overlay {
-                if visibleRecordings.isEmpty, filter.isNarrowing {
-                    ContentUnavailableView.search(text: filter.searchText)
-                }
-                if isImporting {
-                    ProgressView("Importing…")
-                        .padding()
-                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: VFRadius.block))
-                        .onAppear { AccessibilityNotification.Announcement("Importing").post() }
-                }
+        }
+        .overlay {
+            if visibleRecordings.isEmpty, filter.isNarrowing {
+                ContentUnavailableView.search(text: filter.searchText)
             }
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                bottomActions
+            if isImporting {
+                ProgressView("Importing…")
+                    .padding()
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: VFRadius.block))
+                    .onAppear { AccessibilityNotification.Announcement("Importing").post() }
             }
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            bottomActions
         }
     }
 

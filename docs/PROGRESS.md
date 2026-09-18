@@ -118,7 +118,7 @@ Update this file at the end of every session. Check an item only when its "Done 
   - [ ] Listing copy, privacy + terms pages, screenshot UI test, review notes
   - [ ] §14.5 checklist with evidence; TestFlight build
   - [ ] Xcode 27 migration (needs Xcode 27 on Jeremy's Mac)
-  - [ ] Redesign from Jeremy's design package (plan: `docs/plans/2026-09-18-redesign.md`): Phase 2 written for every screen (Library, detail shell, Summary, Transcript, Record, Audio tab, Settings, processing card, onboarding, consent, paywall, lock covers); none of it compiled or seen on device yet → Jeremy: `scripts/test.sh`, then install and check fonts, light/dark, each screen (steps in the session notes)
+  - [x] Redesign from Jeremy's design package (plan: `docs/plans/2026-09-18-redesign.md`): every screen restyled; `scripts/test.sh` green; Jeremy 2026-09-18: "looks very good" on device. Follow-ups from that look: Appearance picker (System / Light / Dark) and search across summary, tags and transcript, both built the same day. Two real bugs surfaced by the UI tests on the way: a rename never showed because the card preferred the generated title, and a screen identifier was overwriting every header button's identifier. Now in day-to-day use by Jeremy; VoiceOver pass, largest text size, and Files import still to check
 
 ## Requests from device testing
 

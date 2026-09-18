@@ -1,0 +1,58 @@
+# Security review — DoD-oriented
+
+Date: 2026-09-18 · Scope: `VeraFlow/`, `Shared/`, `VeraFlowWidgets/`, `project.yml`, the privacy manifest, the StoreKit configuration, and FluidAudio 0.15.7 as consumed. Read-only code audit against NIAP PP-APP / mobile-app-vetting expectations: data at rest, network surface, release hygiene, logging, inbound files, supply chain. Fix status in the last column.
+
+## Summary
+
+The privacy architecture holds: every app source file is network-free (enforced by `NetworkPolicyTests`), the only third-party code is FluidAudio 0.15.7 pinned by exact version, there are no analytics or crash SDKs, App Transport Security is at its default, the privacy manifest declares no tracking and no collected data, the Keychain item is `AfterFirstUnlockThisDeviceOnly` and not synced, recordings are excluded from iCloud backup and carry `completeUntilFirstUserAuthentication`, and every log line prints only counts, UUIDs, formats and error strings, never transcript text. Nothing found sends user data off the device. The gaps a vetting lab would flag are hygiene: the app lock engages on background rather than on inactive (app switcher / notification shade exposure), the recording title reaches the Lock Screen through Now Playing while the app is locked, release builds honour four launch arguments (one disables the app lock), clipboard copies are not local-only or expiring, export files with full transcripts sit in `tmp/Exports` indefinitely, the SwiftData store is neither backup-excluded nor explicitly protected, and the FluidAudio model download verifies size only from a third-party host that could be bundled instead.
+
+## Findings
+
+| ID | Severity | Area | File:line (at audit time) | Finding | Recommended fix | Status |
+|---|---|---|---|---|---|---|
+| S-1 | High | App lock | `App/RootView.swift:31-40` | Lock runs only on `.background`. On `.inactive` (app switcher, Control Center, incoming call, Face ID prompt) content stays visible and the switcher snapshot can be taken before the overlay renders. No `.privacySensitive()` anywhere. | Cover on `.inactive` (privacy shield) that becomes the lock on `.background`; mark transcript/summary/title views `.privacySensitive()`. | |
+| S-2 | High | Release hygiene | `App/VeraFlowApp.swift:11-41`; `project.yml:33-35` | `--use-fake-services`, `--seed-sample-data`, `--show-onboarding`, `--skip-onboarding` honoured in Release; `--skip-onboarding` disables the app lock from a launch argument. Alpha config carries `DEBUG`, so TestFlight alphas ship the benchmark screen. | `#if DEBUG` around argument parsing; never touch the app lock from an argument; document that alpha ≠ release. | |
+| S-3 | Medium | Lock Screen exposure | `RecordingDetail/AudioPlayerController.swift:120-129` | Now Playing receives the user-editable recording title; with background audio it shows on the Lock Screen even with the app lock on. | Generic Now Playing title when the app lock is enabled. | |
+| S-4 | Medium | Pasteboard | `Exports/ExportController.swift:97-103` | Clipboard copies have no `localOnly` and no expiry: Universal Clipboard syncs them to other devices. | `setItems(_:options: [.localOnly: true, .expirationDate: …])`. | |
+| S-5 | Medium | Temp files / exports | `ExportController.swift:78-126`; `ExportViews.swift:87-121` | Markdown/TXT/PDF and the `.m4a` copy are written to `tmp/Exports` and never removed; no launch sweep; no explicit protection class. | Delete on share completion; sweep `tmp/Exports` and `tmp/PhotoImports` on launch; write with complete file protection. | |
+| S-6 | Medium | Data at rest | `Persistence/ModelContainerFactory.swift:105-116`; `RecordingStorage.swift:27-38` | Only audio folders get an explicit protection class and backup exclusion. The SwiftData store (transcripts, summaries) uses defaults and is included in backups; FluidAudio's model cache is backed up; no entitlements file declares the default data-protection class. | Explicit store URL, backup exclusion, entitlements file with `com.apple.developer.default-data-protection`; exclude the model cache from backup. | |
+| S-7 | Low | Inbound files | `Library/LibraryActions.swift:235-262` | Share-sheet files in `Documents/Inbox` are removed only on success. | Remove in the failure path; sweep on launch. | |
+| S-8 | Low | Inbound files (Photos) | `Library/PhotosVideoImport.swift`; `LibraryView.swift:247-271` | A crash mid-import leaves whole videos in `tmp/PhotoImports`. | Launch-time sweep. | |
+| S-9 | Low | Logging | `Services/Live/LiveExportService.swift:73`; `LivePipelineCoordinator.swift:276, 324, 392` | Reminders list name logged `.public`; stage-failure messages embed framework `localizedDescription` (may include paths) `.public`. | Drop the list name; keep failure detail private. | |
+| S-10 | Low | Supply chain | `project.yml:37-40`; `.gitignore` | `Package.resolved` lives in the gitignored `.xcodeproj`, so the resolved FluidAudio commit isn't in source control. | Track `Package.resolved`; record the commit hash in DECISIONS. | |
+| S-11 | Low | Model integrity | FluidAudio `FileDownloader.swift:88-120`, `ModelRegistry.swift`, `HFClient.swift` | Downloads from huggingface.co are validated by size only (no hash/signature). Host, proxy and token come from env vars (inert on iOS). | Bundle the diarizer models and set `ModelHub.offlineMode = true`, or pin SHA-256 per file and verify. | |
+| S-12 | Low | Release hygiene | `Services/EngineSelectingTranscriptionService.swift`; `AppServices.swift:119-122` | Parakeet (a second model-download path) is compiled into Release, selected by a `UserDefaults` key only the DEBUG benchmark writes. | `#if DEBUG` around Parakeet and the selector. | |
+| S-13 | Info | Diagnostics | `Settings/SettingsView.swift:80-131`; `DiagnosticsView.swift` | Seven taps reveal Diagnostics permanently; shows capabilities, storage, titles, failure text; no export, no toggles, no network. | Acceptable; keep failure text free of paths (S-9). | |
+| S-14 | Info | Prompt injection | `Services/Live/LiveSummarizationService.swift`; `Summaries/Prompts.swift`; `ActionItemPostProcessor.swift` | Transcript text goes verbatim into the prompt. Mitigations: schema-bound output, low temperature, no tool calling, due dates in Swift, timestamps clamped, human-in-the-loop for Reminders and email. Residual: free-text task/email body could carry injected wording or URLs. | Strip URLs/markdown from task text and email body in post-processing; keep human-in-the-loop. | |
+| S-15 | Info | Live Activity | `VeraFlowWidgets/RecordingLiveActivity.swift`; `RecorderViewModel.swift` | Banner shows the auto title "Meeting · date" only; no user content, no push token, no App Group. | Keep; generic title if pre-titling is ever added. | |
+| S-16 | Info | Entitlements | `project.yml:71-78` | Background audio + processing, BG task identifiers, Live Activities. No App Groups, iCloud, push, associated domains. | Fine; add an entitlements file so the set is auditable. | |
+| S-17 | Info | Startup | `App/VeraFlowApp.swift:45` | `fatalError` message embeds the store error (paths) in the crash log. | Log privately; constant message. | |
+
+## Verified OK
+
+- No networking in app code (`URLSession`, `URLRequest`, `WKWebView`, `NWConnection` absent; enforced by `VeraFlowTests/NetworkPolicyTests.swift`). Network surfaces are exactly: Speech `AssetInventory`, FluidAudio model download, StoreKit. Only URL opens: the Settings deep link and `AppLinks` (nil).
+- ATS at default (HTTPS only). Privacy manifest: tracking false, no collected data, required-reason APIs UserDefaults, FileTimestamp, DiskSpace.
+- Keychain: `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`, not synchronizable, integer only.
+- Recordings: `Application Support/Recordings/<uuid>/`, `completeUntilFirstUserAuthentication`, backup-excluded; imported audio gets the same class.
+- Import path: extension allow-list, balanced security-scoped access, `NSFileCoordinator` read, AVFoundation validates content, fixed destination names, no archive handling, file URLs only.
+- Export file names sanitised. Delete All Data removes rows, orphan folders, and queued work.
+- Logging: every `Logger` interpolation is numeric/UUID/format/error; no transcript, summary or title text; no `print`/`NSLog`.
+- No analytics or crash SDKs; FluidAudio source has no telemetry.
+- StoreKit: verified transactions, revocation checked, updates listener, `AppStore.sync` restore.
+- Widget extension: plain-data attributes, in-process intents, no App Group, no push, no network.
+- App lock: `.deviceOwnerAuthentication`, starts locked when enabled, toggle disabled with no passcode.
+- Due dates resolved in Swift; the model only returns `dueText`.
+
+## DoD-readiness notes (for the vetting package)
+
+1. **Third-party model host**: bundle the diarizer models and set `ModelHub.offlineMode = true`; then the only endpoints are Apple's. Record each model file's SHA-256.
+2. **Data-at-rest classes**: document why audio and the SwiftData store need `CompleteUntilFirstUserAuthentication` (recording while locked; background pipeline writes); use `Complete` for exports and temp files; declare the default class in an entitlements file.
+3. **iCloud backup**: exclude the SwiftData store too, for a consistent "never leaves the device".
+4. **MDM / AppConfig**: no managed configuration today. Candidates: force app lock on, disable share/clipboard/Mail/Reminders exports, require bundled models. Honour managed pasteboard via `localOnly`.
+5. **FIPS**: the app does no cryptography of its own; it relies on iOS Data Protection (Apple CoreCrypto, FIPS 140-3 validated) and TLS via URLSession. State this explicitly.
+6. **Jailbreak / debugger detection**: none present; not required by PP-APP but often asked. A light check that only refuses the app lock unlock is the proportionate option; rely on MDM compliance otherwise.
+7. **Debug artefacts in release**: launch arguments, Parakeet path, preview fixtures, persisted Diagnostics unlock; strip or `#if DEBUG` them so a static scan is clean.
+8. **Screenshots / screen recording**: iOS offers no supported API to block them; `.privacySensitive()` plus the inactive-state cover is the standard mitigation reviewers look for.
+9. **Third-party code volume**: FluidAudio is ~72k LOC with a binary xcframework and C targets, mostly unused here. A lab will want an SBOM and the resolved commit; consider vendoring only the offline diarizer for a DoD build.
+10. **Speech and Apple Intelligence**: both Apple-managed; transcript and summary inference are on-device (`SpeechAnalyzer`, `SystemLanguageModel`); no Private Cloud Compute APIs in code.
+11. **Logging**: keep `.public` to enumerations and counts so `sysdiagnose` collection cannot expose titles or paths.

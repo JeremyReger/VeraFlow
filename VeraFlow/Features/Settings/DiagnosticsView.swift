@@ -56,10 +56,7 @@ struct DiagnosticsView: View {
             if !timings.isEmpty {
                 Section("Stage timings (this launch)") {
                     ForEach(timings.reversed()) { timing in
-                        LabeledContent("\(title(for: timing.recordingID)) · \(timing.stage.displayName)") {
-                            Text(timing.succeeded ? "\(timing.seconds, format: .number.precision(.fractionLength(1))) s" : "failed after \(timing.seconds, format: .number.precision(.fractionLength(1))) s")
-                                .foregroundStyle(timing.succeeded ? .secondary : .red)
-                        }
+                        timingRow(timing)
                     }
                 }
             }
@@ -83,6 +80,15 @@ struct DiagnosticsView: View {
         .task {
             modelInfo = await services.summarization.modelInfo()
             storageBytes = Self.folderSize(at: services.storage.rootDirectory)
+        }
+    }
+
+    private func timingRow(_ timing: PipelineTimeline.StageTiming) -> some View {
+        let label = title(for: timing.recordingID) + " · " + timing.stage.displayName
+        let seconds = String(format: "%.1f s", timing.seconds)
+        let value = timing.succeeded ? seconds : "failed after " + seconds
+        return LabeledContent(label) {
+            Text(value).foregroundStyle(timing.succeeded ? Color.secondary : Color.red)
         }
     }
 

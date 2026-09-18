@@ -10,6 +10,10 @@ final class LiveBackgroundProcessing: BackgroundProcessing, Sendable {
     private static let log = Logger(subsystem: "com.jeremyreger.veraflow", category: "background")
     /// Must match the wildcard entry in Info.plist `BGTaskSchedulerPermittedIdentifiers`.
     static let identifierPrefix = "com.jeremyreger.veraflow.processing."
+    /// How long to wait for the system to launch the task before running the work inline. On
+    /// iOS 27 with the iOS 26.5 SDK the submission "succeeds" but the launch never comes (the
+    /// scheduler's reply can't be decoded), so this is what keeps the pipeline moving.
+    static let launchTimeout: Duration = .seconds(3)
 
     func run(
         title: String,
@@ -23,6 +27,11 @@ final class LiveBackgroundProcessing: BackgroundProcessing, Sendable {
         let registered = BGTaskScheduler.shared.register(forTaskWithIdentifier: identifier, using: nil) { task in
             guard let task = task as? BGContinuedProcessingTask else {
                 task.setTaskCompleted(success: false)
+                return
+            }
+            // If the wait below already gave up and ran the work inline, just close the task.
+            guard state.claim() else {
+                task.setTaskCompleted(success: true)
                 return
             }
             let box = TaskBox(task)
@@ -58,6 +67,15 @@ final class LiveBackgroundProcessing: BackgroundProcessing, Sendable {
             await work { _ in }
             return
         }
+        let deadline = ContinuousClock.now + Self.launchTimeout
+        while !state.isClaimed, ContinuousClock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+        if !state.isClaimed, state.claim() {
+            Self.log.notice("system did not launch the processing task in time; running inline")
+            await work { _ in }
+            return
+        }
         await state.wait()
     }
 
@@ -68,11 +86,28 @@ final class LiveBackgroundProcessing: BackgroundProcessing, Sendable {
         init(_ task: BGContinuedProcessingTask) { self.task = task }
     }
 
-    /// Lets `run` await the launch handler's completion.
+    /// Lets `run` await the launch handler's completion, and decides who runs the work: the
+    /// system's launch handler or the inline fallback, never both.
     private final class RunState: @unchecked Sendable {
         private let lock = NSLock()
         private var continuation: CheckedContinuation<Void, Never>?
         private var finished = false
+        private var claimed = false
+
+        /// True for the first caller only.
+        func claim() -> Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            if claimed { return false }
+            claimed = true
+            return true
+        }
+
+        var isClaimed: Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            return claimed
+        }
 
         func finish() {
             lock.lock()

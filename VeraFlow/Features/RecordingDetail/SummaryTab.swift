@@ -12,6 +12,7 @@ struct SummaryTab: View {
     @Environment(AppState.self) private var appState: AppState?
     @State private var selectedSummaryID: UUID?
     @State private var state = ActionItemsState()
+    @State private var showsPaywall = false
 
     private var summaries: [SummaryRecord] {
         recording.summaries.sorted { $0.createdAt > $1.createdAt }
@@ -39,6 +40,13 @@ struct SummaryTab: View {
         .task(id: selected?.id) {
             state = (try? selected?.actionItems()) ?? ActionItemsState()
         }
+        .sheet(isPresented: $showsPaywall) {
+            PaywallView()
+        }
+    }
+
+    private var isFreeLimitReached: Bool {
+        recording.failedStage == .summarizing && recording.failureMessage == SummarizationError.freeLimitMessage
     }
 
     // MARK: Status
@@ -64,19 +72,34 @@ struct SummaryTab: View {
             .background(.bar)
         } else if recording.failedStage == .summarizing, let message = recording.failureMessage {
             HStack(spacing: 10) {
-                Image(systemName: "sparkles.slash").foregroundStyle(.orange)
+                Image(systemName: isFreeLimitReached ? "lock.fill" : "sparkles.slash").foregroundStyle(.orange)
                 Text(message).font(.footnote)
                 Spacer(minLength: 0)
-                Button("Retry") {
-                    Task { await services.pipeline.retry(recordingID: recording.id, from: .summarizing) }
+                if isFreeLimitReached, appState?.isUnlocked != true {
+                    // The natural paywall moment (SPEC §13.3): the fourth summary.
+                    Button("Unlock") { showsPaywall = true }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                        .accessibilityIdentifier("summary.unlock")
+                } else {
+                    Button("Retry") {
+                        Task { await services.pipeline.retry(recordingID: recording.id, from: .summarizing) }
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .accessibilityIdentifier("summary.retry")
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .accessibilityIdentifier("summary.retry")
             }
             .padding(.horizontal)
             .padding(.vertical, 10)
             .background(.bar)
+        } else if let appState, !appState.isUnlocked, appState.capabilities?.canSummarize ?? true, recording.summaries.isEmpty {
+            Text("\(min(appState.freeSummariesUsed, FreeTier.summaryLimit)) of \(FreeTier.summaryLimit) free summaries used.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 6)
+                .background(.bar)
         }
     }
 

@@ -8,8 +8,22 @@ struct ExportMenuItems: View {
     let recording: Recording
     let controller: ExportController
     let onSendToReminders: () -> Void
+    /// Called instead of the action when the free tier doesn't include it (SPEC §13.2).
+    let onLocked: () -> Void
     @Environment(\.services) private var services
+    @Environment(AppState.self) private var appState: AppState?
     @AppStorage("export.includeTranscript") private var includeTranscript = true
+
+    private var isUnlocked: Bool { appState?.isUnlocked ?? false }
+
+    /// Runs `action` if the tier allows it, otherwise opens the paywall.
+    private func gated(_ action: ExportGate.Action, _ run: @escaping () -> Void) -> () -> Void {
+        { ExportGate.isAllowed(action, unlocked: isUnlocked) ? run() : onLocked() }
+    }
+
+    private func lockIcon(_ action: ExportGate.Action, _ systemImage: String) -> String {
+        ExportGate.isAllowed(action, unlocked: isUnlocked) ? systemImage : "lock"
+    }
 
     private var hasSummary: Bool { recording.currentSummary != nil }
     private var hasTranscript: Bool { !recording.segments.isEmpty }
@@ -17,9 +31,9 @@ struct ExportMenuItems: View {
     var body: some View {
         Section {
             ForEach([ExportKind.markdown, .pdf, .plainText]) { kind in
-                Button(kind.title, systemImage: kind.systemImage) {
+                Button(kind.title, systemImage: lockIcon(.file(kind), kind.systemImage), action: gated(.file(kind)) {
                     Task { await controller.share(kind, document: document(), audioURL: audioURL) }
-                }
+                })
                 .disabled(!hasSummary && !hasTranscript)
             }
             Toggle("Include transcript", systemImage: "text.alignleft", isOn: $includeTranscript)
@@ -36,19 +50,19 @@ struct ExportMenuItems: View {
             .disabled(actionItems.isEmpty)
         }
         Section {
-            Button(recording.currentSummary?.templateID == .client ? "Draft follow-up email" : "Email summary", systemImage: "envelope") {
+            Button(recording.currentSummary?.templateID == .client ? "Draft follow-up email" : "Email summary", systemImage: lockIcon(.email, "envelope"), action: gated(.email) {
                 Task { await controller.draftEmail(for: document()) }
-            }
+            })
             .disabled(!hasSummary)
-            Button("Send action items to Reminders", systemImage: "list.bullet.rectangle") {
+            Button("Send action items to Reminders", systemImage: lockIcon(.reminders, "list.bullet.rectangle"), action: gated(.reminders) {
                 onSendToReminders()
-            }
+            })
             .disabled(actionItems.isEmpty)
         }
         Section {
-            Button(ExportKind.audio.title, systemImage: ExportKind.audio.systemImage) {
+            Button(ExportKind.audio.title, systemImage: lockIcon(.file(.audio), ExportKind.audio.systemImage), action: gated(.file(.audio)) {
                 Task { await controller.share(.audio, document: document(), audioURL: audioURL) }
-            }
+            })
         }
     }
 

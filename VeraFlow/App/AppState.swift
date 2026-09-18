@@ -81,6 +81,9 @@ final class AppState {
             } else {
                 pipelineProgress[id] = nil
             }
+            if stage == .ready {
+                Task { await refreshFreeSummaries() }
+            }
         case .progress(let id, let stage, let fraction):
             pipelineProgress[id] = PipelineProgress(stage: stage, fraction: fraction, isPreparingAssets: false)
         case .preparingAssets(let id, let stage, let fraction):
@@ -116,6 +119,11 @@ final class AppState {
         } catch {
             recoveryMessage = "Couldn't check for interrupted recordings: \(error.localizedDescription)"
         }
+    }
+
+    /// Re-reads the free-summary counter (after a summary or a purchase).
+    func refreshFreeSummaries() async {
+        freeSummariesUsed = await services.purchases.freeSummariesUsed()
     }
 
     /// Re-reads capabilities, e.g. after returning from Settings.

@@ -12,6 +12,7 @@ struct LivePipelineCoordinatorTests {
         let transcription: FakeTranscriptionService
         let diarization: FakeDiarizationService
         let summarization: FakeSummarizationService
+        let purchases: FakePurchaseService
         let background: FakeBackgroundProcessing
         let coordinator: LivePipelineCoordinator
 
@@ -41,12 +42,13 @@ struct LivePipelineCoordinatorTests {
         }
     }
 
-    private func makeHarness(speakerHint: SpeakerCountHint = .automatic) throws -> Harness {
+    private func makeHarness(speakerHint: SpeakerCountHint = .automatic, unlocked: Bool = true, freeSummariesUsed: Int = 0) throws -> Harness {
         let storage = RecordingStorage(rootDirectory: try TestAudioFiles.temporaryDirectory())
         let container = try ModelContainerFactory.makeInMemory()
         let transcription = FakeTranscriptionService()
         let diarization = FakeDiarizationService()
         let summarization = FakeSummarizationService()
+        let purchases = FakePurchaseService(unlocked: unlocked, freeSummariesUsed: freeSummariesUsed)
         let background = FakeBackgroundProcessing()
         let coordinator = LivePipelineCoordinator(
             container: container,
@@ -55,6 +57,7 @@ struct LivePipelineCoordinatorTests {
             aligner: LiveTranscriptAligner(),
             summarization: summarization,
             dueDates: FakeDueDateResolver(),
+            purchases: purchases,
             storage: storage,
             background: background,
             speakerHint: { speakerHint }
@@ -65,9 +68,35 @@ struct LivePipelineCoordinatorTests {
             transcription: transcription,
             diarization: diarization,
             summarization: summarization,
+            purchases: purchases,
             background: background,
             coordinator: coordinator
         )
+    }
+
+    @Test("Free tier: summaries count down and the fourth stops with the unlock reason; unlocked never counts")
+    func freeSummaryLimit() async throws {
+        let harness = try makeHarness(unlocked: false, freeSummariesUsed: 2)
+        defer { harness.cleanUp() }
+        let first = try harness.insert(title: "third free")
+        await harness.coordinator.enqueue(recordingID: first)
+        try await waitUntil { try harness.stage(of: first) == .ready }
+        #expect(try harness.fetch(first)?.summaries.count == 1)
+        #expect(await harness.purchases.freeUsed == 3)
+
+        let second = try harness.insert(title: "fourth")
+        await harness.coordinator.enqueue(recordingID: second)
+        try await waitUntil { try harness.stage(of: second) == .ready }
+        let blocked = try #require(try harness.fetch(second))
+        #expect(blocked.summaries.isEmpty)
+        #expect(blocked.failedStage == .summarizing)
+        #expect(blocked.failureMessage == SummarizationError.freeLimitMessage)
+        #expect(await harness.summarization.inputs.count == 1, "no model call for the blocked one")
+
+        await harness.purchases.setUnlocked(true)
+        await harness.coordinator.retry(recordingID: second, from: .summarizing)
+        try await waitUntil { try harness.fetch(second)?.summaries.count == 1 }
+        #expect(await harness.purchases.freeUsed == 3, "unlocked summaries don't count")
     }
 
     private func waitUntil(timeout: Duration = .seconds(3), _ condition: () throws -> Bool) async rethrows {

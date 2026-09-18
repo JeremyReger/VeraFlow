@@ -98,7 +98,15 @@ Update this file at the end of every session. Check an item only when its "Done 
   - [ ] `scripts/test.sh` green on Jeremy's Mac
   - [ ] Device: fresh install shows onboarding; capability page matches the phone; consent sheet once; Face ID lock on return; Delete all data; Diagnostics after 7 taps
   - [ ] Device: proxy (Charles/Proxyman) shows only Apple speech assets, Hugging Face model files, and StoreKit
-- [ ] M8 — Purchases
+- [ ] M8 — Purchases — written while Jeremy was away (plan: `docs/plans/2026-09-18-m8-purchases.md`); needs the compile run and StoreKit/TestFlight checks
+  - [x] `LivePurchaseService` (StoreKit 2: products, purchase + verify + finish, current entitlements, updates listener, restore via `AppStore.sync`)
+  - [x] Free-summary counter in Keychain + UserDefaults; pipeline stops the 4th summary with the unlock reason; unlocked summaries never count
+  - [x] Paywall with price from the store, Restore, honest no–Apple Intelligence copy; opened from the 4th summary and locked exports (never on launch)
+  - [x] `VeraFlow.storekit` attached to the scheme; `ExportGate` for the free tier
+  - [x] Tests: counter (1), paywall model (2), export gate (1), coordinator free-limit path (1)
+  - [ ] `scripts/test.sh` green on Jeremy's Mac
+  - [ ] Device/StoreKit: purchase, refund (locks again), restore, Family Sharing, free count survives reinstall
+  - [ ] Decide the price and fill `AppLinks` (terms, privacy) before TestFlight
 - [ ] M9 — Polish and ship
 
 ## Notes / blockers

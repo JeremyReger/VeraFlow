@@ -153,8 +153,10 @@ schemes:
         VeraFlowUITests: [test]
     run:
       config: Debug
+      storeKitConfiguration: VeraFlow.storekit   # local StoreKit testing (SPEC §16 M8)
     test:
       config: Debug
+      storeKitConfiguration: VeraFlow.storekit
       targets:
         - VeraFlowTests
         - VeraFlowUITests

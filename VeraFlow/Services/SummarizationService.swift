@@ -30,9 +30,13 @@ enum SummarizationAvailability: Sendable, Equatable {
 
 enum SummarizationError: Error, Equatable {
     case unavailable(SummarizationAvailability)
+    /// The free tier's 3 summaries are used up (SPEC §13.2); the Summary tab offers the unlock.
+    case freeLimitReached
     case contextOverflow
     case generationFailed(String)
     case cancelled
+
+    static let freeLimitMessage = "You've used your \(FreeTier.summaryLimit) free summaries. Unlock VeraFlow for unlimited summaries."
 }
 
 /// Progress of a map-reduce summary run.

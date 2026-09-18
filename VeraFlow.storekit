@@ -1,0 +1,40 @@
+{
+  "identifier" : "VeraFlowStoreKit",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "24.99",
+      "familyShareable" : true,
+      "internalID" : "veraflow.unlock.lifetime",
+      "localizations" : [
+        {
+          "description" : "Unlimited AI summaries, all templates, all exports, Reminders and email drafts.",
+          "displayName" : "VeraFlow Unlock",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "veraflow.unlock.lifetime",
+      "referenceName" : "VeraFlow Unlock (lifetime)",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_applicationInternalID" : "",
+    "_developerTeamID" : "2J4F7PS86L",
+    "_failTransactionsEnabled" : false,
+    "_locale" : "en_US",
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+
+    ]
+  },
+  "subscriptionGroups" : [
+
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}

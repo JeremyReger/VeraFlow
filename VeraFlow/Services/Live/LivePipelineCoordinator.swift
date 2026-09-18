@@ -18,6 +18,7 @@ actor LivePipelineCoordinator: PipelineCoordinating {
     private let aligner: any TranscriptAligning
     private let summarization: any SummarizationService
     private let dueDates: any DueDateResolving
+    private let purchases: any PurchaseService
     private let storage: RecordingStorage
     private let background: any BackgroundProcessing
     /// Reads the "Expected speakers" setting at the moment diarization starts.
@@ -39,6 +40,7 @@ actor LivePipelineCoordinator: PipelineCoordinating {
         aligner: any TranscriptAligning,
         summarization: any SummarizationService,
         dueDates: any DueDateResolving,
+        purchases: any PurchaseService,
         storage: RecordingStorage,
         background: any BackgroundProcessing,
         speakerHint: @escaping @Sendable () -> SpeakerCountHint = { .automatic }
@@ -49,6 +51,7 @@ actor LivePipelineCoordinator: PipelineCoordinating {
         self.aligner = aligner
         self.summarization = summarization
         self.dueDates = dueDates
+        self.purchases = purchases
         self.storage = storage
         self.background = background
         self.speakerHint = speakerHint
@@ -278,6 +281,12 @@ actor LivePipelineCoordinator: PipelineCoordinating {
             let availability = await summarization.availability()
             guard availability.isAvailable else { throw SummarizationError.unavailable(availability) }
             guard !recording.segments.isEmpty else { throw SummarizationError.generationFailed("There is no transcript to summarize.") }
+            // Free tier: 3 summaries in total, any template (SPEC §13.2). Checked here so a queued
+            // 4th summary stops cleanly with the paywall reason instead of a model call.
+            let unlocked = await purchases.isUnlocked()
+            guard unlocked || await purchases.freeSummariesUsed() < FreeTier.summaryLimit else {
+                throw SummarizationError.freeLimitReached
+            }
             let input = SummarizationInput.make(from: recording)
             let raw = try await summarization.summarize(input) { update in
                 hub.emit(.progress(recordingID: id, stage: .summarizing, fraction: update.fraction))
@@ -294,6 +303,9 @@ actor LivePipelineCoordinator: PipelineCoordinating {
             recording.summaries.append(record)
             recording.stage = .ready
             save()
+            if !unlocked {
+                await purchases.recordFreeSummaryUsed()
+            }
             events.emit(.stageChanged(recordingID: id, stage: .ready))
             Self.log.info("summarized \(id.uuidString, privacy: .public) with \(payload.templateID.rawValue, privacy: .public): \(payload.actionItems.count, privacy: .public) action items")
         } catch is CancellationError {
@@ -416,6 +428,7 @@ enum PipelineFailure {
                 case .modelNotReady: return "Apple Intelligence is still downloading. Try again later."
                 case .unknown(let detail): return "Summaries aren't available: \(detail)"
                 }
+            case .freeLimitReached: return SummarizationError.freeLimitMessage
             case .contextOverflow: return "The recording was too long to summarize in one pass."
             case .generationFailed(let detail): return "The summary couldn't be generated: \(detail)"
             case .cancelled: return "The summary was cancelled."

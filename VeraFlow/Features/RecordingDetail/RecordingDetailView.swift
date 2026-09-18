@@ -30,6 +30,7 @@ struct RecordingDetailView: View {
     @State private var controller: RecordingActionsController?
     @State private var exportController: ExportController?
     @State private var remindersRecord: SummaryRecord?
+    @State private var showsPaywall = false
 
     /// Explicit because `@Query` makes the synthesized initializer private. Opens on the Summary
     /// when there is one, otherwise on the Transcript.
@@ -72,9 +73,12 @@ struct RecordingDetailView: View {
             if let exportController {
                 ToolbarItem(placement: .primaryAction) {
                     Menu("Share", systemImage: "square.and.arrow.up") {
-                        ExportMenuItems(recording: recording, controller: exportController) {
-                            remindersRecord = recording.currentSummary
-                        }
+                        ExportMenuItems(
+                            recording: recording,
+                            controller: exportController,
+                            onSendToReminders: { remindersRecord = recording.currentSummary },
+                            onLocked: { showsPaywall = true }
+                        )
                     }
                     .accessibilityIdentifier("detail.share")
                 }
@@ -92,6 +96,9 @@ struct RecordingDetailView: View {
         .modifier(OptionalExportPresentation(controller: exportController))
         .sheet(item: $remindersRecord) { record in
             RemindersSheet(recording: recording, record: record)
+        }
+        .sheet(isPresented: $showsPaywall) {
+            PaywallView()
         }
         .task {
             if controller == nil {

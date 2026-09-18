@@ -99,6 +99,11 @@ actor FakePurchaseService: PurchaseService {
         freeUsed += 1
     }
 
+    // MARK: Test controls
+
+    func setPurchaseOutcome(_ outcome: PurchaseOutcome) { purchaseOutcome = outcome }
+    func setError(_ error: PurchaseError?) { errorToThrow = error }
+
     /// Test control: flips the entitlement (e.g. simulate a refund) and notifies listeners.
     func setUnlocked(_ value: Bool) {
         unlocked = value

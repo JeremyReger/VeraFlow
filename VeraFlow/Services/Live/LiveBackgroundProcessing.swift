@@ -14,11 +14,18 @@ final class LiveBackgroundProcessing: BackgroundProcessing, Sendable {
     /// iOS 27 with the iOS 26.5 SDK the submission "succeeds" but the launch never comes (the
     /// scheduler's reply can't be decoded), so this is what keeps the pipeline moving.
     static let launchTimeout: Duration = .seconds(3)
+    /// Once the system fails to launch a task in this session, stop asking: each unanswered
+    /// request shows a "Processing recordings · Task failed" card on the Lock Screen.
+    private let launchFailed = LaunchFlag()
 
     func run(
         title: String,
         work: @Sendable @escaping (_ progress: @Sendable @escaping (Double) -> Void) async -> Void
     ) async {
+        guard !launchFailed.value else {
+            await work { _ in }
+            return
+        }
         let identifier = Self.identifierPrefix + UUID().uuidString.lowercased()
         let state = RunState()
 
@@ -72,11 +79,22 @@ final class LiveBackgroundProcessing: BackgroundProcessing, Sendable {
             try? await Task.sleep(for: .milliseconds(100))
         }
         if !state.isClaimed, state.claim() {
-            Self.log.notice("system did not launch the processing task in time; running inline")
+            Self.log.notice("system did not launch the processing task in time; running inline for the rest of this session")
+            launchFailed.value = true
+            BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: identifier)
             await work { _ in }
             return
         }
         await state.wait()
+    }
+
+    private final class LaunchFlag: @unchecked Sendable {
+        private let lock = NSLock()
+        private var _value = false
+        var value: Bool {
+            get { lock.withLock { _value } }
+            set { lock.withLock { _value = newValue } }
+        }
     }
 
     /// The system's task object isn't Sendable; the handler and the progress closure share it here.

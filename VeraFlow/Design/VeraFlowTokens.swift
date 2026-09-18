@@ -113,7 +113,7 @@ public enum VFFontName {
     public static let sansBold        = "Manrope-Bold"
 }
 
-public struct VFTextStyle {
+public struct VFTextStyle: Sendable {
     public let font: Font
     public let tracking: CGFloat
     public let lineSpacing: CGFloat

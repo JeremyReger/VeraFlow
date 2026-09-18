@@ -52,6 +52,10 @@ actor LiveDiarizationService: DiarizationService {
         var config = OfflineDiarizerConfig.default
         config.clustering.numSpeakers = expectedSpeakers.exact
         config.clustering.minSpeakers = expectedSpeakers.minimum
+        // Off by default in FluidAudio. Without it, a speaker whose turns fall in frames with no
+        // clustering votes is silently absorbed into the surrounding speaker: on Jeremy's 4:40
+        // recording "Expected speakers: 3" produced 3 centroids but only 2 labelled speakers.
+        config.zeroVoteReembed.enabled = true
         // A fresh manager per file: the class isn't Sendable and the speaker hint is part of its config.
         let manager = OfflineDiarizerManager(config: config)
         manager.initialize(models: models)

@@ -272,15 +272,15 @@ struct TranscriptTab: View {
     }
 
     private func paragraph(_ segment: TranscriptSegment, isCurrent: Bool, wordIndex: Int?, isMatch: Bool) -> some View {
-        let speaker = speaker(for: segment.speakerKey)
-        let speakerName = speaker?.displayName ?? segment.speakerKey.map(SpokenFormat.speakerName(forKey:)) ?? ""
+        let segmentSpeaker = speaker(for: segment.speakerKey)
+        let speakerName = segmentSpeaker?.displayName ?? segment.speakerKey.map(SpokenFormat.speakerName(forKey:)) ?? ""
         return VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 8) {
                 // Bold while playing, so the current paragraph isn't marked by colour alone (A-14).
                 Text(timestamp(segment.start))
                     .font(.caption.monospacedDigit().weight(isCurrent ? .bold : .regular))
                     .foregroundStyle(isCurrent ? Color.accentColor : .secondary)
-                if let speaker {
+                if let speaker = segmentSpeaker {
                     Button {
                         speakerController?.beginRename(speaker)
                     } label: {
@@ -370,7 +370,7 @@ struct TranscriptTab: View {
             if segment.isEdited {
                 Button("Revert to transcribed text") { revert(segment) }
             }
-            if let speaker {
+            if let speaker = segmentSpeaker {
                 Button("Rename \(speaker.displayName)") { speakerController?.beginRename(speaker) }
             }
             if let speakerController, canChangeSpeaker {

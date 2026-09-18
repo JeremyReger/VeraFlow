@@ -341,7 +341,7 @@ struct LevelMeter: View {
                 Capsule()
                     .fill(level > 0.9 ? Color("Alert") : Color.accentColor)
                     .frame(width: proxy.size.width * CGFloat(min(max(level, 0), 1)))
-                    .animation(reduceMotion ? nil : .linear(duration: 0.1), value: level)
+                    .animation(reduceMotion ? nil : Animation.linear(duration: 0.1), value: level)
             }
         }
         .accessibilityElement(children: .ignore)

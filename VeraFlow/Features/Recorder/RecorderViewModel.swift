@@ -276,10 +276,14 @@ final class RecorderViewModel {
 
     /// Timer and level only. Snapshots are buffered, so a stale one can arrive after Pause;
     /// phase changes come from our own calls and from interruption events, never from here.
+    /// While paused nothing is appended, so the waveform stands still instead of scrolling
+    /// empty bars in from the right.
     private func apply(_ snapshot: RecorderSnapshot) {
         guard isActive else { return }
         self.snapshot = snapshot
-        appendLevel(phase == .recording ? snapshot.level : 0)
+        if phase == .recording {
+            appendLevel(snapshot.level)
+        }
     }
 
     private func handle(_ interruption: RecorderInterruption) async {

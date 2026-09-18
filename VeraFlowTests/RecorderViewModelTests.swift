@@ -133,7 +133,13 @@ struct RecorderViewModelTests {
         #expect(viewModel.levelHistory.last?.isBookmark == true)
 
         await viewModel.pause()
+        let countWhenPaused = viewModel.levelHistory.count
         await harness.recorder.advance(by: 0.1, level: 0.5) // ignored while paused
+        await harness.recorder.tick() // the live meter keeps publishing while paused
+        await harness.recorder.tick()
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(viewModel.levelHistory.count == countWhenPaused, "the waveform stands still while paused")
+        #expect(viewModel.levelHistory.last?.isBookmark == true)
         await viewModel.resume()
         await harness.recorder.advance(by: 0.1, level: 0.3)
         await waitUntil { viewModel.levelHistory.last?.level == 0.3 }

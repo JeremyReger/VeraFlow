@@ -169,6 +169,12 @@ actor FakeAudioRecorderService: AudioRecorderService {
         publish()
     }
 
+    /// Republishes the current snapshot unchanged, like the live recorder's 100 ms meter
+    /// does while paused.
+    func tick() {
+        publish()
+    }
+
     /// Simulates a system interruption or route change.
     func simulate(_ interruption: RecorderInterruption) {
         switch interruption {

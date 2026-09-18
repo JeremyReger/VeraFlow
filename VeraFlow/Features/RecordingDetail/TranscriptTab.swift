@@ -187,6 +187,11 @@ struct TranscriptTab: View {
     /// Rename / Merge for every speaker (SPEC §10.3).
     private func speakersMenu(_ controller: SpeakerActionsController) -> some View {
         Menu {
+            Button("Re-run speaker labels", systemImage: "arrow.clockwise") {
+                Task { await services.pipeline.retry(recordingID: recording.id, from: .diarizing) }
+            }
+            .disabled(recording.stage.isProcessing)
+            Divider()
             ForEach(speakers, id: \.key) { speaker in
                 Menu(speaker.displayName) {
                     Button("Rename…", systemImage: "pencil") {

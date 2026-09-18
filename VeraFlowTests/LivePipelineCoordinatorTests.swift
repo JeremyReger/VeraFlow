@@ -175,6 +175,26 @@ struct LivePipelineCoordinatorTests {
         #expect(recording.speakers.count == 2, "speaker labels are untouched")
     }
 
+    @Test("Re-running speaker labels on a summarized recording keeps the summary and spends nothing")
+    func relabelKeepsSummary() async throws {
+        let harness = try makeHarness(unlocked: false)
+        defer { harness.cleanUp() }
+        let id = try harness.insert()
+        await harness.coordinator.enqueue(recordingID: id)
+        try await waitUntil { try harness.stage(of: id) == .ready }
+        #expect(await harness.purchases.freeUsed == 1)
+
+        await harness.diarization.setTurns([SpeakerTurn(speakerID: "only", start: 0, end: 7)])
+        await harness.coordinator.retry(recordingID: id, from: .diarizing)
+        try await waitUntil { try harness.fetch(id)?.speakers.count == 1 && harness.stage(of: id) == .ready }
+
+        let recording = try #require(try harness.fetch(id))
+        #expect(recording.summaries.count == 1, "the existing summary is kept")
+        #expect(recording.speakers.map(\.key) == ["S1"])
+        #expect(await harness.summarization.inputs.count == 1, "no second model call")
+        #expect(await harness.purchases.freeUsed == 1)
+    }
+
     @Test("Re-running with another template adds a summary to the history and keeps the old one")
     func rerunWithTemplate() async throws {
         let harness = try makeHarness()

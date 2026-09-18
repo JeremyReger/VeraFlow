@@ -166,6 +166,10 @@ actor LiveTranscriptionService: TranscriptionService {
         } catch {
             throw TranscriptionError.analysisFailed(error.localizedDescription)
         }
+        if let readError = input.reader.error, words.isEmpty {
+            // The file couldn't be decoded (e.g. a damaged recording); say so instead of "no speech".
+            throw TranscriptionError.analysisFailed("Couldn't read the audio: \(readError)")
+        }
         progress(1)
         Self.log.info("transcribed \(words.count, privacy: .public) words")
         return TranscriptionResult(words: words, engine: module.engine, localeIdentifier: resolvedLocale.identifier(.bcp47))
@@ -253,14 +257,16 @@ actor LiveTranscriptionService: TranscriptionService {
     private static func makeInputStream(
         file: AVAudioFile,
         analyzerFormat: AVAudioFormat
-    ) -> (stream: AsyncStream<AnalyzerInput>, reader: Task<Void, Never>) {
+    ) -> (stream: AsyncStream<AnalyzerInput>, reader: FileReader) {
         let (stream, continuation) = AsyncStream<AnalyzerInput>.makeStream()
         let box = FileBox(file: file)
-        let reader = Task.detached(priority: .userInitiated) {
+        let reader = FileReader()
+        reader.task = Task.detached(priority: .userInitiated) {
             defer { continuation.finish() }
             let readFormat = box.file.processingFormat
             guard let converter = AVAudioConverter(from: readFormat, to: analyzerFormat) else {
                 log.error("no converter from \(readFormat.description, privacy: .public) to the analyzer format")
+                reader.error = "unsupported audio format"
                 return
             }
             let resampler = BufferResampler(converter: converter, outputFormat: analyzerFormat)
@@ -270,6 +276,7 @@ actor LiveTranscriptionService: TranscriptionService {
                     try box.file.read(into: chunk, frameCount: readChunkFrames)
                 } catch {
                     log.error("read failed: \(error.localizedDescription, privacy: .public)")
+                    reader.error = error.localizedDescription
                     return
                 }
                 if chunk.frameLength == 0 { break }
@@ -282,6 +289,22 @@ actor LiveTranscriptionService: TranscriptionService {
             }
         }
         return (stream, reader)
+    }
+
+    /// The background reader plus the first decode error it hit, if any.
+    private final class FileReader: @unchecked Sendable {
+        private let lock = NSLock()
+        private var _error: String?
+        var task: Task<Void, Never>?
+
+        var error: String? {
+            get { lock.withLock { _error } }
+            set { lock.withLock { _error = newValue } }
+        }
+
+        func cancel() {
+            task?.cancel()
+        }
     }
 
     /// `AVAudioFile` isn't Sendable; the reader task is its only user after creation.

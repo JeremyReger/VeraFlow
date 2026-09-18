@@ -32,6 +32,8 @@ actor LivePipelineCoordinator: PipelineCoordinating {
     private var drainTask: Task<Void, Never>?
     /// Recordings whose processing was cancelled because they were deleted; never touch them again.
     private var cancelledIDs: Set<UUID> = []
+    /// "Re-run speaker labels" on a recording that already has a summary: relabel, keep the summary.
+    private var relabelOnly: Set<UUID> = []
 
     init(
         container: ModelContainer,
@@ -68,6 +70,9 @@ actor LivePipelineCoordinator: PipelineCoordinating {
 
     func retry(recordingID: UUID, from stage: PipelineStage) async {
         guard let recording = try? fetchRecording(recordingID) else { return }
+        if stage == .diarizing, !recording.summaries.isEmpty {
+            relabelOnly.insert(recordingID)
+        }
         recording.stage = Self.stageBefore(stage)
         recording.failureMessage = nil
         recording.failedStage = nil
@@ -156,6 +161,13 @@ actor LivePipelineCoordinator: PipelineCoordinating {
         }
         if !Task.isCancelled, recording.stage == .transcribed || recording.stage == .diarizing {
             await diarize(recording, progress: progress)
+        }
+        if relabelOnly.remove(id) != nil, recording.stage == .diarized, !recording.summaries.isEmpty {
+            // Labels were redone on request; the existing summary stays (no free summary spent).
+            recording.stage = .ready
+            save()
+            events.emit(.stageChanged(recordingID: id, stage: .ready))
+            return
         }
         if !Task.isCancelled, recording.stage == .diarized || recording.stage == .summarizing {
             await summarize(recording, progress: progress)

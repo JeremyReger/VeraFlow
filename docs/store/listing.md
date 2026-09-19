@@ -50,6 +50,18 @@ meeting,recorder,transcribe,transcript,notes,summary,action items,voice memo,pri
 ## What's new (first release)
 First release.
 
+## What's new (1.1, draft)
+• Speaker filter: tap a name to see just their paragraphs
+• Skip silence in playback
+• Marks now carry a label and the summary weighs them
+• Chapters from the summary's subjects, on the Audio tab and in the transcript
+• Edit action items, owners and due dates, or add your own
+• A notification when a summary is ready (only the recording's name is shown)
+• Transcribe in another language, or transcribe a recording again
+• Recently Deleted: 30 days to change your mind
+• Export your whole library, or one recording, as a package you keep wherever you like
+• Optional: include recordings in your iPhone backup
+
 ## Support URL
 (Jeremy) — marketing site support page
 
@@ -62,7 +74,9 @@ Data Not Collected. The app makes no network requests with user data; the only n
 ## Review notes (App Review)
 - VeraFlow works fully offline after two one-time downloads (Apple speech assets for the device language, and speaker-label models, about 60 MB). Both happen on first use with a progress indicator.
 - Free tier: three AI summaries in total, then the paywall offers a one-time unlock (product `veraflow.unlock.lifetime`). Transcripts and speaker labels are never limited.
-- Summaries need Apple Intelligence. On a review device without it, the app still records and transcribes; the Summary tab explains that summaries aren't available on that device, and the paywall says so before purchase. To see a summary without Apple Intelligence, please use the attached screen recording.
+- Summaries need Apple Intelligence. On a review device without it, the app still records and transcribes; the Summary tab explains that summaries aren't available on that device, and the paywall says so before purchase. To see a summary without Apple Intelligence, tap "Try a sample recording" on the empty Library (or Settings → About → Add the sample recording): it comes with its transcript, speaker names and a finished summary.
+- Notifications: a local "Summary ready" notification is requested quietly (provisional) the first time a recording is still processing when the app goes to the background. It shows only the recording's name.
+- The `.veraflowarchive` package (Settings → Storage → Export library) is a folder the user saves through the system document picker; nothing is uploaded by the app.
 - Microphone: used only while recording; the audio session is closed when recording stops.
 - Reminders: full access is requested only when the user chooses "Add to Reminders", to list their reminder lists. Nothing is read back except list names.
 - Background audio mode: used only for an active recording (Lock Screen pause/resume).

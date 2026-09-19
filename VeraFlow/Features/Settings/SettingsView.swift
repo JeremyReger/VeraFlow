@@ -399,6 +399,19 @@ struct SettingsView: View {
                     Text(AppInfo.buildName).vfText(VFText.meta, color: VFColor.textSecondary)
                 }
                 .accessibilityElement(children: .combine)
+                if let sample = SampleRecording.bundledPackageURL {
+                    VFHairline()
+                    Button {
+                        Task {
+                            let outcome = try? await SampleRecording.install(from: sample, using: LibraryActions(context: modelContext, services: services))
+                            deleteMessage = outcome?.importedIDs.isEmpty == false ? "The sample recording is in your Library." : "The sample recording is already in your Library or in Recently Deleted."
+                        }
+                    } label: {
+                        navigationRow("Add the sample recording")
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("settings.sample")
+                }
                 VFHairline()
                 VFSettingsRow(title: "Speaker models from") {
                     Text(ModelDownload.diarizationModelSourceDescription)

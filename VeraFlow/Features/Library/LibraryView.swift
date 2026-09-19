@@ -351,6 +351,15 @@ struct LibraryView: View {
                         .frame(minHeight: VFMetric.minHit)
                 }
                 .accessibilityLabel("Import a file")
+                if let sample = SampleRecording.bundledPackageURL {
+                    Button("Try a sample recording") {
+                        Task { await installSample(from: sample) }
+                    }
+                    .vfText(VFText.rowLabel, color: VFColor.accent)
+                    .frame(minHeight: VFMetric.minHit)
+                    .accessibilityHint("Adds a short recording with its transcript and summary")
+                    .accessibilityIdentifier("library.sample")
+                }
             }
             .padding(.horizontal, 28)
             Spacer()
@@ -420,6 +429,20 @@ struct LibraryView: View {
         }
     }
 
+    /// The bundled sample (plan item 7), imported like any archive.
+    private func installSample(from url: URL) async {
+        isImporting = true
+        defer { isImporting = false }
+        do {
+            let outcome = try await SampleRecording.install(from: url, using: LibraryActions(context: modelContext, services: services))
+            if outcome.importedIDs.isEmpty {
+                importMessage = "The sample recording is already in your Library or in Recently Deleted."
+            }
+        } catch {
+            importMessage = Self.describe(error)
+        }
+    }
+
     private static func describe(_ error: Error) -> String {
         if let error = error as? ArchiveError {
             switch error {
@@ -480,6 +503,9 @@ struct LibraryCard: View {
                 if model.isImported {
                     Text("·").accessibilityHidden(true)
                     Text("Imported")
+                } else if model.isSample {
+                    Text("·").accessibilityHidden(true)
+                    Text("Sample")
                 }
                 if model.speakerCount > 0 {
                     Text("·").accessibilityHidden(true)

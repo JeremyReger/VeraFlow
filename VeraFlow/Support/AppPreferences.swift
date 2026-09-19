@@ -41,6 +41,7 @@ enum AppPreferences {
     static let skipSilenceKey = "playback.skipSilence"
     static let notifySummaryReadyKey = "notifications.summaryReady"
     static let includeInBackupKey = "storage.includeInBackup"
+    static let sampleSeededKey = "sample.seeded"
 
     static func onboardingCompleted(in defaults: UserDefaults = .standard) -> Bool {
         defaults.bool(forKey: onboardingCompletedKey)
@@ -140,5 +141,14 @@ enum AppPreferences {
 
     static func setIncludesRecordingsInBackup(_ value: Bool, in defaults: UserDefaults = .standard) {
         defaults.set(value, forKey: includeInBackupKey)
+    }
+
+    /// Alpha builds add the sample recording on first launch (plan item 7); once only.
+    static func sampleSeeded(in defaults: UserDefaults = .standard) -> Bool {
+        defaults.bool(forKey: sampleSeededKey)
+    }
+
+    static func setSampleSeeded(_ value: Bool, in defaults: UserDefaults = .standard) {
+        defaults.set(value, forKey: sampleSeededKey)
     }
 }

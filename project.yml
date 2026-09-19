@@ -52,6 +52,11 @@ targets:
       - path: VeraFlow
         excludes:
           - "Resources/Info.plist"
+          - "Resources/SampleRecording"
+      # The bundled sample recording (v1.1 plan item 7): a folder reference copied as-is, so the
+      # archive package inside it keeps its layout. See VeraFlow/Resources/SampleRecording/README.md.
+      - path: VeraFlow/Resources/SampleRecording
+        type: folder
       - path: Shared                  # types compiled into both the app and the widget extension
     dependencies:
       - package: FluidAudio

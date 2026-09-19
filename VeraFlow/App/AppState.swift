@@ -57,6 +57,7 @@ final class AppState {
         freeSummariesUsed = await services.purchases.freeSummariesUsed()
         recoverInterruptedRecordings()
         sweepTrash()
+        await seedSampleIfAlpha()
         await observePipeline()
         await services.pipeline.resumePendingWork()
         didFinishStartup = true
@@ -176,6 +177,15 @@ final class AppState {
     private func sweepTrash() {
         guard let modelContext else { return }
         sweptTrashIDs = (try? TrashSweeper(context: modelContext, storage: services.storage).sweep()) ?? []
+    }
+
+    /// Riffle (alpha) builds start with the sample recording in the Library (plan item 7).
+    private func seedSampleIfAlpha() async {
+        #if ALPHA
+        guard let modelContext, !AppPreferences.sampleSeeded(), let url = SampleRecording.bundledPackageURL else { return }
+        AppPreferences.setSampleSeeded(true)
+        _ = try? await SampleRecording.install(from: url, using: LibraryActions(context: modelContext, services: services))
+        #endif
     }
 
     /// The scene became active: fire retries whose wait elapsed while iOS had the app suspended.

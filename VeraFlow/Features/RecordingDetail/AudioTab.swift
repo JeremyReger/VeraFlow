@@ -383,7 +383,7 @@ struct AudioTab: View {
         VStack(alignment: .leading, spacing: 10) {
             VFSectionLabel("Details")
             VFSettingsGroup {
-                detailRow(recording.source == .imported ? "Imported" : "Recorded",
+                detailRow(recording.source == .imported ? "Imported" : recording.source == .sample ? "Sample added" : "Recorded",
                           recording.createdAt.formatted(date: .abbreviated, time: .shortened))
                 VFHairline()
                 detailRow("Length", timeText(recording.duration), spoken: SpokenFormat.duration(recording.duration))

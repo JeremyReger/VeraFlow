@@ -107,6 +107,11 @@ Rules:
 - Recording-consent reminder.
 - English (US) first. The architecture must not assume English, but don't test other languages in v1.
 
+### v1.1 additions (plan: `docs/plans/2026-09-19-v1-1.md`)
+- Transcript speaker filter; skip silence in playback; Recently Deleted (30 days); a local notification when a summary is ready; a transcription-language picker and "transcribe again in…".
+- Marks carry a label and are weighted and cited by the summary; chapters from the summary's subjects; action items editable by hand.
+- A `.veraflowarchive` package for moving or keeping the whole library or one recording; an "include in iPhone backup" switch (off by default); a bundled sample recording.
+
 ### Non-goals (v1)
 - No cloud features, account, sync server, or analytics SDKs.
 - No Zoom/Teams/Meet bot joining.
@@ -239,6 +244,9 @@ enum PipelineStage: String, Codable {
   @Relationship(deleteRule: .cascade) var speakers: [Speaker]
   @Relationship(deleteRule: .cascade) var bookmarks: [Bookmark]
   @Relationship(deleteRule: .cascade) var summaries: [SummaryRecord] // history; newest is current
+  // v1.1
+  var deletedAt: Date?                // Recently Deleted; swept after 30 days
+  var audioAvailable: Bool            // false when an archive came without the audio
 }
 
 @Model final class TranscriptSegment {       // one speaker turn / paragraph
@@ -257,7 +265,7 @@ enum PipelineStage: String, Codable {
   var colorIndex: Int
 }
 
-@Model final class Bookmark { var time: TimeInterval; var note: String? }
+@Model final class Bookmark { var time: TimeInterval; var note: String?; var kind: BookmarkKind /* v1.1: .manual / .interrupted; note = the quick label */ }
 
 @Model final class SummaryRecord {
   var id: UUID
@@ -523,6 +531,7 @@ iOS 27 adds a `LanguageModel` protocol (swap in local MLX / Core AI models) and 
 | Email draft | Client template follow-up email (§11.4) or summary + action items | `MFMailComposeViewController`; fall back to share sheet |
 | Reminders | Selected action items → chosen list; title = task; notes = owner + "From: <recording title> @ mm:ss"; due date if resolved | EventKit; request **write-only / full** access as required by the current API; store created reminder IDs to avoid duplicates |
 | Audio | `.m4a` export of the recording | `AVAssetExportSession` |
+| Archive (v1.1) | The library or one recording as a `.veraflowarchive` package: manifest, per-recording JSON (transcript, speakers, marks, summaries with edits), audio as stored | Package directory via `UIDocumentPickerViewController(forExporting:)`; import from Files or "Open in" |
 
 Filename pattern: `YYYY-MM-DD <Title>.<ext>`.
 
@@ -545,6 +554,9 @@ Filename pattern: `YYYY-MM-DD <Title>.<ext>`.
 | Templates | All 3 (within the 3 free summaries) | All 3 (+ future templates in v1.x) |
 | Exports | Plain text copy | All exports, Reminders, email draft |
 | Search | Yes | Yes |
+| v1.1: speaker filter, skip silence, Recently Deleted, notification, language picker, marks, editable action items, archive export/import | Yes | Yes |
+| v1.1: chapters | With the summary | Yes |
+| v1.1 (Wave D): Ask this recording, custom templates, translation | No (Ask: unlimited on the sample recording) | Yes |
 
 Keep the free count in the Keychain (survives reinstall) as well as UserDefaults.
 
@@ -604,6 +616,7 @@ Keep the free count in the Keychain (survives reinstall) as well as UserDefaults
 | `SystemLanguageModel.default.availability == .available` | AI summaries | See §11.1 and §13.3 |
 | iOS 27+ | Runtime `contextSize`, `tokenCount(for:)`, usage metrics | iOS 26 estimation path (§11.2) |
 | Background continued processing supported | Processing continues after leaving app | Processing pauses in background; resumes on foreground with a notification prompt |
+| Notifications (v1.1) | Provisional (quiet) "Summary ready" when the app is away; title only | Nothing is posted; Settings → "Notify when a summary is ready" asks for full alerts |
 
 `CapabilityService` exposes one observable struct the UI reads. Include a hidden **Diagnostics** screen (tap version number 7×) that shows all checks, model info, last pipeline errors, and timing per stage. It's extremely useful for testing and support.
 

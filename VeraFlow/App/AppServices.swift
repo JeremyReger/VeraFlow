@@ -19,6 +19,8 @@ struct AppServices: Sendable {
     var purchases: any PurchaseService
     /// v1.1: local "Summary ready" notifications (plan item 6).
     var notifications: any NotificationService
+    /// v1.1: "Ask this recording" (plan item 11).
+    var questions: any QuestionService
     var storage: RecordingStorage
     /// Every speech engine the debug benchmark can compare (SPEC §9.4). Release builds still
     /// carry the list; only the screen that uses it is DEBUG-only.
@@ -42,6 +44,7 @@ struct AppServices: Sendable {
             capabilities: FakeCapabilityService(),
             purchases: FakePurchaseService(),
             notifications: FakeNotificationService(),
+            questions: FakeQuestionService(),
             storage: storage ?? RecordingStorage(rootDirectory: FileManager.default.temporaryDirectory.appending(path: "Recordings")),
             benchmarkEngines: [.init(name: "Sample", service: transcription)]
         )
@@ -75,6 +78,7 @@ struct AppServices: Sendable {
         services.exporter = LiveExportService()
         services.purchases = LivePurchaseService()
         services.notifications = LiveNotificationService()
+        services.questions = LiveQuestionService()
         services.capabilities = LiveCapabilityService(
             transcription: services.transcription,
             diarization: services.diarization,

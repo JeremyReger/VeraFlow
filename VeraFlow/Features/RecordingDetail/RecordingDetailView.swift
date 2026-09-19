@@ -7,6 +7,8 @@ struct RecordingDetailView: View {
         case summary
         case transcript
         case audio
+        /// v1.1 plan item 11.
+        case ask
 
         var id: String { rawValue }
 
@@ -15,6 +17,7 @@ struct RecordingDetailView: View {
             case .summary: "Summary"
             case .transcript: "Transcript"
             case .audio: "Audio"
+            case .ask: "Ask"
             }
         }
     }
@@ -61,6 +64,13 @@ struct RecordingDetailView: View {
                         speakerFilter = key
                         withAnimation(VFMotion.tabSwitch) { tab = .transcript }
                     }
+                )
+            case .ask:
+                AskTab(
+                    recording: recording,
+                    player: player,
+                    isUnlocked: appState?.isUnlocked ?? false,
+                    onLocked: { showsPaywall = true }
                 )
             }
         }

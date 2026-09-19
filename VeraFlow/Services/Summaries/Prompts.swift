@@ -40,6 +40,11 @@ enum Prompts {
         final(for: template).replacingOccurrences(of: "Combine these notes into", with: "Write")
     }
 
+    /// "Ask this recording" (v1.1 plan item 11): grounded answers over retrieved excerpts.
+    static let ask = """
+    Answer the question using only the transcript excerpts given. Cite the [mm:ss] time of every excerpt line the answer relies on. If the excerpts do not answer the question, set foundInTranscript to false and leave the answer empty; never guess. Never compute or convert dates, numbers, prices or measurements; repeat them exactly as spoken.
+    """
+
     static let followUpEmail = """
     Draft a short, professional follow-up email from the consultant to the client based on this meeting summary. Thank them, restate the goals and decisions, list the action items with owners, and propose the next step. Do not add anything the summary does not say.
     """

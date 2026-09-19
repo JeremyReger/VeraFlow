@@ -10,13 +10,20 @@ enum ExportGate {
         case reminders
         /// v1.1 plan item 13: making and using custom templates.
         case customTemplates
+        /// v1.1 plan item 11: "Ask this recording".
+        case ask
     }
 
     static func isAllowed(_ action: Action, unlocked: Bool) -> Bool {
         if unlocked { return true }
         switch action {
         case .copySummary, .copyActionItems: return true
-        case .file, .email, .reminders, .customTemplates: return false
+        case .file, .email, .reminders, .customTemplates, .ask: return false
         }
+    }
+
+    /// Ask is unlocked only, except on the bundled sample recording so it can be tried (plan decision 1).
+    static func canAsk(unlocked: Bool, isSample: Bool) -> Bool {
+        isSample || isAllowed(.ask, unlocked: unlocked)
     }
 }

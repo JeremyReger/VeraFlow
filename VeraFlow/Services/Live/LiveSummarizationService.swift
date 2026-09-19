@@ -526,7 +526,7 @@ actor LiveSummarizationService: SummarizationService {
 
     /// What went wrong, whichever error type the OS threw: the iOS 26 `GenerationError` this SDK
     /// knows, or the iOS 27 `LanguageModelError` recognised by name (`LanguageModelErrorBridge`).
-    private static func kind(of error: any Error) -> LanguageModelErrorBridge.Kind {
+    static func kind(of error: any Error) -> LanguageModelErrorBridge.Kind {
         if let error = error as? LanguageModelSession.GenerationError {
             switch error {
             case .exceededContextWindowSize: return .contextSizeExceeded
@@ -540,7 +540,7 @@ actor LiveSummarizationService: SummarizationService {
         return LanguageModelErrorBridge.kind(of: error) ?? .unknown
     }
 
-    private static func map(_ error: any Error, kind: LanguageModelErrorBridge.Kind) -> SummarizationError {
+    static func map(_ error: any Error, kind: LanguageModelErrorBridge.Kind) -> SummarizationError {
         if let error = error as? LanguageModelSession.GenerationError {
             switch error {
             case .assetsUnavailable:

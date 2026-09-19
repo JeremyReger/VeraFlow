@@ -101,9 +101,7 @@ struct OnboardingView: View {
                 if let capabilities = appState?.capabilities {
                     CapabilityRow(
                         ok: capabilities.canTranscribe,
-                        text: capabilities.transcriptionEngine == .dictationTranscriber
-                            ? "Transcripts work, at standard accuracy on this iPhone."
-                            : capabilities.canTranscribe ? "Transcripts work on this iPhone." : "Transcription isn't available on this iPhone."
+                        text: Self.transcriptionMessage(capabilities)
                     )
                     CapabilityRow(ok: true, text: "Speaker labels are added on this iPhone. The model downloads once, when first needed.")
                     CapabilityRow(
@@ -171,13 +169,27 @@ struct OnboardingView: View {
         }
     }
 
+    /// Which engine transcribes here. On iOS 18–25 it's Parakeet, a one-time download (v1.1 plan item 16).
+    static func transcriptionMessage(_ capabilities: Capabilities) -> String {
+        switch capabilities.transcriptionEngine {
+        case .dictationTranscriber:
+            return "Transcripts work, at standard accuracy on this iPhone."
+        case .parakeet:
+            return "Transcripts work on this iPhone with the Parakeet speech model, a one-time download of about 600 MB."
+        case .speechTranscriber, .fake:
+            return "Transcripts work on this iPhone."
+        case nil:
+            return "Transcription isn't available on this iPhone."
+        }
+    }
+
     /// SPEC §4.1 / §11.1 copy for each reason. No medical/legal claims, no promises.
     static func summaryMessage(_ availability: SummarizationAvailability) -> String {
         switch availability {
         case .available:
             return "AI summaries and action items are available."
         case .deviceNotEligible:
-            return "Transcripts work on this iPhone; AI summaries need an Apple Intelligence–capable iPhone."
+            return "Transcripts work on this iPhone; AI summaries need an Apple Intelligence–capable iPhone on iOS 26 or later."
         case .appleIntelligenceNotEnabled:
             return "Turn on Apple Intelligence in Settings to get AI summaries. Transcripts work either way."
         case .modelNotReady:

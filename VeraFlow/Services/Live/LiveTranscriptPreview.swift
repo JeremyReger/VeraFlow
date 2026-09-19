@@ -12,6 +12,7 @@ import Speech
 /// with `.volatileResults`, `SpeechAnalyzer.start(inputSequence:)`, `cancelAndFinishNow()`,
 /// `SpeechTranscriber.Result.isFinal`, and whether a second analyzer may hold the same locale
 /// while the file pass runs later (it never runs at the same time here).
+@available(iOS 26, *)
 actor LiveTranscriptPreview: TranscriptPreviewService {
     private static let log = Logger(subsystem: "com.jeremyreger.veraflow", category: "preview")
 

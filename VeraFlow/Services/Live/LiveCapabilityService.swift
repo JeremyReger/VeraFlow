@@ -5,6 +5,7 @@ import Speech
 
 /// Probes what this iPhone can do (SPEC §15) by asking the real services plus the two system
 /// checks that don't belong to any service: which speech engine exists and the OS version.
+@available(iOS 26, *)
 actor LiveCapabilityService: CapabilityService {
     private let transcription: any TranscriptionService
     private let diarization: any DiarizationService

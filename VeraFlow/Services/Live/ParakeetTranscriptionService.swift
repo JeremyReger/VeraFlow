@@ -1,11 +1,11 @@
-#if DEBUG
 import Foundation
 import FluidAudio
 import os
 
-/// FluidAudio's Parakeet TDT v3 speech-to-text on Core ML (SPEC §9.4). Benchmark engine in v1:
-/// the Settings → Benchmark screen (debug builds) runs it next to Apple's engine on the same file.
-/// Fully on device; the models download once from Hugging Face (SPEC §14.1).
+/// FluidAudio's Parakeet TDT v3 speech-to-text on Core ML (SPEC §9.4). The transcription engine
+/// on iPhones running iOS 18–25, where Apple's `SpeechAnalyzer` doesn't exist (v1.1 plan item
+/// 16); on iOS 26 it stays the benchmark engine behind Settings → Benchmark (debug builds).
+/// Fully on device; the models (about 600 MB) download once from Hugging Face (SPEC §14.1).
 actor ParakeetTranscriptionService: TranscriptionService {
     private static let log = Logger(subsystem: "com.jeremyreger.veraflow", category: "parakeet")
     private static let version: AsrModelVersion = .v3
@@ -109,4 +109,3 @@ actor ParakeetTranscriptionService: TranscriptionService {
         return Language(rawValue: code)
     }
 }
-#endif

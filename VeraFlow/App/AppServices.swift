@@ -65,34 +65,47 @@ struct AppServices: Sendable {
         services.recorder = LiveAudioRecorderService(capacityProvider: { storage.availableCapacity() })
         services.activity = LiveRecordingActivityService()
         services.importer = LiveAudioImportService()
-        // Apple's engine. Debug builds add Parakeet behind the benchmark screen (SPEC §9.4);
-        // release builds don't contain it, so they have exactly one model-download path
-        // (security review S-12).
-        let apple = LiveTranscriptionService()
-        #if DEBUG
+        // iOS 26: Apple's engine, with Parakeet behind the debug benchmark screen (SPEC §9.4).
+        // iOS 18–25: Parakeet is the engine, and there is no on-device model for summaries, Ask,
+        // or live words (v1.1 plan item 16). Release builds have one model-download path per OS.
         let parakeet = ParakeetTranscriptionService()
-        services.transcription = EngineSelectingTranscriptionService(apple: apple, parakeet: parakeet)
-        services.benchmarkEngines = [.init(name: "Apple Speech", service: apple), .init(name: "Parakeet", service: parakeet)]
-        #else
-        services.transcription = apple
-        services.benchmarkEngines = []
-        #endif
+        if #available(iOS 26, *) {
+            let apple = LiveTranscriptionService()
+            #if DEBUG
+            services.transcription = EngineSelectingTranscriptionService(apple: apple, parakeet: parakeet)
+            services.benchmarkEngines = [.init(name: "Apple Speech", service: apple), .init(name: "Parakeet", service: parakeet)]
+            #else
+            services.transcription = apple
+            services.benchmarkEngines = []
+            #endif
+        } else {
+            services.transcription = parakeet
+            services.benchmarkEngines = []
+        }
         services.diarization = LiveDiarizationService()
         services.aligner = LiveTranscriptAligner()
         services.dueDates = LiveDueDateResolver()
-        services.summarization = LiveSummarizationService()
         services.exporter = LiveExportService()
         services.purchases = LivePurchaseService()
         services.notifications = LiveNotificationService()
-        services.questions = LiveQuestionService()
         services.translation = LiveTranslationService()
-        services.transcriptPreview = LiveTranscriptPreview()
-        services.capabilities = LiveCapabilityService(
-            transcription: services.transcription,
-            diarization: services.diarization,
-            summarization: services.summarization
-        )
-        services.background = LiveBackgroundProcessing()
+        if #available(iOS 26, *) {
+            services.summarization = LiveSummarizationService()
+            services.questions = LiveQuestionService()
+            services.transcriptPreview = LiveTranscriptPreview()
+            services.capabilities = LiveCapabilityService(
+                transcription: services.transcription,
+                diarization: services.diarization,
+                summarization: services.summarization
+            )
+            services.background = LiveBackgroundProcessing()
+        } else {
+            services.summarization = UnavailableSummarizationService()
+            services.questions = UnavailableQuestionService()
+            services.transcriptPreview = UnavailableTranscriptPreview()
+            services.capabilities = LegacyCapabilityService(transcription: services.transcription, diarization: services.diarization)
+            services.background = InlineBackgroundProcessing()
+        }
         services.pipeline = LivePipelineCoordinator(
             container: container,
             transcription: services.transcription,

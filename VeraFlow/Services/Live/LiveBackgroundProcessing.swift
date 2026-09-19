@@ -6,6 +6,7 @@ import os
 /// user leaves the app, with the system's progress UI (SPEC §6.3). Falls back to running the
 /// work inline when the system won't take the task (Simulator, background refresh off, app not
 /// in the foreground, or a launch-time resume that no user action started).
+@available(iOS 26, *)
 final class LiveBackgroundProcessing: BackgroundProcessing, Sendable {
     private static let log = Logger(subsystem: "com.jeremyreger.veraflow", category: "background")
     /// Must match the wildcard entry in Info.plist `BGTaskSchedulerPermittedIdentifiers`.

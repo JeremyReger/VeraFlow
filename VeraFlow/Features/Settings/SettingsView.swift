@@ -102,7 +102,7 @@ struct SettingsView: View {
                     statusRow(
                         "Transcription",
                         ok: capabilities.canTranscribe,
-                        value: capabilities.transcriptionEngine == .dictationTranscriber ? "Standard accuracy" : capabilities.canTranscribe ? "Ready" : "Not available"
+                        value: capabilities.transcriptionEngine == .dictationTranscriber ? "Standard accuracy" : capabilities.transcriptionEngine == .parakeet ? "Ready (Parakeet, one-time 600 MB download)" : capabilities.canTranscribe ? "Ready" : "Not available"
                     )
                     VFHairline()
                     statusRow("AI summaries", ok: capabilities.canSummarize, value: capabilities.canSummarize ? "Ready" : "Not available")

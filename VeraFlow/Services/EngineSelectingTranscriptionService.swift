@@ -1,9 +1,9 @@
-#if DEBUG
 import Foundation
 
 /// Routes each call to Apple's engine or Parakeet according to a stored preference, so the
 /// benchmark screen can switch engines without rebuilding the pipeline (SPEC §9.4).
-/// Release builds have no UI to change the preference; Apple's engine is the default.
+/// Only debug builds on iOS 26 use it; release builds use one engine (Apple's on iOS 26,
+/// Parakeet on iOS 18–25, v1.1 plan item 16).
 actor EngineSelectingTranscriptionService: TranscriptionService {
     enum Choice: String, Sendable, CaseIterable {
         case apple
@@ -64,4 +64,3 @@ actor EngineSelectingTranscriptionService: TranscriptionService {
         try await current.transcribe(fileURL: fileURL, locale: locale, progress: progress)
     }
 }
-#endif

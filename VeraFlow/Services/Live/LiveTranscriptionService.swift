@@ -11,6 +11,7 @@ import Speech
 /// the analyzer never resamples), streamed as `AnalyzerInput` buffers, and the timed words are
 /// collected from the `audioTimeRange` attributes on each result. One analysis runs at a time;
 /// the pipeline serializes calls, and `insufficientResources` is retried after a pause.
+@available(iOS 26, *)
 actor LiveTranscriptionService: TranscriptionService {
     private static let log = Logger(subsystem: "com.jeremyreger.veraflow", category: "transcription")
 
@@ -328,9 +329,12 @@ actor LiveTranscriptionService: TranscriptionService {
 }
 
 /// Both transcriber result types expose their text this way; lets one collector serve both.
+@available(iOS 26, *)
 protocol TranscribedText {
     var text: AttributedString { get }
 }
 
+@available(iOS 26, *)
 extension SpeechTranscriber.Result: TranscribedText {}
+@available(iOS 26, *)
 extension DictationTranscriber.Result: TranscribedText {}

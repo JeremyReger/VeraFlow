@@ -5,6 +5,7 @@ import os
 // MARK: - Generable drafts (SPEC §11.4)
 // Kept separate from the Codable payload types so SwiftData never depends on FoundationModels.
 
+@available(iOS 26, *)
 @Generable(description: "One task someone agreed to do.")
 struct ActionItemDraftGenerable {
     @Guide(description: "The task, starting with a verb. One sentence.")
@@ -17,6 +18,7 @@ struct ActionItemDraftGenerable {
     var timestamp: String
 }
 
+@available(iOS 26, *)
 @Generable(description: "Notes extracted from one part of a transcript.")
 struct ChunkNotesGenerable {
     @Guide(description: "Key points discussed, max 6, each under 20 words.")
@@ -28,6 +30,7 @@ struct ChunkNotesGenerable {
     var openQuestions: [String]
 }
 
+@available(iOS 26, *)
 @Generable(description: "Key points on one subject the conversation covered.")
 struct KeyPointTopicGenerable {
     @Guide(description: "The subject, 2–6 words, as the participants would name it.")
@@ -38,6 +41,7 @@ struct KeyPointTopicGenerable {
     var startTimestamp: String
 }
 
+@available(iOS 26, *)
 @Generable(description: "Summary of a general meeting or lecture.")
 struct GeneralSummaryGenerable {
     @Guide(description: "Short title, max 8 words.")
@@ -51,6 +55,7 @@ struct GeneralSummaryGenerable {
     var openQuestions: [String]
 }
 
+@available(iOS 26, *)
 @Generable(description: "Summary of a meeting between a consultant and a client.")
 struct ClientMeetingSummaryGenerable {
     @Guide(description: "Short title, max 8 words.")
@@ -70,12 +75,14 @@ struct ClientMeetingSummaryGenerable {
     var topics: [KeyPointTopicGenerable]
 }
 
+@available(iOS 26, *)
 @Generable(description: "A follow-up email to the client.")
 struct FollowUpEmailGenerable {
     var subject: String
     var body: String
 }
 
+@available(iOS 26, *)
 @Generable(description: "A measurement spoken on site.")
 struct MeasurementGenerable {
     @Guide(description: "What was measured, e.g. 'Kitchen wall, north'.")
@@ -84,6 +91,7 @@ struct MeasurementGenerable {
     var value: String
 }
 
+@available(iOS 26, *)
 @Generable(description: "A material mentioned for the job.")
 struct MaterialGenerable {
     var name: String
@@ -91,6 +99,7 @@ struct MaterialGenerable {
     var notes: String
 }
 
+@available(iOS 26, *)
 @Generable(description: "One room or area of the job.")
 struct WorkAreaGenerable {
     @Guide(description: "Room or area name, e.g. 'Master bath'.")
@@ -104,6 +113,7 @@ struct WorkAreaGenerable {
     var startTimestamp: String
 }
 
+@available(iOS 26, *)
 @Generable(description: "Summary of a contractor walking a job site with a customer.")
 struct WalkthroughSummaryGenerable {
     @Guide(description: "Short title, max 8 words.")
@@ -132,6 +142,7 @@ struct WalkthroughSummaryGenerable {
 /// `contextSize` (back-deployed to iOS 26.0), `tokenCount(for:)` (iOS 26.4+), `LanguageModelSession(instructions: String?)`,
 /// `respond(to:generating:options:)`, `prewarm(promptPrefix:)`, `GenerationOptions(sampling:temperature:maximumResponseTokens:)`,
 /// `LanguageModelSession.GenerationError` (deprecated in the iOS 27 SDK in favour of `LanguageModelError`; see DECISIONS).
+@available(iOS 26, *)
 actor LiveSummarizationService: SummarizationService {
     private static let log = Logger(subsystem: "com.jeremyreger.veraflow", category: "summaries")
 

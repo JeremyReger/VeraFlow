@@ -2,6 +2,7 @@ import Foundation
 import FoundationModels
 import os
 
+@available(iOS 26, *)
 @Generable(description: "An answer drawn only from the transcript excerpts given.")
 struct GroundedAnswerGenerable {
     @Guide(description: "The answer in one to three sentences, using only what the excerpts say. Empty if the excerpts don't answer the question.")
@@ -15,6 +16,7 @@ struct GroundedAnswerGenerable {
 /// "Ask this recording" with Apple's on-device model (v1.1 plan item 11): a fresh session per
 /// question, the retrieved lines as the prompt, and a small typed answer. Same error handling
 /// as the summarizer.
+@available(iOS 26, *)
 actor LiveQuestionService: QuestionService {
     private static let log = Logger(subsystem: "com.jeremyreger.veraflow", category: "ask")
     private static let schemaOverheadEstimate = 250

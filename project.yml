@@ -6,7 +6,7 @@ name: VeraFlow
 options:
   bundleIdPrefix: com.jeremyreger
   deploymentTarget:
-    iOS: "26.0"
+    iOS: "18.0"    # v1.1 plan item 16: iOS 18–25 transcribe with Parakeet; iOS 26 APIs are @available-guarded
   xcodeVersion: "27.0"
   createIntermediateGroups: true
   generateEmptyDirectories: true
@@ -22,7 +22,11 @@ settings:
     SWIFT_VERSION: "6.0"
     SWIFT_STRICT_CONCURRENCY: complete
     SWIFT_TREAT_WARNINGS_AS_ERRORS: NO
-    IPHONEOS_DEPLOYMENT_TARGET: "26.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "18.0"
+    # FoundationModels doesn't exist before iOS 26; weak-link it so the app launches on iOS 18.
+    # Verify in Xcode that the autolinked framework is weak (otool -L shows "weak"); if the
+    # compiler already weak-links frameworks newer than the deployment target, this is harmless.
+    OTHER_LDFLAGS: "$(inherited) -weak_framework FoundationModels"
     TARGETED_DEVICE_FAMILY: "1"          # iPhone; iPad runs the iPhone layout (SPEC §3)
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "1"

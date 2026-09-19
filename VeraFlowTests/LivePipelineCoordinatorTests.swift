@@ -270,6 +270,22 @@ struct LivePipelineCoordinatorTests {
         #expect(recording.failureMessage == nil)
     }
 
+    @Test("A summary that timed out is retried on its own after the delay, like a rate limit")
+    func timedOutSummaryRetries() async throws {
+        let harness = try makeHarness(rateLimitRetryDelay: .milliseconds(200))
+        defer { harness.cleanUp() }
+        await harness.summarization.setError(.timedOut)
+        let id = try harness.insert()
+
+        await harness.coordinator.enqueue(recordingID: id)
+        try await waitUntil { try harness.fetch(id)?.failureMessage == SummarizationError.timedOutMessage }
+        #expect(try harness.stage(of: id) == .ready)
+
+        await harness.summarization.setError(nil)
+        try await waitUntil { try harness.fetch(id)?.summaries.count == 1 }
+        #expect(try harness.fetch(id)?.failedStage == nil)
+    }
+
     @Test("Re-running speaker labels on a summarized recording keeps the summary and spends nothing")
     func relabelKeepsSummary() async throws {
         let harness = try makeHarness(unlocked: false)

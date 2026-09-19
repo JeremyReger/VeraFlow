@@ -176,8 +176,16 @@ actor LiveSummarizationService: SummarizationService {
         for attempt in 0...Self.maxOverflowRetries {
             do {
                 return try await run(input, inputTokens: inputTokens, tokenCount: counter, progress: progress)
-            } catch let error as LanguageModelSession.GenerationError {
-                if case .rateLimited = error {
+            } catch is CancellationError {
+                throw SummarizationError.cancelled
+            } catch let error as SummarizationError {
+                throw error
+            } catch {
+                // Both the iOS 26 `GenerationError` and the iOS 27 `LanguageModelError` land here.
+                let kind = Self.kind(of: error)
+                Self.log.notice("model call failed (\(String(describing: kind), privacy: .public)): \(String(describing: error), privacy: .private)")
+                switch kind {
+                case .rateLimited:
                     // The system throttles the model (often for minutes). Wait briefly twice, then
                     // hand back `.rateLimited` so the pipeline retries later instead of failing.
                     guard rateLimitWaits < Self.rateLimitDelays.count else { throw SummarizationError.rateLimited }
@@ -185,20 +193,22 @@ actor LiveSummarizationService: SummarizationService {
                     rateLimitWaits += 1
                     Self.log.notice("model rate limited; retrying in \(delay.description, privacy: .public)")
                     try await Task.sleep(for: delay)
-                    continue
+                case .contextSizeExceeded where attempt < Self.maxOverflowRetries:
+                    // Only the chunk size shrinks (SPEC §11.2); the reserve stays.
+                    inputTokens = ContextBudget.shrunk(inputTokens)
+                    Self.log.notice("context overflow; retrying with \(inputTokens, privacy: .public)-token chunks")
+                case .timeout where attempt < Self.maxOverflowRetries:
+                    // A request that ran out of time (seen on device after 110 s) gets smaller,
+                    // faster calls before giving up for now.
+                    inputTokens = ContextBudget.shrunk(inputTokens)
+                    Self.log.notice("model timed out; retrying with \(inputTokens, privacy: .public)-token chunks")
+                case .timeout:
+                    throw SummarizationError.timedOut
+                case .contextSizeExceeded:
+                    throw SummarizationError.contextOverflow
+                default:
+                    throw Self.map(error, kind: kind)
                 }
-                guard case .exceededContextWindowSize = error, attempt < Self.maxOverflowRetries else {
-                    throw Self.map(error)
-                }
-                // Only the chunk size shrinks (SPEC §11.2); the reserve stays.
-                inputTokens = ContextBudget.shrunk(inputTokens)
-                Self.log.notice("context overflow; retrying with \(inputTokens, privacy: .public)-token chunks")
-            } catch is CancellationError {
-                throw SummarizationError.cancelled
-            } catch let error as SummarizationError {
-                throw error
-            } catch {
-                throw SummarizationError.generationFailed(error.localizedDescription)
             }
         }
         throw SummarizationError.contextOverflow
@@ -215,12 +225,12 @@ actor LiveSummarizationService: SummarizationService {
                 options: Self.options
             )
             return FollowUpEmail(subject: response.content.subject, body: response.content.body)
-        } catch let error as LanguageModelSession.GenerationError {
-            throw Self.map(error)
         } catch is CancellationError {
             throw SummarizationError.cancelled
+        } catch let error as SummarizationError {
+            throw error
         } catch {
-            throw SummarizationError.generationFailed(error.localizedDescription)
+            throw Self.map(error, kind: Self.kind(of: error))
         }
     }
 
@@ -481,23 +491,49 @@ actor LiveSummarizationService: SummarizationService {
 
     // MARK: Errors
 
-    private static func map(_ error: LanguageModelSession.GenerationError) -> SummarizationError {
-        switch error {
-        case .exceededContextWindowSize:
+    /// What went wrong, whichever error type the OS threw: the iOS 26 `GenerationError` this SDK
+    /// knows, or the iOS 27 `LanguageModelError` recognised by name (`LanguageModelErrorBridge`).
+    private static func kind(of error: any Error) -> LanguageModelErrorBridge.Kind {
+        if let error = error as? LanguageModelSession.GenerationError {
+            switch error {
+            case .exceededContextWindowSize: return .contextSizeExceeded
+            case .rateLimited: return .rateLimited
+            case .refusal: return .refusal
+            case .guardrailViolation: return .guardrailViolation
+            case .unsupportedLanguageOrLocale: return .unsupportedLanguageOrLocale
+            default: return .unknown
+            }
+        }
+        return LanguageModelErrorBridge.kind(of: error) ?? .unknown
+    }
+
+    private static func map(_ error: any Error, kind: LanguageModelErrorBridge.Kind) -> SummarizationError {
+        if let error = error as? LanguageModelSession.GenerationError {
+            switch error {
+            case .assetsUnavailable:
+                return .unavailable(.modelNotReady)
+            case .decodingFailure:
+                return .generationFailed("The model's answer couldn't be read. Try again.")
+            default:
+                break
+            }
+        }
+        switch kind {
+        case .contextSizeExceeded:
             return .contextOverflow
-        case .assetsUnavailable:
-            return .unavailable(.modelNotReady)
+        case .rateLimited:
+            return .rateLimited
+        case .timeout:
+            return .timedOut
         case .guardrailViolation:
             return .generationFailed("The on-device model declined this content (safety guardrails).")
         case .refusal:
             return .generationFailed("The on-device model declined to summarize this recording.")
-        case .rateLimited:
-            return .rateLimited
-        case .decodingFailure:
-            return .generationFailed("The model's answer couldn't be read. Try again.")
         case .unsupportedLanguageOrLocale:
             return .generationFailed("The on-device model doesn't support this language yet.")
-        default:
+        case .unsupported:
+            return .generationFailed("The on-device model couldn't process this request.")
+        case .unknown:
             return .generationFailed(error.localizedDescription)
         }
     }

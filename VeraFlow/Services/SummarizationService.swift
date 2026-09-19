@@ -34,12 +34,15 @@ enum SummarizationError: Error, Equatable {
     case freeLimitReached
     /// The system throttled the on-device model; the pipeline retries on its own later.
     case rateLimited
+    /// The model didn't answer in time even with smaller chunks; retried later like a rate limit.
+    case timedOut
     case contextOverflow
     case generationFailed(String)
     case cancelled
 
     static let freeLimitMessage = "You've used your \(FreeTier.summaryLimit) free summaries. Unlock VeraFlow for unlimited summaries."
     static let rateLimitedMessage = "The on-device model is busy right now. VeraFlow will try again in a few minutes."
+    static let timedOutMessage = "The on-device model took too long to answer. VeraFlow will try again in a few minutes."
 }
 
 /// Progress of a map-reduce summary run.

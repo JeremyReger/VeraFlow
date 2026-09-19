@@ -414,7 +414,7 @@ actor LivePipelineCoordinator: PipelineCoordinating {
             events.emit(.failed(recordingID: id, stage: .summarizing, message: message))
             events.emit(.stageChanged(recordingID: id, stage: .ready))
             Self.log.error("summary skipped for \(id.uuidString, privacy: .public): \(message, privacy: .private)")
-            if case SummarizationError.rateLimited = error {
+            if let error = error as? SummarizationError, error == .rateLimited || error == .timedOut {
                 scheduleRateLimitRetry(for: id)
             }
         }
@@ -441,7 +441,8 @@ actor LivePipelineCoordinator: PipelineCoordinating {
         rateLimitDue[id] = nil
         guard let recording = try? fetchRecording(id),
               recording.failedStage == .summarizing,
-              recording.failureMessage == SummarizationError.rateLimitedMessage else { return }
+              recording.failureMessage == SummarizationError.rateLimitedMessage
+                || recording.failureMessage == SummarizationError.timedOutMessage else { return }
         Self.log.info("retrying rate-limited summary for \(id.uuidString, privacy: .public)")
         await retry(recordingID: id, from: .summarizing)
     }
@@ -550,6 +551,7 @@ enum PipelineFailure {
                 }
             case .freeLimitReached: return SummarizationError.freeLimitMessage
             case .rateLimited: return SummarizationError.rateLimitedMessage
+            case .timedOut: return SummarizationError.timedOutMessage
             case .contextOverflow: return "The recording was too long to summarize in one pass."
             case .generationFailed(let detail): return "The summary couldn't be generated: \(detail)"
             case .cancelled: return "The summary was cancelled."

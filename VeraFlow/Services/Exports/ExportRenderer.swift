@@ -47,7 +47,38 @@ enum ExportRenderer {
                 out.append("")
             }
         }
+        if let translation = document.translation, let translated = document.translated {
+            out.append("## Translation · \(translation.languageName)")
+            out.append("")
+            for section in summarySections(translated) {
+                out.append("### \(section.heading)")
+                out.append("")
+                out.append(contentsOf: section.lines)
+                out.append("")
+            }
+            if let summary = translated.summary, !summary.actionItems.isEmpty, !translated.hiddenSections.contains(.actionItems) {
+                out.append("### Action items")
+                out.append("")
+                out.append(contentsOf: summary.actionItems.map { "- [ ] " + actionItemLine($0, document: translated) })
+                out.append("")
+            }
+            if translated.includeTranscript, !translated.segments.isEmpty {
+                out.append("### Transcript")
+                out.append("")
+                for segment in translated.segments {
+                    out.append("**[\(TranscriptChunker.timestamp(segment.start))] \(translated.speakerName(for: segment.speakerKey)):** \(segment.text)")
+                    out.append("")
+                }
+            }
+            out.append("> " + translationDisclaimer(translation.languageName))
+            out.append("")
+        }
         return out.joined(separator: "\n").trimmingCharacters(in: .newlines) + "\n"
+    }
+
+    /// Under a translated block, in every format.
+    static func translationDisclaimer(_ languageName: String) -> String {
+        "Translated to \(languageName) on this iPhone. Names, dates, and measurements are kept as spoken."
     }
 
     static func plainText(for document: ExportDocument) -> String {
@@ -79,6 +110,29 @@ enum ExportRenderer {
             for segment in document.segments {
                 out.append("[\(TranscriptChunker.timestamp(segment.start))] \(document.speakerName(for: segment.speakerKey)): \(segment.text)")
             }
+            out.append("")
+        }
+        if let translation = document.translation, let translated = document.translated {
+            out.append("TRANSLATION · \(translation.languageName.uppercased())")
+            out.append("")
+            for section in summarySections(translated) {
+                out.append(section.heading.uppercased())
+                out.append(contentsOf: section.lines.map { $0.hasPrefix("- ") ? "• " + String($0.dropFirst(2)) : $0 })
+                out.append("")
+            }
+            if let summary = translated.summary, !summary.actionItems.isEmpty, !translated.hiddenSections.contains(.actionItems) {
+                out.append("ACTION ITEMS")
+                out.append(contentsOf: summary.actionItems.map { "☐ " + actionItemLine($0, document: translated) })
+                out.append("")
+            }
+            if translated.includeTranscript, !translated.segments.isEmpty {
+                out.append("TRANSCRIPT")
+                for segment in translated.segments {
+                    out.append("[\(TranscriptChunker.timestamp(segment.start))] \(translated.speakerName(for: segment.speakerKey)): \(segment.text)")
+                }
+                out.append("")
+            }
+            out.append(translationDisclaimer(translation.languageName))
             out.append("")
         }
         return out.joined(separator: "\n").trimmingCharacters(in: .newlines) + "\n"
@@ -235,18 +289,28 @@ enum ExportRenderer {
 extension ExportDocument {
     /// Snapshot of a recording for export; the current summary unless another is given.
     @MainActor
-    static func make(from recording: Recording, summary: SummaryRecord? = nil, includeTranscript: Bool, hiddenSections: Set<SummarySection> = []) -> ExportDocument {
+    static func make(from recording: Recording, summary: SummaryRecord? = nil, includeTranscript: Bool, hiddenSections: Set<SummarySection> = [], translationLanguage: String? = nil) -> ExportDocument {
         let record = summary ?? recording.currentSummary
+        let segments = recording.orderedSegments
+        var translation: ExportTranslation?
+        if let language = translationLanguage {
+            let texts = segments.map { $0.translation(in: language) }
+            let summaryTranslation = record.flatMap { try? $0.resolvedTranslation(in: language) }
+            if texts.contains(where: { $0 != nil }) || summaryTranslation != nil {
+                translation = ExportTranslation(languageName: TranslationLanguages.name(for: language), summary: summaryTranslation, segments: texts)
+            }
+        }
         return ExportDocument(
             title: recording.title,
             createdAt: recording.createdAt,
             duration: recording.duration,
             speakers: recording.speakers.sorted { $0.key < $1.key }.map { ExportSpeaker(key: $0.key, displayName: $0.displayName) },
             summary: record.flatMap { try? $0.resolvedPayload() },
-            segments: recording.orderedSegments.map { ExportSegment(start: $0.start, speakerKey: $0.speakerKey, text: $0.text) },
+            segments: segments.map { ExportSegment(start: $0.start, speakerKey: $0.speakerKey, text: $0.text) },
             includeTranscript: includeTranscript,
             marks: recording.bookmarks.filter(\.isUserMark).sorted { $0.time < $1.time }.map { ExportMark(time: $0.time, label: $0.note ?? "") },
-            hiddenSections: hiddenSections
+            hiddenSections: hiddenSections,
+            translation: translation
         )
     }
 

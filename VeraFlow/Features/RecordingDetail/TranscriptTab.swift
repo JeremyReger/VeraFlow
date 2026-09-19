@@ -10,6 +10,8 @@ struct TranscriptTab: View {
     /// The picked speaker chip; owned by the detail screen so the Audio tab's talk-time rows can
     /// open the transcript already filtered and the choice survives a tab switch.
     @Binding var speakerKey: String?
+    /// Show each paragraph in this language when it has been translated (v1.1 plan item 14).
+    var translationLanguage: String? = nil
     @Environment(\.services) private var services
     @Environment(\.modelContext) private var modelContext
     @Environment(AppState.self) private var appState: AppState?
@@ -400,6 +402,19 @@ struct TranscriptTab: View {
                 TextField("Paragraph text", text: draftBinding(for: segment), axis: .vertical)
                     .textFieldStyle(.roundedBorder)
                     .accessibilityLabel("Paragraph at \(SpokenFormat.duration(segment.start)), \(speakerName)")
+            } else if let translated = translationLanguage.flatMap({ segment.translation(in: $0) }) {
+                // The translation reads as the paragraph; the original keeps the playback
+                // highlight underneath, so tap-to-seek and word tracking still make sense.
+                Text(translated)
+                    .vfText(VFText.transcriptBody)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text(TranscriptText.attributed(
+                    text: segment.text,
+                    words: wordIndex == nil ? [] : segment.words,
+                    highlightedWord: wordIndex
+                ))
+                .vfText(VFText.snippet, color: VFColor.textSecondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 Text(TranscriptText.attributed(
                     text: segment.text,
@@ -536,7 +551,12 @@ struct TranscriptTab: View {
         if isCurrent { parts.append("Now playing") }
         if isMatch { parts.append("Search match") }
         if segment.isEdited { parts.append("Edited") }
-        parts.append(segment.text)
+        if let translated = translationLanguage.flatMap({ segment.translation(in: $0) }) {
+            parts.append(translated)
+            parts.append("Original: " + segment.text)
+        } else {
+            parts.append(segment.text)
+        }
         return parts.joined(separator: ", ")
     }
 

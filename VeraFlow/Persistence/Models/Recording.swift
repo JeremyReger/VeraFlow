@@ -85,6 +85,12 @@ final class Recording {
         segments.sorted { $0.index < $1.index }
     }
 
+    /// The language the transcript is translated into (v1.1 plan item 14): the one the
+    /// translated paragraphs share, `nil` when none is translated.
+    var translationLanguage: String? {
+        segments.first { $0.translatedText != nil }?.translationLanguage
+    }
+
     /// The most recent summary, if any.
     var currentSummary: SummaryRecord? {
         summaries.max { $0.createdAt < $1.createdAt }

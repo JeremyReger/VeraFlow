@@ -15,6 +15,8 @@ struct ExportMenuItems: View {
     @Environment(\.services) private var services
     @Environment(\.modelContext) private var modelContext
     @AppStorage("export.includeTranscript") private var includeTranscript = true
+    /// v1.1 plan item 14; only offered once the recording has a translation.
+    @AppStorage("export.includeTranslation") private var includeTranslation = true
 
     /// Runs `action` if the tier allows it, otherwise opens the paywall.
     private func gated(_ action: ExportGate.Action, _ run: @escaping () -> Void) -> () -> Void {
@@ -44,6 +46,9 @@ struct ExportMenuItems: View {
             }
             Toggle("Include transcript", systemImage: "text.alignleft", isOn: $includeTranscript)
                 .disabled(!hasTranscript)
+            if let language = recording.translationLanguage {
+                Toggle("Include translation (\(TranslationLanguages.name(for: language)))", systemImage: "globe", isOn: $includeTranslation)
+            }
         }
         Section {
             Button("Copy summary", systemImage: "doc.on.doc") {
@@ -87,7 +92,8 @@ struct ExportMenuItems: View {
         ExportDocument.make(
             from: recording,
             includeTranscript: includeTranscript,
-            hiddenSections: ExportDocument.hiddenSections(for: recording.currentSummary, in: modelContext)
+            hiddenSections: ExportDocument.hiddenSections(for: recording.currentSummary, in: modelContext),
+            translationLanguage: includeTranslation ? recording.translationLanguage : nil
         )
     }
 }

@@ -36,6 +36,9 @@ struct RecordingDetailView: View {
     @State private var showsPaywall = false
     /// The transcript's speaker chip (v1.1 plan item 3), kept here so the Audio tab can set it.
     @State private var speakerFilter: String?
+    /// "Translate to…" (v1.1 plan item 14); the session lives in `TranslationHost`.
+    @State private var translation = TranslationController()
+    @State private var showsTranslateSheet = false
 
     /// Explicit because `@Query` makes the synthesized initializer private. Opens on the Summary
     /// when there is one, otherwise on the Transcript.
@@ -44,14 +47,20 @@ struct RecordingDetailView: View {
         _tab = State(initialValue: recording.currentSummary == nil ? .transcript : .summary)
     }
 
+    /// The language the tabs show, `nil` for the original.
+    private var displayedTranslation: String? {
+        translation.showsTranslation ? recording.translationLanguage : nil
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             header
+            translationBanner
             switch tab {
             case .summary:
-                SummaryTab(recording: recording, player: player)
+                SummaryTab(recording: recording, player: player, translationLanguage: displayedTranslation)
             case .transcript:
-                TranscriptTab(recording: recording, player: player, speakerKey: $speakerFilter)
+                TranscriptTab(recording: recording, player: player, speakerKey: $speakerFilter, translationLanguage: displayedTranslation)
             case .audio:
                 AudioTab(
                     recording: recording,
@@ -109,11 +118,26 @@ struct RecordingDetailView: View {
             if let controller {
                 ToolbarItem(placement: .primaryAction) {
                     Menu("Actions", systemImage: "ellipsis.circle") {
+                        translationMenuItems
                         RecordingMenuItems(recording: recording, controller: controller)
                     }
                     .accessibilityIdentifier("detail.actions")
                 }
             }
+        }
+        .modifier(TranslationHost(controller: translation, recording: recording))
+        .sheet(isPresented: $showsTranslateSheet) {
+            TranslationLanguageSheet(sourceIdentifier: recording.localeIdentifier) { language in
+                translation.request(language)
+            }
+        }
+        .alert("Couldn't translate", isPresented: Binding(
+            get: { if case .failed = translation.phase { return true } else { return false } },
+            set: { if !$0 { translation.dismissError() } }
+        )) {
+            Button("OK") { translation.dismissError() }
+        } message: {
+            if case .failed(let message) = translation.phase { Text(message) }
         }
         .modifier(OptionalRecordingActions(controller: controller, allTags: LibraryFilter.allTags(in: allRecordings)))
         .modifier(OptionalExportPresentation(controller: exportController))
@@ -142,6 +166,51 @@ struct RecordingDetailView: View {
             await services.notifications.clear(recordingID: recording.id)
         }
         .onDisappear { player.stop() }
+    }
+
+    /// Translate to…, Show original / translation, Remove translation (v1.1 plan item 14).
+    /// Unlocked-only (SPEC §13.2); the lock icon opens the paywall.
+    @ViewBuilder
+    private var translationMenuItems: some View {
+        let unlocked = appState?.isUnlocked ?? false
+        let allowed = ExportGate.isAllowed(.translation, unlocked: unlocked)
+        if !recording.segments.isEmpty {
+            Section {
+                Button("Translate to…", systemImage: allowed ? "globe" : "lock") {
+                    if allowed { showsTranslateSheet = true } else { showsPaywall = true }
+                }
+                .disabled(translation.isTranslating)
+                .accessibilityHint(allowed ? "" : "Opens the unlock screen")
+                .accessibilityIdentifier("detail.translate")
+                if let language = recording.translationLanguage {
+                    Button(translation.showsTranslation ? "Show original" : "Show \(TranslationLanguages.name(for: language))", systemImage: "arrow.left.arrow.right") {
+                        translation.showsTranslation.toggle()
+                    }
+                    Button("Remove translation", systemImage: "trash", role: .destructive) {
+                        translation.remove(from: recording, context: modelContext)
+                    }
+                    .disabled(translation.isTranslating)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var translationBanner: some View {
+        if case .translating(let done, let total) = translation.phase, let language = translation.pendingLanguage {
+            HStack(spacing: 10) {
+                ProgressView().controlSize(.small)
+                Text("Translating to \(TranslationLanguages.name(for: language))… \(done) of \(total)")
+                    .vfText(VFText.meta, color: VFColor.textSecondary)
+                    .monospacedDigit()
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, VFSpace.gutterTight)
+            .padding(.vertical, 8)
+            .background(VFColor.surface)
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("detail.translating")
+        }
     }
 
     /// Serif title, one metadata line, and the underline tabs (design spec §4 Summary / Transcript / Audio).

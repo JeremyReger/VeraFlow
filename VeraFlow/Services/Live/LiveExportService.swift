@@ -200,8 +200,8 @@ enum PDFComposer {
         if document.summary != nil {
             append(ExportRenderer.aiDisclaimer, size: 10, weight: .medium, color: .darkGray, style: paragraph(spacingBefore: 6, spacingAfter: 6))
         }
-        if document.includeTranscript, !document.segments.isEmpty {
-            append("Transcript", size: 13, weight: .semibold, style: paragraph(spacingBefore: 10, spacingAfter: 3))
+        func transcript(_ document: ExportDocument, heading: String) {
+            append(heading, size: 13, weight: .semibold, style: paragraph(spacingBefore: 10, spacingAfter: 3))
             for segment in document.segments {
                 let stamp = "[\(TranscriptChunker.timestamp(segment.start))] \(document.speakerName(for: segment.speakerKey)): "
                 let line = NSMutableAttributedString(string: stamp, attributes: [
@@ -216,6 +216,29 @@ enum PDFComposer {
                 ]))
                 result.append(line)
             }
+        }
+        if document.includeTranscript, !document.segments.isEmpty {
+            transcript(document, heading: "Transcript")
+        }
+        // "Include translation" (v1.1 plan item 14): the same blocks again in the other language.
+        if let translation = document.translation, let translated = document.translated {
+            append("Translation · \(translation.languageName)", size: 15, weight: .bold, style: paragraph(spacingBefore: 14, spacingAfter: 4))
+            for section in ExportRenderer.summarySections(translated) {
+                append(section.heading, size: 13, weight: .semibold, style: paragraph(spacingBefore: 8, spacingAfter: 3))
+                for line in section.lines {
+                    append(line.hasPrefix("- ") ? "•  " + String(line.dropFirst(2)) : line, size: 11, style: paragraph(spacingAfter: 2))
+                }
+            }
+            if let summary = translated.summary, !summary.actionItems.isEmpty, !translated.hiddenSections.contains(.actionItems) {
+                append("Action items", size: 13, weight: .semibold, style: paragraph(spacingBefore: 8, spacingAfter: 3))
+                for item in summary.actionItems {
+                    append("☐  " + ExportRenderer.actionItemLine(item, document: translated), size: 11, style: paragraph(spacingAfter: 2))
+                }
+            }
+            if translated.includeTranscript, !translated.segments.isEmpty {
+                transcript(translated, heading: "Transcript")
+            }
+            append(ExportRenderer.translationDisclaimer(translation.languageName), size: 10, weight: .medium, color: .darkGray, style: paragraph(spacingBefore: 6, spacingAfter: 6))
         }
         return result
     }

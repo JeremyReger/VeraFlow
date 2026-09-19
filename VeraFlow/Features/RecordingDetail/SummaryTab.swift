@@ -7,6 +7,8 @@ import SwiftUI
 struct SummaryTab: View {
     let recording: Recording
     let player: AudioPlayerController
+    /// Show the summary's prose in this language when it has been translated (v1.1 plan item 14).
+    var translationLanguage: String? = nil
     @Environment(\.services) private var services
     @Environment(\.modelContext) private var modelContext
     @Environment(AppState.self) private var appState: AppState?
@@ -34,10 +36,23 @@ struct SummaryTab: View {
         summaries.first { $0.id == selectedSummaryID } ?? summaries.first
     }
 
+    /// The translated payload when one is shown, else the model's.
+    private func displayedPayload(_ record: SummaryRecord) -> SummaryPayload? {
+        if let language = translationLanguage, let translated = record.translation(in: language) {
+            return translated
+        }
+        return try? record.payload()
+    }
+
+    private var shownTranslationName: String? {
+        guard let language = translationLanguage, let selected, selected.translation(in: language) != nil else { return nil }
+        return TranslationLanguages.name(for: language)
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             statusBanner
-            if let selected, let payload = try? selected.payload() {
+            if let selected, let payload = displayedPayload(selected) {
                 List {
                     if summaries.count > 1 {
                         historyPicker
@@ -233,6 +248,12 @@ struct SummaryTab: View {
                     .vfText(VFText.meta, color: VFColor.textTertiary)
                     .listRowSeparator(.hidden)
                     .accessibilityLabel("Focus: \(record.focus)")
+            }
+            if let name = shownTranslationName {
+                Label("Translated to \(name). Names, dates, and measurements are as spoken.", systemImage: "globe")
+                    .vfText(VFText.meta, color: VFColor.textTertiary)
+                    .listRowSeparator(.hidden)
+                    .accessibilityIdentifier("summary.translated")
             }
         } header: {
             HStack(spacing: 10) {

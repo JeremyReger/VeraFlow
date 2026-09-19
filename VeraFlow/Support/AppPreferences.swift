@@ -43,6 +43,7 @@ enum AppPreferences {
     static let includeInBackupKey = "storage.includeInBackup"
     static let sampleSeededKey = "sample.seeded"
     static let defaultCustomTemplateKey = "recording.defaultCustomTemplate"
+    static let translationLanguageKey = "translation.targetLanguage"
 
     static func onboardingCompleted(in defaults: UserDefaults = .standard) -> Bool {
         defaults.bool(forKey: onboardingCompletedKey)
@@ -151,6 +152,16 @@ enum AppPreferences {
 
     static func setDefaultCustomTemplateID(_ id: UUID?, in defaults: UserDefaults = .standard) {
         defaults.set(id?.uuidString, forKey: defaultCustomTemplateKey)
+    }
+
+    /// The language last chosen under "Translate to…" (plan item 14), offered first next time.
+    static func translationLanguage(in defaults: UserDefaults = .standard) -> String? {
+        let value = defaults.string(forKey: translationLanguageKey)
+        return value?.isEmpty == false ? value : nil
+    }
+
+    static func setTranslationLanguage(_ identifier: String?, in defaults: UserDefaults = .standard) {
+        defaults.set(identifier, forKey: translationLanguageKey)
     }
 
     /// Alpha builds add the sample recording on first launch (plan item 7); once only.

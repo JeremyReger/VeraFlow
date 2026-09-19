@@ -11,6 +11,9 @@ struct RecordingSnapshot: Codable, Sendable, Equatable {
         var originalText: String
         var speakerKey: String?
         var words: [TimedWord]
+        /// v1.1 plan item 14; absent in archives written before translation existed.
+        var translatedText: String?
+        var translationLanguage: String?
     }
 
     struct SpeakerEntry: Codable, Sendable, Equatable {
@@ -32,6 +35,9 @@ struct RecordingSnapshot: Codable, Sendable, Equatable {
         var payloadJSON: Data
         var actionItemsState: Data
         var modelInfo: String
+        var customTemplateID: UUID?
+        var focus: String?
+        var translationsJSON: Data?
     }
 
     var id: UUID
@@ -72,7 +78,7 @@ struct RecordingSnapshot: Codable, Sendable, Equatable {
         transcriptionEngine = recording.transcriptionEngine
         audioAvailable = recording.audioAvailable
         segments = recording.orderedSegments.map {
-            Segment(index: $0.index, start: $0.start, end: $0.end, text: $0.text, originalText: $0.originalText, speakerKey: $0.speakerKey, words: $0.words)
+            Segment(index: $0.index, start: $0.start, end: $0.end, text: $0.text, originalText: $0.originalText, speakerKey: $0.speakerKey, words: $0.words, translatedText: $0.translatedText, translationLanguage: $0.translationLanguage)
         }
         speakers = recording.speakers.sorted { $0.key < $1.key }.map {
             SpeakerEntry(key: $0.key, displayName: $0.displayName, colorIndex: $0.colorIndex)
@@ -81,7 +87,7 @@ struct RecordingSnapshot: Codable, Sendable, Equatable {
             Mark(time: $0.time, note: $0.note, kind: $0.kind)
         }
         summaries = recording.summaries.sorted { $0.createdAt < $1.createdAt }.map {
-            Summary(id: $0.id, createdAt: $0.createdAt, templateID: $0.templateID, payloadJSON: $0.payloadJSON, actionItemsState: $0.actionItemsState, modelInfo: $0.modelInfo)
+            Summary(id: $0.id, createdAt: $0.createdAt, templateID: $0.templateID, payloadJSON: $0.payloadJSON, actionItemsState: $0.actionItemsState, modelInfo: $0.modelInfo, customTemplateID: $0.customTemplateID, focus: $0.focus, translationsJSON: $0.translationsJSON)
         }
     }
 
@@ -107,12 +113,19 @@ struct RecordingSnapshot: Codable, Sendable, Equatable {
         recording.transcriptionEngine = transcriptionEngine
         recording.audioAvailable = audioAvailable
         recording.segments = segments.map {
-            TranscriptSegment(index: $0.index, start: $0.start, end: $0.end, text: $0.text, originalText: $0.originalText, speakerKey: $0.speakerKey, words: $0.words)
+            let segment = TranscriptSegment(index: $0.index, start: $0.start, end: $0.end, text: $0.text, originalText: $0.originalText, speakerKey: $0.speakerKey, words: $0.words)
+            segment.translatedText = $0.translatedText
+            segment.translationLanguage = $0.translationLanguage
+            return segment
         }
         recording.speakers = speakers.map { Speaker(key: $0.key, displayName: $0.displayName, colorIndex: $0.colorIndex) }
         recording.bookmarks = marks.map { Bookmark(time: $0.time, note: $0.note, kind: $0.kind) }
         recording.summaries = summaries.map {
-            SummaryRecord(id: $0.id, createdAt: $0.createdAt, templateID: $0.templateID, payloadJSON: $0.payloadJSON, actionItemsState: $0.actionItemsState, modelInfo: $0.modelInfo)
+            let record = SummaryRecord(id: $0.id, createdAt: $0.createdAt, templateID: $0.templateID, payloadJSON: $0.payloadJSON, actionItemsState: $0.actionItemsState, modelInfo: $0.modelInfo)
+            record.customTemplateID = $0.customTemplateID
+            record.focus = $0.focus ?? ""
+            record.translationsJSON = $0.translationsJSON
+            return record
         }
         return recording
     }

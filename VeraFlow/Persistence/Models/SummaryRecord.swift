@@ -17,6 +17,8 @@ final class SummaryRecord {
     var customTemplateID: UUID?
     /// v1.1: the focus line it was told (plan item 13).
     var focus: String = ""
+    /// v1.1: encoded `SummaryTranslations`, the payload's prose in other languages (plan item 14).
+    var translationsJSON: Data?
 
     var recording: Recording?
 
@@ -58,5 +60,31 @@ final class SummaryRecord {
     /// Persists a changed state.
     func store(_ state: ActionItemsState) throws {
         actionItemsState = try JSONEncoder().encode(state)
+    }
+
+    // MARK: Translations (v1.1 plan item 14)
+
+    func translations() throws -> SummaryTranslations {
+        guard let translationsJSON, !translationsJSON.isEmpty else { return [:] }
+        return try JSONDecoder().decode(SummaryTranslations.self, from: translationsJSON)
+    }
+
+    /// The payload's prose in `language`, if it was translated.
+    func translation(in language: String) -> SummaryPayload? {
+        (try? translations())?[language]
+    }
+
+    /// Like `resolvedPayload()`, in `language`: the translated prose with the user's action-item
+    /// edits applied (the edits are in whatever language the user typed).
+    func resolvedTranslation(in language: String) throws -> SummaryPayload? {
+        guard var payload = translation(in: language) else { return nil }
+        payload.actionItems = payload.resolvedActionItems(applying: try actionItems())
+        return payload
+    }
+
+    func storeTranslation(_ payload: SummaryPayload?, in language: String) throws {
+        var all = try translations()
+        all[language] = payload
+        translationsJSON = all.isEmpty ? nil : try JSONEncoder().encode(all)
     }
 }

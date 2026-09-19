@@ -15,6 +15,10 @@ final class TranscriptSegment {
     var speakerKey: String?
     /// Encoded `[TimedWord]` used for playback highlight and tap-to-seek.
     var wordsData: Data?
+    /// v1.1: this paragraph in another language (plan item 14); `nil` until translated.
+    var translatedText: String?
+    /// v1.1: BCP-47 identifier of the language `translatedText` is in.
+    var translationLanguage: String?
 
     var recording: Recording?
 
@@ -43,4 +47,10 @@ final class TranscriptSegment {
 
     /// True if the user changed the text after transcription.
     var isEdited: Bool { text != originalText }
+
+    /// The translation, if it is in `language`.
+    func translation(in language: String) -> String? {
+        guard translationLanguage == language else { return nil }
+        return translatedText
+    }
 }

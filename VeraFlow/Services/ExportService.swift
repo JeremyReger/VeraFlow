@@ -19,6 +19,16 @@ struct ExportMark: Sendable, Equatable {
     var label: String
 }
 
+/// The recording in another language, for "Include translation" (v1.1 plan item 14).
+struct ExportTranslation: Sendable, Equatable {
+    /// e.g. "Spanish".
+    var languageName: String
+    /// The summary's prose translated; `nil` when only the transcript was.
+    var summary: SummaryPayload?
+    /// Parallel to `ExportDocument.segments`; `nil` where a paragraph has no translation.
+    var segments: [String?]
+}
+
 /// Everything an export needs, detached from SwiftData so it can cross actor boundaries.
 struct ExportDocument: Sendable, Equatable {
     var title: String
@@ -31,6 +41,23 @@ struct ExportDocument: Sendable, Equatable {
     var marks: [ExportMark] = []
     /// v1.1 plan item 13: sections a custom template hides.
     var hiddenSections: Set<SummarySection> = []
+    /// v1.1 plan item 14: set when the export includes the translation.
+    var translation: ExportTranslation? = nil
+
+    /// The same document with the translated summary and paragraphs in place of the originals,
+    /// for rendering the translated part; `nil` without a translation.
+    var translated: ExportDocument? {
+        guard let translation else { return nil }
+        var copy = self
+        copy.translation = nil
+        copy.summary = translation.summary
+        copy.segments = zip(segments, translation.segments).map { segment, text in
+            var result = segment
+            result.text = text ?? segment.text
+            return result
+        }
+        return copy
+    }
 
     /// Display name for a speaker key, falling back to the key itself.
     func speakerName(for key: String?) -> String {

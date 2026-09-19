@@ -12,13 +12,15 @@ enum ExportGate {
         case customTemplates
         /// v1.1 plan item 11: "Ask this recording".
         case ask
+        /// v1.1 plan item 14: translating a recording.
+        case translation
     }
 
     static func isAllowed(_ action: Action, unlocked: Bool) -> Bool {
         if unlocked { return true }
         switch action {
         case .copySummary, .copyActionItems: return true
-        case .file, .email, .reminders, .customTemplates, .ask: return false
+        case .file, .email, .reminders, .customTemplates, .ask, .translation: return false
         }
     }
 

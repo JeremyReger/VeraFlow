@@ -48,6 +48,7 @@ struct ArchiveTests {
         recording.failedStage = .diarizing
         recording.failureMessage = "one voice"
         recording.transcriptionEngine = .speechTranscriber
+        recording.storeAskHistory([StoredAskExchange(question: "Who signs the permit?", answer: "Dave does.", citations: [20])])
         let snapshot = RecordingSnapshot(recording: recording)
         let data = try JSONEncoder().encode(snapshot)
         let decoded = try JSONDecoder().decode(RecordingSnapshot.self, from: data)
@@ -64,6 +65,7 @@ struct ArchiveTests {
         #expect(try rebuilt.currentSummary?.payload() == (try recording.currentSummary?.payload()))
         #expect(rebuilt.failedStage == .diarizing)
         #expect(rebuilt.transcriptionEngine == .speechTranscriber)
+        #expect(rebuilt.askHistory() == recording.askHistory(), "the questions travel with the recording")
         #expect(rebuilt.tags == ["contractor"])
         #expect(decoded.makeRecording(source: .sample, extraTags: ["Sample"]).source == .sample)
         #expect(decoded.makeRecording(source: .sample, extraTags: ["Sample"]).tags == ["contractor", "Sample"])

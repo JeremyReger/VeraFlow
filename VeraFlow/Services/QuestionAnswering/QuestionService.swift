@@ -35,13 +35,59 @@ enum AnswerValidator {
     }
 }
 
+/// One question and the answer it got, kept with the recording so the Ask tab still has them
+/// after you leave it. A "not found" answer is stored with empty text; its closest lines are
+/// not, because they are a view of the transcript that asking again rebuilds.
+struct StoredAskExchange: Codable, Sendable, Equatable, Identifiable {
+    var id: UUID
+    var question: String
+    /// Empty when the recording didn't answer the question.
+    var answer: String
+    var citations: [TimeInterval]
+
+    init(id: UUID = UUID(), question: String, answer: String, citations: [TimeInterval] = []) {
+        self.id = id
+        self.question = question
+        self.answer = answer
+        self.citations = citations
+    }
+
+    var wasAnswered: Bool { !answer.isEmpty }
+}
+
+/// The exchange just before this question, so a follow-up ("who said that?", "when?") has
+/// something to resolve against. Only an answered exchange makes one.
+struct AskContext: Sendable, Equatable {
+    var question: String
+    var answer: String
+}
+
+/// The prompt body for one question: the excerpts, the previous exchange when this is a
+/// follow-up, then the question itself. Every piece of user or model text is sanitized, so
+/// nothing inside it can read as an instruction (security review S-14).
+enum AskPrompt {
+    static func text(excerpts: [TranscriptLine], question: String, context: AskContext?) -> String {
+        var parts = ["Excerpts:\n" + TranscriptChunker.text(for: excerpts)]
+        if let context {
+            parts.append(
+                "The previous question was: " + FocusLine.sanitize(context.question)
+                + "\nThe previous answer was: " + FocusLine.sanitize(context.answer)
+                + "\nThe question below may refer back to them."
+            )
+        }
+        parts.append("Question: " + FocusLine.sanitize(question))
+        return parts.joined(separator: "\n\n")
+    }
+}
+
 /// Answers a question from transcript excerpts with the on-device model (v1.1 plan item 11).
 /// `LiveQuestionService` is the real one. Retrieval and validation happen outside, in Swift.
 protocol QuestionService: Sendable {
     func availability() async -> SummarizationAvailability
     /// Tokens the excerpts may use in one call.
     func excerptBudgetTokens() async -> Int
-    func answer(question: String, excerpts: [TranscriptLine]) async throws -> RawAnswer
+    /// `context` is the previous exchange when this question is a follow-up, else `nil`.
+    func answer(question: String, excerpts: [TranscriptLine], context: AskContext?) async throws -> RawAnswer
 }
 
 /// Answers with the first excerpt, citing its time.
@@ -51,15 +97,15 @@ actor FakeQuestionService: QuestionService {
     var errorToThrow: SummarizationError?
     /// When set, returned instead of the built answer.
     var cannedAnswer: RawAnswer?
-    private(set) var questions: [(question: String, excerpts: [TranscriptLine])] = []
+    private(set) var questions: [(question: String, excerpts: [TranscriptLine], context: AskContext?)] = []
 
     func availability() async -> SummarizationAvailability { availabilityToReport }
 
     func excerptBudgetTokens() async -> Int { budget }
 
-    func answer(question: String, excerpts: [TranscriptLine]) async throws -> RawAnswer {
+    func answer(question: String, excerpts: [TranscriptLine], context: AskContext?) async throws -> RawAnswer {
         if let errorToThrow { throw errorToThrow }
-        questions.append((question, excerpts))
+        questions.append((question, excerpts, context))
         if let cannedAnswer { return cannedAnswer }
         guard let first = excerpts.first else {
             return RawAnswer(answer: "", citations: [], foundInTranscript: false)

@@ -31,6 +31,9 @@ final class Recording {
     var customTemplateID: UUID?
     /// v1.1: one line the summary should pay particular attention to (plan item 13).
     var focus: String = ""
+    /// "Ask this recording" history as JSON `[StoredAskExchange]`, oldest first (v1.1). Optional
+    /// so stores written before it decode unchanged.
+    var askHistoryJSON: Data?
 
     @Relationship(deleteRule: .cascade, inverse: \TranscriptSegment.recording)
     var segments: [TranscriptSegment]
@@ -79,6 +82,21 @@ final class Recording {
 
     /// In Recently Deleted (plan item 10).
     var isTrashed: Bool { deletedAt != nil }
+
+    /// The questions asked of this recording, oldest first. Unreadable history reads as none
+    /// rather than throwing: it is a convenience, never the recording itself.
+    func askHistory() -> [StoredAskExchange] {
+        guard let askHistoryJSON, !askHistoryJSON.isEmpty else { return [] }
+        return (try? JSONDecoder().decode([StoredAskExchange].self, from: askHistoryJSON)) ?? []
+    }
+
+    /// Keeps the most recent `limit` exchanges, so a long session doesn't grow the row forever.
+    func storeAskHistory(_ history: [StoredAskExchange], limit: Int = Recording.askHistoryLimit) {
+        let kept = Array(history.suffix(limit))
+        askHistoryJSON = kept.isEmpty ? nil : try? JSONEncoder().encode(kept)
+    }
+
+    static let askHistoryLimit = 50
 
     /// Segments in transcript order.
     var orderedSegments: [TranscriptSegment] {

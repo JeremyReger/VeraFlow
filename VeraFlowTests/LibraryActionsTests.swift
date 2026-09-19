@@ -162,6 +162,7 @@ extension LibraryActionsTests {
         defer { harness.cleanUp() }
         let recording = PreviewData.sampleRecording()
         recording.tags = ["contractor"]
+        recording.storeAskHistory([StoredAskExchange(question: "Who signs the permit?", answer: "Dave does.", citations: [20])])
         harness.context.insert(recording)
         try harness.context.save()
         #expect(recording.segments.count == 2)
@@ -169,6 +170,7 @@ extension LibraryActionsTests {
         try await harness.actions.retranscribe(recording, in: Locale(identifier: "es_ES"))
 
         #expect(recording.segments.isEmpty)
+        #expect(recording.askHistory().isEmpty, "the answers cited moments in the transcript that was just replaced")
         #expect(recording.speakers.isEmpty)
         #expect(recording.summaries.isEmpty)
         #expect(recording.bookmarks.count == 1)

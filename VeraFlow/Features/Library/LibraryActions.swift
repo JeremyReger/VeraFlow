@@ -126,8 +126,9 @@ struct LibraryActions {
         return recording
     }
 
-    /// "Transcribe again in…" (v1.1 plan item 8): the transcript, speaker labels and summaries
-    /// are replaced by a fresh run in `locale`; marks, tags and the title stay.
+    /// "Transcribe again in…" (v1.1 plan item 8): the transcript, speaker labels, summaries and
+    /// the questions asked of them are replaced by a fresh run in `locale`; marks, tags and the
+    /// title stay. The questions go because their cited moments point into the old transcript.
     func retranscribe(_ recording: Recording, in locale: Locale) async throws {
         await services.pipeline.cancel(recordingID: recording.id)
         for segment in recording.segments { context.delete(segment) }
@@ -136,6 +137,7 @@ struct LibraryActions {
         recording.segments = []
         recording.speakers = []
         recording.summaries = []
+        recording.storeAskHistory([])
         recording.localeIdentifier = locale.identifier(.bcp47)
         recording.transcriptionEngine = nil
         recording.stage = .recorded

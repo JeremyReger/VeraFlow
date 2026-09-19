@@ -74,6 +74,113 @@ struct AskTests {
         #expect(controller.exchanges.isEmpty)
     }
 
+    @Test("A follow-up with no words of its own retrieves on the previous exchange and carries it to the model")
+    func followUp() async {
+        let service = FakeQuestionService()
+        let controller = AskController(service: service, passages: passages)
+        await controller.ask("What did Dave say about the permit?")
+        #expect(await service.questions.count == 1)
+        #expect(await service.questions[0].context == nil, "the first question has nothing before it")
+
+        await controller.ask("Who said that?")
+        #expect(await service.questions.count == 2, "the previous exchange supplied the words to retrieve on")
+        let context = await service.questions[1].context
+        #expect(context?.question == "What did Dave say about the permit?")
+        #expect(context?.answer == "Welcome. Let's start with the budget for next quarter.")
+        if case .notFound = controller.exchanges[1].outcome {
+            Issue.record("the follow-up should have been answered")
+        }
+
+        // A question with a subject of its own is not a follow-up: no match still means not found.
+        await controller.ask("Was parking discussed?")
+        #expect(controller.exchanges[2].outcome == .notFound(closest: []))
+        #expect(await service.questions.count == 2, "no model call for a real question that matches nothing")
+    }
+
+    @Test("Follow-ups are the questions with no words of their own; the query adds the previous exchange")
+    func followUpRules() {
+        #expect(AskController.isFollowUp(question: "Who said that?"))
+        #expect(AskController.isFollowUp(question: "When?"))
+        #expect(!AskController.isFollowUp(question: "Was parking discussed?"))
+        #expect(!AskController.isFollowUp(question: "What about the permit?"))
+
+        let context = AskContext(question: "Who signs the permit?", answer: "Dave does.")
+        #expect(AskController.followUpQuery(question: "When?", context: context) == "Who signs the permit? Dave does. When?")
+
+        let answered = AskExchange(question: "Q1", outcome: .answered(text: "A1", citations: [5]))
+        let missed = AskExchange(question: "Q2", outcome: .notFound(closest: []))
+        let pending = AskExchange(question: "Q3", outcome: .pending)
+        #expect(AskController.context(in: [answered, missed, pending], before: 3) == AskContext(question: "Q1", answer: "A1"))
+        #expect(AskController.context(in: [answered], before: 0) == nil, "nothing before the first question")
+        #expect(AskController.context(in: [missed, pending], before: 2) == nil, "only an answer can be referred back to")
+    }
+
+    @Test("The history is kept with the recording: finished exchanges only, newest kept, and it rebuilds")
+    func storedHistory() async {
+        let service = FakeQuestionService()
+        let controller = AskController(service: service, passages: passages)
+        await controller.ask("What did Dave say about the permit?")
+        await controller.ask("Was parking discussed?")
+        await service.setError(.rateLimited)
+        await controller.ask("permit")
+
+        let stored = controller.storedHistory
+        #expect(stored.count == 2, "the failed question is not kept")
+        #expect(stored[0].wasAnswered)
+        #expect(stored[0].citations == [0])
+        #expect(!stored[1].wasAnswered, "not found is kept as a question with no answer")
+
+        let recording = PreviewData.sampleRecording()
+        recording.storeAskHistory(stored)
+        #expect(recording.askHistory() == stored)
+
+        // Seeding a new controller brings the questions back, ids and all.
+        let reopened = AskController(service: FakeQuestionService(), passages: passages, history: recording.askHistory())
+        #expect(reopened.exchanges.map(\.id) == stored.map(\.id))
+        #expect(reopened.exchanges[0].outcome == .answered(text: stored[0].answer, citations: [0]))
+        #expect(reopened.exchanges[1].outcome == .notFound(closest: []))
+        #expect(reopened.storedHistory == stored)
+
+        // Only the most recent are kept, and clearing empties the field rather than storing "[]".
+        let many = (0..<60).map { StoredAskExchange(question: "Q\($0)", answer: "A\($0)") }
+        recording.storeAskHistory(many)
+        #expect(recording.askHistory().count == Recording.askHistoryLimit)
+        #expect(recording.askHistory().first?.question == "Q10")
+        recording.storeAskHistory([])
+        #expect(recording.askHistoryJSON == nil)
+        #expect(recording.askHistory().isEmpty)
+    }
+
+    @Test("An answer copies as the question, the answer, and the moments it cites; nothing else copies")
+    func copyText() {
+        let answered = AskExchange(question: "Who signs the permit?", outcome: .answered(text: "Dave does.", citations: [65, 20]))
+        #expect(AskController.copyText(for: answered) == "Who signs the permit?\n\nDave does.\n\nMoments: 1:05, 0:20")
+        let noCitation = AskExchange(question: "Q", outcome: .answered(text: "A", citations: []))
+        #expect(AskController.copyText(for: noCitation) == "Q\n\nA")
+        #expect(AskController.copyText(for: AskExchange(question: "Q", outcome: .notFound(closest: []))) == nil)
+        #expect(AskController.copyText(for: AskExchange(question: "Q", outcome: .pending)) == nil)
+    }
+
+    @Test("The prompt carries the excerpts, the previous exchange when there is one, and the question")
+    func promptText() {
+        let excerpts = [TranscriptLine(start: 20, speakerKey: "S2", speakerDisplayName: "Dave", text: "The permit first.")]
+        let plain = AskPrompt.text(excerpts: excerpts, question: "Who signs it?", context: nil)
+        #expect(plain.hasPrefix("Excerpts:\n"))
+        #expect(plain.contains("The permit first."))
+        #expect(plain.hasSuffix("Question: Who signs it?"))
+        #expect(!plain.contains("previous"))
+
+        let withContext = AskPrompt.text(
+            excerpts: excerpts,
+            question: "When?",
+            context: AskContext(question: "Who signs the permit?", answer: "Dave does. http://example.com")
+        )
+        #expect(withContext.contains("The previous question was: Who signs the permit?"))
+        #expect(withContext.contains("The previous answer was: Dave does."))
+        #expect(!withContext.contains("http"), "model text is sanitized before it goes back in")
+        #expect(withContext.hasSuffix("Question: When?"))
+    }
+
     @Test("The Ask button sends only a real question, and never while an answer is on its way")
     func canSend() {
         #expect(AskController.canSend(question: "What was decided?", isWorking: false))

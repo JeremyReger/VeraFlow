@@ -80,7 +80,7 @@ struct UnavailableQuestionService: QuestionService {
     func availability() async -> SummarizationAvailability { reason }
     func excerptBudgetTokens() async -> Int { 0 }
 
-    func answer(question: String, excerpts: [TranscriptLine]) async throws -> RawAnswer {
+    func answer(question: String, excerpts: [TranscriptLine], context: AskContext?) async throws -> RawAnswer {
         throw SummarizationError.unavailable(reason)
     }
 }

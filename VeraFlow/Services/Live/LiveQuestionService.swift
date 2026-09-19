@@ -44,13 +44,12 @@ actor LiveQuestionService: QuestionService {
         return ContextBudget(contextSize: contextSize, instructionsTokens: instructions + 60, schemaOverhead: Self.schemaOverheadEstimate, outputReserve: 400).inputTokens
     }
 
-    func answer(question: String, excerpts: [TranscriptLine]) async throws -> RawAnswer {
+    func answer(question: String, excerpts: [TranscriptLine], context: AskContext?) async throws -> RawAnswer {
         let availability = await availability()
         guard availability.isAvailable else { throw SummarizationError.unavailable(availability) }
         let session = LanguageModelSession(instructions: Prompts.instructions(Prompts.ask))
-        let prompt = Prompt {
-            "Excerpts:\n" + TranscriptChunker.text(for: excerpts) + "\n\nQuestion: " + FocusLine.sanitize(question)
-        }
+        let body = AskPrompt.text(excerpts: excerpts, question: question, context: context)
+        let prompt = Prompt { body }
         do {
             let content = try await session.respond(
                 to: prompt,

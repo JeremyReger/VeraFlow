@@ -10,6 +10,7 @@ struct AskTab: View {
     let onLocked: () -> Void
 
     @Environment(\.services) private var services
+    @Environment(\.modelContext) private var modelContext
     @State private var controller: AskController?
     @State private var question = ""
     @FocusState private var isFieldFocused: Bool
@@ -38,7 +39,11 @@ struct AskTab: View {
                     segments: recording.orderedSegments.map { (index: $0.index, start: $0.start, end: $0.end, speakerKey: $0.speakerKey, text: $0.text) },
                     speakerNames: speakerNames
                 )
-                let controller = AskController(service: services.questions, passages: passages)
+                let controller = AskController(
+                    service: services.questions,
+                    passages: passages,
+                    history: recording.askHistory()
+                )
                 self.controller = controller
                 await controller.refreshAvailability()
             }
@@ -85,6 +90,15 @@ struct AskTab: View {
                         Text("AI-generated from your recording. Check important details.")
                             .vfText(VFText.reassurance, color: VFColor.textSecondary)
                             .padding(.top, 6)
+                        if !controller.exchanges.isEmpty {
+                            Button("Clear questions") {
+                                controller.clear()
+                                persist(controller)
+                            }
+                            .vfText(VFText.rowLabel, color: VFColor.accent)
+                            .frame(minHeight: VFMetric.minHit)
+                            .accessibilityIdentifier("ask.clear")
+                        }
                     }
                     .padding(.horizontal, VFSpace.gutterTight)
                     .padding(.vertical, VFSpace.sectionGap)
@@ -131,7 +145,7 @@ struct AskTab: View {
             VFSectionLabel("Try asking")
             ForEach(items, id: \.self) { item in
                 Button {
-                    Task { await controller.ask(item) }
+                    ask(item, using: controller)
                 } label: {
                     HStack {
                         Text(item).vfText(VFText.rowLabel).multilineTextAlignment(.leading)
@@ -181,6 +195,21 @@ struct AskTab: View {
                         .buttonStyle(.bordered)
                         .controlSize(.small)
                         .accessibilityLabel("Play from \(SpokenFormat.duration(time))")
+                    }
+                    Spacer(minLength: 0)
+                    if let copy = AskController.copyText(for: exchange) {
+                        Button {
+                            ExportController.copyToPasteboard(copy)
+                        } label: {
+                            Image(systemName: "doc.on.doc")
+                                .font(.system(size: 14))
+                                .foregroundStyle(VFColor.iconPrimary)
+                                .frame(width: 32, height: 32)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Copy answer")
+                        .accessibilityIdentifier("ask.copy")
                     }
                 }
             case .notFound(let closest):
@@ -271,6 +300,20 @@ struct AskTab: View {
         guard AskController.canSend(question: question, isWorking: controller.isWorking) else { return }
         let text = question
         question = ""
-        Task { await controller.ask(text) }
+        ask(text, using: controller)
+    }
+
+    /// Asks, then keeps the history with the recording so it is still here after this screen
+    /// closes. Every question goes through here, from the field and from a suggestion.
+    private func ask(_ text: String, using controller: AskController) {
+        Task {
+            await controller.ask(text)
+            persist(controller)
+        }
+    }
+
+    private func persist(_ controller: AskController) {
+        recording.storeAskHistory(controller.storedHistory)
+        try? modelContext.save()
     }
 }

@@ -204,7 +204,7 @@ struct SummaryTab: View {
 
         switch payload {
         case .general(let summary):
-            stringList("Key points", summary.keyPoints)
+            keyPoints(summary.keyPointGroups)
             stringList("Decisions", summary.decisions)
             actionItems(summary.actionItems, record: record)
             stringList("Open questions", summary.openQuestions)
@@ -302,6 +302,42 @@ struct SummaryTab: View {
                 }
             } header: {
                 VFSectionLabel(title)
+            }
+        }
+    }
+
+    /// One subject → the numbered list; several → each subject as a heading with bullets under it.
+    @ViewBuilder
+    private func keyPoints(_ groups: [KeyPointGroup]) -> some View {
+        if groups.count == 1, let only = groups.first, only.title == nil {
+            stringList("Key points", only.points)
+        } else if !groups.isEmpty {
+            Section {
+                ForEach(Array(groups.enumerated()), id: \.offset) { _, group in
+                    if let title = group.title {
+                        Text(title)
+                            .vfText(VFText.rowLabel)
+                            .padding(.top, 10)
+                            .padding(.bottom, 2)
+                            .listRowSeparator(.hidden)
+                            .accessibilityAddTraits(.isHeader)
+                    }
+                    ForEach(Array(group.points.enumerated()), id: \.offset) { index, point in
+                        HStack(alignment: .firstTextBaseline, spacing: 12) {
+                            Text("•")
+                                .vfText(VFText.meta, color: VFColor.textTertiary)
+                                .frame(width: 18, alignment: .trailing)
+                                .accessibilityHidden(true)
+                            Text(point)
+                                .vfText(VFText.summaryBody)
+                        }
+                        .padding(.vertical, 4)
+                        .listRowSeparator(index == group.points.count - 1 ? .hidden : .visible)
+                        .listRowSeparatorTint(VFColor.separator)
+                    }
+                }
+            } header: {
+                VFSectionLabel("Key points")
             }
         }
     }

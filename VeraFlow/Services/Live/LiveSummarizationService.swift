@@ -28,13 +28,22 @@ struct ChunkNotesGenerable {
     var openQuestions: [String]
 }
 
+@Generable(description: "Key points on one subject the conversation covered.")
+struct KeyPointTopicGenerable {
+    @Guide(description: "The subject, 2–6 words, as the participants would name it.")
+    var title: String
+    @Guide(description: "1–5 key points on this subject, each under 20 words.")
+    var points: [String]
+}
+
 @Generable(description: "Summary of a general meeting or lecture.")
 struct GeneralSummaryGenerable {
     @Guide(description: "Short title, max 8 words.")
     var title: String
-    @Guide(description: "3–5 sentence overview.")
+    @Guide(description: "A 5–8 sentence overview for someone who missed it: what the meeting was for, who took part as labeled, the main subjects in the order they came up, what was decided, and what was left open. Only what the transcript says.")
     var overview: String
-    var keyPoints: [String]
+    @Guide(description: "Key points grouped by subject, one topic per distinct subject in the order discussed. A recording about one subject gets one topic.")
+    var topics: [KeyPointTopicGenerable]
     var decisions: [String]
     var actionItems: [ActionItemDraftGenerable]
     var openQuestions: [String]
@@ -308,7 +317,8 @@ actor LiveSummarizationService: SummarizationService {
             return .general(GeneralSummary(
                 title: content.title,
                 overview: content.overview,
-                keyPoints: content.keyPoints,
+                keyPoints: content.topics.flatMap(\.points),
+                topics: content.topics.map { KeyPointTopic(title: $0.title, points: $0.points) },
                 decisions: content.decisions,
                 actionItems: content.actionItems.map(Self.actionItem),
                 openQuestions: content.openQuestions

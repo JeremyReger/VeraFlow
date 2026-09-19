@@ -3,7 +3,7 @@ import Foundation
 /// Versioned model instructions (SPEC §11.5). `version` is saved in `SummaryRecord.modelInfo`
 /// so a summary can be traced to the prompt that produced it.
 enum Prompts {
-    static let version = 1
+    static let version = 2
 
     /// Prepended to every template.
     static let sharedRules = """
@@ -25,7 +25,7 @@ enum Prompts {
         let combine = "Combine these notes into one summary of the whole recording. Merge duplicates. Keep the most specific version of each action item."
         switch template {
         case .general:
-            return combine
+            return combine + " Group the key points by subject: one topic per distinct subject, in the order it came up, with the points that belong to it. The overview should let someone who missed the meeting understand what it was for, what was covered, what was decided, and what is still open."
         case .client:
             return combine + " This was a meeting between a consultant and a client. Focus on client goals, concerns, commitments made by either side, and next steps."
         case .walkthrough:

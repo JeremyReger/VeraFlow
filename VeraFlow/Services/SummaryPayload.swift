@@ -58,13 +58,84 @@ struct ActionItemsState: Codable, Sendable, Equatable {
 
 // MARK: - Template 1: General meeting / lecture
 
+/// Key points on one subject the meeting covered (Jeremy, 2026-09-19).
+struct KeyPointTopic: Codable, Sendable, Equatable {
+    var title: String
+    var points: [String]
+}
+
 struct GeneralSummary: Codable, Sendable, Equatable {
     var title: String
     var overview: String
+    /// Every key point in order, whatever the grouping; exports and search read this.
     var keyPoints: [String]
+    /// The same points grouped by subject when the model found more than one. Older summaries
+    /// have none, so the list falls back to `keyPoints`.
+    var topics: [KeyPointTopic] = []
     var decisions: [String]
     var actionItems: [ActionItem]
     var openQuestions: [String]
+
+    init(title: String, overview: String, keyPoints: [String], topics: [KeyPointTopic] = [], decisions: [String], actionItems: [ActionItem], openQuestions: [String]) {
+        self.title = title
+        self.overview = overview
+        self.keyPoints = keyPoints
+        self.topics = topics
+        self.decisions = decisions
+        self.actionItems = actionItems
+        self.openQuestions = openQuestions
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case title, overview, keyPoints, topics, decisions, actionItems, openQuestions
+    }
+
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        title = try container.decode(String.self, forKey: .title)
+        overview = try container.decode(String.self, forKey: .overview)
+        keyPoints = try container.decode([String].self, forKey: .keyPoints)
+        topics = try container.decodeIfPresent([KeyPointTopic].self, forKey: .topics) ?? []
+        decisions = try container.decode([String].self, forKey: .decisions)
+        actionItems = try container.decode([ActionItem].self, forKey: .actionItems)
+        openQuestions = try container.decode([String].self, forKey: .openQuestions)
+    }
+
+    /// How the Summary tab and exports lay the key points out.
+    var keyPointGroups: [KeyPointGroup] {
+        KeyPointLayout.groups(topics: topics, keyPoints: keyPoints)
+    }
+}
+
+/// One block of key points: a subject heading (nil for a plain list) and its points.
+struct KeyPointGroup: Equatable, Sendable {
+    var title: String?
+    var points: [String]
+}
+
+enum KeyPointLayout {
+    /// Grouped only when the model found more than one titled subject; a single subject or an
+    /// older summary without topics reads as one plain list. Empty topics are dropped, and
+    /// points under an untitled topic come first as a plain block.
+    static func groups(topics: [KeyPointTopic], keyPoints: [String]) -> [KeyPointGroup] {
+        let cleaned = topics.compactMap { topic -> KeyPointTopic? in
+            let points = topic.points.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+            guard !points.isEmpty else { return nil }
+            return KeyPointTopic(title: topic.title.trimmingCharacters(in: .whitespacesAndNewlines), points: points)
+        }
+        let titled = cleaned.filter { !$0.title.isEmpty }
+        if titled.count < 2 {
+            let flat = cleaned.isEmpty ? keyPoints : cleaned.flatMap(\.points)
+            return flat.isEmpty ? [] : [KeyPointGroup(title: nil, points: flat)]
+        }
+        var groups: [KeyPointGroup] = []
+        let untitled = cleaned.filter(\.title.isEmpty).flatMap(\.points)
+        if !untitled.isEmpty {
+            groups.append(KeyPointGroup(title: nil, points: untitled))
+        }
+        groups += titled.map { KeyPointGroup(title: $0.title, points: $0.points) }
+        return groups
+    }
 }
 
 // MARK: - Template 2: Client / consulting meeting

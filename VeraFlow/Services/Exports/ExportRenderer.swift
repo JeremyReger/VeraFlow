@@ -142,7 +142,18 @@ enum ExportRenderer {
         switch summary {
         case .general(let general):
             sections.append(Section(heading: "Summary", lines: [general.overview]))
-            add("Key points", general.keyPoints)
+            let groups = general.keyPointGroups
+            if groups.count == 1, let only = groups.first, only.title == nil {
+                add("Key points", only.points)
+            } else if !groups.isEmpty {
+                // Subject headings as their own lines, points as bullets under each.
+                var lines: [String] = []
+                for group in groups {
+                    if let title = group.title { lines.append("\(title):") }
+                    lines += group.points.map { "- \($0)" }
+                }
+                sections.append(Section(heading: "Key points", lines: lines))
+            }
             add("Decisions", general.decisions)
             add("Open questions", general.openQuestions)
         case .client(let client):

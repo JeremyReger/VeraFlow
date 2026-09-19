@@ -338,6 +338,31 @@ final class RecorderViewModel {
         phase = .saved(recordingID: recording.id)
     }
 
+    /// Throws the recording away from the naming step (Jeremy, 2026-09-19): the row, its marks and
+    /// the audio all go. Nothing reaches the pipeline, so nothing is transcribed or summarized.
+    /// Deliberately only reachable from `.naming` — once saved, deleting goes through the library,
+    /// which keeps a recording in Recently Deleted for a while rather than destroying it.
+    func discard() async {
+        guard phase == .naming, let recording else { return }
+        let id = recording.id
+        context.delete(recording)
+        do {
+            try context.save()
+        } catch {
+            errorMessage = Self.message(for: error)
+            return
+        }
+        try? services.storage.deleteFolder(for: id)
+        self.recording = nil
+        draftTitle = ""
+        bookmarkCount = 0
+        levelHistory = []
+        labelableMark = nil
+        lowDiskBytes = nil
+        snapshot = RecorderSnapshot()
+        phase = .idle
+    }
+
     func dismissNotice() {
         notice = nil
     }

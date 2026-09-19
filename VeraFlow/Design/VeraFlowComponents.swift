@@ -428,9 +428,11 @@ public struct VFMiniPlayer: View {
 
     @State private var isDragging = false
 
-    /// Tall enough to grab: the drawn bar is a 3 pt line, which is not a target on either
-    /// platform, so the gesture lives in an overlay that doesn't change the layout.
-    private static let hitHeight: CGFloat = 26
+    /// The row the line sits in. The line itself stays 3 pt; the row is tall enough to grab,
+    /// because a gesture attached to a 3 pt view is not a target on either platform. This costs
+    /// no height: the 46 pt play button already sets the row's height.
+    private static let trackHeight: CGFloat = 24
+    private static let lineHeight: CGFloat = 3
     private static let thumbSize: CGFloat = 11
 
     public init(isPlaying: Bool, elapsed: String, total: String, progress: Double,
@@ -459,12 +461,13 @@ public struct VFMiniPlayer: View {
             .accessibilityLabel(isPlaying ? "Pause" : "Play")
             .accessibilityIdentifier("player.playPause")
 
-            VStack(spacing: 7) {
+            VStack(spacing: 0) {
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
                         Capsule().fill(VFColor.borderStrong)
+                            .frame(height: Self.lineHeight)
                         Capsule().fill(VFColor.accent)
-                            .frame(width: geo.size.width * progress)
+                            .frame(width: geo.size.width * progress, height: Self.lineHeight)
                         if onScrub != nil {
                             Circle()
                                 .fill(VFColor.accent)
@@ -474,9 +477,12 @@ public struct VFMiniPlayer: View {
                                 .animation(.easeOut(duration: 0.12), value: isDragging)
                         }
                     }
-                    .overlay { scrubTarget(width: geo.size.width) }
+                    // The whole row is the target, not just the line it draws.
+                    .frame(width: geo.size.width, height: Self.trackHeight)
+                    .contentShape(Rectangle())
+                    .gesture(scrubGesture(width: geo.size.width), including: onScrub == nil ? .subviews : .all)
                 }
-                .frame(height: 3)
+                .frame(height: Self.trackHeight)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Playback position")
                 .accessibilityValue("\(elapsed) of \(total)")
@@ -515,28 +521,19 @@ public struct VFMiniPlayer: View {
         }
     }
 
-    /// The invisible grab area over the 3 pt line. An overlay so the bar's height is unchanged.
-    @ViewBuilder
-    private func scrubTarget(width: CGFloat) -> some View {
-        if let onScrub {
-            Color.clear
-                .frame(height: Self.hitHeight)
-                .contentShape(Rectangle())
-                .gesture(
-                    // minimumDistance 0 so a plain click or tap seeks, without a drag.
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { value in
-                            guard width > 0 else { return }
-                            isDragging = true
-                            onScrub(Self.fraction(value.location.x, width: width), false)
-                        }
-                        .onEnded { value in
-                            defer { isDragging = false }
-                            guard width > 0 else { return }
-                            onScrub(Self.fraction(value.location.x, width: width), true)
-                        }
-                )
-        }
+    /// minimumDistance 0 so a plain click or tap seeks, without having to drag.
+    private func scrubGesture(width: CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { value in
+                guard let onScrub, width > 0 else { return }
+                isDragging = true
+                onScrub(Self.fraction(value.location.x, width: width), false)
+            }
+            .onEnded { value in
+                defer { isDragging = false }
+                guard let onScrub, width > 0 else { return }
+                onScrub(Self.fraction(value.location.x, width: width), true)
+            }
     }
 
     static func fraction(_ x: CGFloat, width: CGFloat) -> Double {

@@ -224,6 +224,13 @@ Waves A, B and C were written together in one build on 2026-09-19 while Jeremy w
   - [x] `MiniPlayerBar` holds the drag position: the bar and the elapsed time follow the pointer, and the player only moves on release, the same shape the Audio tab's waveform already uses
   - [x] VoiceOver: the track is its own "Playback position" element with an adjustable action wired to ±15 s
   - [ ] Device: drag the bottom bar on Mac and iPhone; check the audio jumps on release and not during, and that dragging past either end lands on 0:00 and the full length
+- [x] Discard from the naming step (2026-09-19, Jeremy)
+  - [x] After Stop, the naming screen offers Discard beside Save: the row, its marks and the audio all go, and nothing reaches the pipeline. It asks first, because the audio can't be recovered from there
+  - [x] Only reachable from `.naming`. Once a recording is saved, deleting goes through the library, which keeps it in Recently Deleted rather than destroying it
+  - [ ] Device: record a few seconds, Discard, confirm the library doesn't gain a row and Recently Deleted stays empty
+- [x] Mini player: the scrub target has real height (2026-09-19)
+  - [x] The first version put the gesture in an overlay overflowing a 3 pt frame; SwiftUI doesn't reliably hit-test outside a parent's bounds, so the drag didn't register. The track row is now 24 pt with the 3 pt line centred in it, and the gesture is on the row itself
+  - [x] Costs no height: the 46 pt play button already sets the player row's height
 - [ ] Wave G — iPad (opens 1.2)
 
 ## Requests from device testing

@@ -294,6 +294,48 @@ struct RecorderViewModelTests {
         #expect(await harness.pipeline.enqueued == [recording.id])
     }
 
+    @Test("Discard throws the recording away: no row, no folder, nothing queued")
+    func discardFromNaming() async throws {
+        let harness = try makeHarness()
+        defer { harness.cleanUp() }
+        let viewModel = harness.viewModel
+
+        await viewModel.start()
+        await harness.recorder.advance(by: 4)
+        await viewModel.mark()
+        await viewModel.stop()
+
+        let id = try #require(viewModel.recording).id
+        #expect(try harness.storage.existingFolderIDs() == [id])
+
+        await viewModel.discard()
+
+        #expect(viewModel.phase == .idle, "the recorder is ready for the next take")
+        #expect(viewModel.recording == nil)
+        #expect(try harness.context.fetchCount(FetchDescriptor<Recording>()) == 0)
+        #expect(try harness.context.fetchCount(FetchDescriptor<Bookmark>()) == 0, "the marks go with it")
+        #expect(try harness.storage.existingFolderIDs().isEmpty, "the audio is gone")
+        #expect(await harness.pipeline.enqueued.isEmpty, "a discarded recording is never transcribed")
+    }
+
+    @Test("Discard only works from the naming step, so a saved recording is safe")
+    func discardIsNamingOnly() async throws {
+        let harness = try makeHarness()
+        defer { harness.cleanUp() }
+        let viewModel = harness.viewModel
+
+        await viewModel.start()
+        await harness.recorder.advance(by: 4)
+        await viewModel.stop()
+        let recording = try #require(viewModel.recording)
+        await viewModel.save()
+
+        await viewModel.discard()
+
+        #expect(viewModel.phase == .saved(recordingID: recording.id))
+        #expect(try harness.context.fetchCount(FetchDescriptor<Recording>()) == 1)
+    }
+
     @Test("An empty title falls back to the suggested one")
     func emptyTitle() async throws {
         let harness = try makeHarness()

@@ -33,6 +33,7 @@ private struct RecorderContent: View {
     @ScaledMetric(relativeTo: .title) private var transportSize: CGFloat = 62
     @ScaledMetric(relativeTo: .title) private var stopSize: CGFloat = 84
     @State private var showsConsent = false
+    @State private var isConfirmingDiscard = false
 
     var body: some View {
         Group {
@@ -365,15 +366,28 @@ private struct RecorderContent: View {
                     }
                 }
 
-                Button("Save") { Task { await viewModel.save() } }
-                    .buttonStyle(VFPrimaryPillStyle())
-                    .accessibilityIdentifier("recorder.save")
-                    .padding(.top, 6)
+                VStack(spacing: 12) {
+                    Button("Save") { Task { await viewModel.save() } }
+                        .buttonStyle(VFPrimaryPillStyle())
+                        .accessibilityIdentifier("recorder.save")
+
+                    // Throwing the audio away can't be undone from here, so it asks first.
+                    Button("Discard", role: .destructive) { isConfirmingDiscard = true }
+                        .buttonStyle(VFSecondaryPillStyle())
+                        .accessibilityIdentifier("recorder.discard")
+                }
+                .padding(.top, 6)
             }
             .padding(.horizontal, VFSpace.gutter)
             .padding(.bottom, VFSpace.bottomInset)
         }
         .scrollDismissesKeyboard(.interactively)
+        .confirmationDialog("Discard this recording?", isPresented: $isConfirmingDiscard, titleVisibility: .visible) {
+            Button("Discard recording", role: .destructive) { Task { await viewModel.discard() } }
+            Button("Keep", role: .cancel) {}
+        } message: {
+            Text("The audio and any marks are deleted. This can't be undone.")
+        }
     }
 }
 

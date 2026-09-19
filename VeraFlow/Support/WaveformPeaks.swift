@@ -35,16 +35,33 @@ enum WaveformPeaks {
         let totalFrames = Int(file.length)
         guard totalFrames > 0 else { return Array(repeating: 0, count: barCount) }
         let framesPerBar = max(1, Int((Double(totalFrames) / Double(barCount)).rounded(.up)))
+        var peaks = try rawPeaks(file: file, framesPerBucket: framesPerBar, limit: barCount)
+        while peaks.count < barCount {
+            peaks.append(0)
+        }
+        return normalized(peaks)
+    }
+
+    /// Un-normalised peak levels, one per `bucketDuration` of audio, for the silence detector
+    /// (v1.1 plan item 9). Same decode pass as `compute`, so the same cost; call it off the main actor.
+    static func levels(url: URL, bucketDuration: TimeInterval) throws -> [Float] {
+        let file = try AVAudioFile(forReading: url)
+        guard file.length > 0, bucketDuration > 0 else { return [] }
+        let framesPerBucket = max(1, Int((file.processingFormat.sampleRate * bucketDuration).rounded()))
+        return try rawPeaks(file: file, framesPerBucket: framesPerBucket, limit: .max)
+    }
+
+    /// The loudest sample of every `framesPerBucket` frames, up to `limit` buckets; a final
+    /// partial bucket counts.
+    private static func rawPeaks(file: AVAudioFile, framesPerBucket: Int, limit: Int) throws -> [Float] {
         let chunk: AVAudioFrameCount = 32_768
         guard let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: chunk) else {
-            return Array(repeating: 0, count: barCount)
+            return []
         }
-
         var peaks: [Float] = []
-        peaks.reserveCapacity(barCount)
         var barPeak: Float = 0
         var framesInBar = 0
-        while file.framePosition < file.length, peaks.count < barCount {
+        while file.framePosition < file.length, peaks.count < limit {
             if Task.isCancelled { throw CancellationError() }
             try file.read(into: buffer, frameCount: chunk)
             let frames = Int(buffer.frameLength)
@@ -57,21 +74,18 @@ enum WaveformPeaks {
                 }
                 barPeak = max(barPeak, level)
                 framesInBar += 1
-                if framesInBar == framesPerBar {
+                if framesInBar == framesPerBucket {
                     peaks.append(barPeak)
                     barPeak = 0
                     framesInBar = 0
-                    if peaks.count == barCount { break }
+                    if peaks.count == limit { break }
                 }
             }
         }
-        if framesInBar > 0, peaks.count < barCount {
+        if framesInBar > 0, peaks.count < limit {
             peaks.append(barPeak)
         }
-        while peaks.count < barCount {
-            peaks.append(0)
-        }
-        return normalized(peaks)
+        return peaks
     }
 
     private static func normalized(_ peaks: [Float]) -> [CGFloat] {

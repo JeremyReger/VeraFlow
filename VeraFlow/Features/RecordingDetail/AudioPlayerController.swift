@@ -17,11 +17,28 @@ final class AudioPlayerController {
     static let rates: [Float] = [1, 1.5, 2]
     /// e.g. "4.6 MB · 44100 Hz · 1 ch · aac" for the Status section (diagnostic).
     private(set) var fileDescription: String?
+    /// Playback jumps over pauses (v1.1 plan item 9). Remembered in `UserDefaults`.
+    private(set) var skipsSilence: Bool
+    /// The pauses found in the loaded file; empty until the scan finishes or when there are none.
+    private(set) var silentRanges: [SilentRange] = []
+    /// True while the file is being scanned for pauses.
+    private(set) var isScanningSilence = false
+    /// Seconds "Skip silence" saves on this file.
+    var silenceSavings: TimeInterval { SilenceDetector.totalDuration(silentRanges) }
+    /// Peak levels are read once per file at this resolution.
+    static let silenceBucketDuration: TimeInterval = 0.1
 
     private var player: AVAudioPlayer?
     private var ticker: Task<Void, Never>?
     private var title = ""
     private var commandTargets: [(MPRemoteCommand, Any)] = []
+    private var silenceScan: Task<Void, Never>?
+    private let defaults: UserDefaults
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        self.skipsSilence = AppPreferences.skipsSilence(in: defaults)
+    }
 
     func load(url: URL, title: String = "") {
         stop()
@@ -45,6 +62,7 @@ final class AudioPlayerController {
             isLoaded = true
             registerRemoteCommands()
             updateNowPlaying()
+            scanSilence(url: url)
         } catch {
             errorMessage = "This recording can't be played: \(error.localizedDescription)"
             isLoaded = false
@@ -66,6 +84,40 @@ final class AudioPlayerController {
 
     func togglePlayPause() {
         isPlaying ? pause() : play()
+    }
+
+    func setSkipsSilence(_ enabled: Bool) {
+        skipsSilence = enabled
+        AppPreferences.setSkipsSilence(enabled, in: defaults)
+        if enabled, isPlaying {
+            skipSilenceIfNeeded()
+        }
+    }
+
+    /// Reads the file's peak levels off the main actor and keeps the pauses; a new load cancels
+    /// a scan still running.
+    private func scanSilence(url: URL) {
+        silenceScan?.cancel()
+        silentRanges = []
+        isScanningSilence = true
+        let bucket = Self.silenceBucketDuration
+        silenceScan = Task { @MainActor [weak self] in
+            let ranges = await Task.detached(priority: .utility) { () -> [SilentRange] in
+                guard let levels = try? WaveformPeaks.levels(url: url, bucketDuration: bucket) else { return [] }
+                return SilenceDetector.ranges(levels: levels, bucketDuration: bucket)
+            }.value
+            guard let self, !Task.isCancelled else { return }
+            self.silentRanges = ranges
+            self.isScanningSilence = false
+        }
+    }
+
+    /// Jumps to the end of the pause the playhead is in. Called from the ticker while playing.
+    private func skipSilenceIfNeeded() {
+        guard skipsSilence, let player, let target = SilenceDetector.skipTarget(at: player.currentTime, in: silentRanges),
+              target > player.currentTime, target < duration else { return }
+        player.currentTime = target
+        currentTime = target
     }
 
     /// Steps through `rates`; applies immediately if playing.
@@ -99,6 +151,7 @@ final class AudioPlayerController {
         }
         player.rate = rate
         isPlaying = true
+        skipSilenceIfNeeded()
         startTicker()
         updateNowPlaying()
     }
@@ -112,6 +165,10 @@ final class AudioPlayerController {
     }
 
     func stop() {
+        silenceScan?.cancel()
+        silenceScan = nil
+        silentRanges = []
+        isScanningSilence = false
         player?.stop()
         player = nil
         isPlaying = false
@@ -203,6 +260,7 @@ final class AudioPlayerController {
 
     private func tick() {
         guard let player else { return }
+        skipSilenceIfNeeded()
         currentTime = player.currentTime
         if !player.isPlaying, isPlaying {
             // Reached the end (or the system stopped us).

@@ -41,4 +41,22 @@ struct WaveformPeaksTests {
         try TestAudioFiles.writeSilentCAF(to: silent, seconds: 1)
         #expect(try WaveformPeaks.compute(url: silent, barCount: 8) == Array(repeating: 0, count: 8))
     }
+
+    @Test("Fine levels come one per bucket of time, un-normalised, and a silent file reads as zeros")
+    func levels() throws {
+        let directory = try TestAudioFiles.temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let tone = directory.appending(path: "tone.aac")
+        try TestAudioFiles.writeToneAAC(to: tone, seconds: 1)
+        let levels = try WaveformPeaks.levels(url: tone, bucketDuration: 0.1)
+        #expect((9...12).contains(levels.count), "about ten 100 ms buckets in one second (encoder padding allowed)")
+        #expect(levels.dropFirst(2).dropLast(1).allSatisfy { $0 > 0.1 })
+
+        let silent = directory.appending(path: "silent.caf")
+        try TestAudioFiles.writeSilentCAF(to: silent, seconds: 1)
+        let quiet = try WaveformPeaks.levels(url: silent, bucketDuration: 0.25)
+        #expect(quiet.count == 4)
+        #expect(quiet.allSatisfy { $0 == 0 })
+        #expect(try WaveformPeaks.levels(url: silent, bucketDuration: 0).isEmpty)
+    }
 }

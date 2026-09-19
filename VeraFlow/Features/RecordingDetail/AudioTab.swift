@@ -87,6 +87,7 @@ struct AudioTab: View {
                 .vfText(VFText.meta, color: VFColor.textTertiary)
                 .accessibilityHidden(true)   // the scrubber speaks both times
                 transport
+                skipSilenceToggle
             }
             .padding(.horizontal, VFSpace.cardPaddingH)
             .padding(.vertical, VFSpace.cardPaddingV + 4)
@@ -182,6 +183,20 @@ struct AudioTab: View {
             .accessibilityLabel("Playback speed, currently \(player.rateLabel)")
             .accessibilityIdentifier("audio.speed")
         }
+    }
+
+    /// "Skip silence" with what it saves on this file (v1.1 plan item 9). A real toggle, so
+    /// VoiceOver reads a switch; the row style draws the label and the detail line.
+    private var skipSilenceToggle: some View {
+        let savings = player.silenceSavings
+        let detail: String? = player.isScanningSilence ? "Checking for pauses…"
+            : savings >= 1 ? "Saves \(timeText(savings))"
+            : player.isLoaded ? "No long pauses in this recording" : nil
+        return Toggle("Skip silence", isOn: Binding(get: { player.skipsSilence }, set: { player.setSkipsSilence($0) }))
+            .toggleStyle(VFToggleRowStyle(detail: detail))
+            .disabled(!player.isLoaded)
+            .accessibilityValue(savings >= 1 ? "saves \(SpokenFormat.duration(savings))" : "")
+            .accessibilityIdentifier("audio.skipSilence")
     }
 
     private func loadPeaks() async {

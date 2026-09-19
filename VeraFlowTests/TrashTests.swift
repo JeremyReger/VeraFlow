@@ -6,6 +6,8 @@ import Testing
 /// Recently Deleted (v1.1 plan item 10): trash, restore, permanent delete, and the launch sweep.
 @MainActor
 struct TrashTests {
+    /// Nested types don't inherit the outer actor isolation; the harness touches `mainContext`.
+    @MainActor
     private struct Harness {
         let container: ModelContainer
         let storage: RecordingStorage

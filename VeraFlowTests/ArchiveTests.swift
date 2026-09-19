@@ -6,6 +6,8 @@ import Testing
 /// The `.veraflowarchive` package (v1.1 plan item 5): write, read, import, and the edge cases.
 @MainActor
 struct ArchiveTests {
+    /// Nested types don't inherit the outer actor isolation; the harness touches `mainContext`.
+    @MainActor
     private struct Harness {
         let container: ModelContainer
         let storage: RecordingStorage

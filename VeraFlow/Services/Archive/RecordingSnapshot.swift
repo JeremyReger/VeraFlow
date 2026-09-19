@@ -59,6 +59,8 @@ struct RecordingSnapshot: Codable, Sendable, Equatable {
     var audioAvailable: Bool
     /// v1.1: the Ask history; absent in archives written before it existed.
     var askHistoryJSON: Data?
+    /// The count the user set for this recording; absent in archives written before it existed.
+    var expectedSpeakersRaw: String?
     var segments: [Segment]
     var speakers: [SpeakerEntry]
     var marks: [Mark]
@@ -82,6 +84,7 @@ struct RecordingSnapshot: Codable, Sendable, Equatable {
         transcriptionEngine = recording.transcriptionEngine
         audioAvailable = recording.audioAvailable
         askHistoryJSON = recording.askHistoryJSON
+        expectedSpeakersRaw = recording.expectedSpeakersRaw
         segments = recording.orderedSegments.map {
             Segment(index: $0.index, start: $0.start, end: $0.end, text: $0.text, originalText: $0.originalText, speakerKey: $0.speakerKey, words: $0.words, translatedText: $0.translatedText, translationLanguage: $0.translationLanguage)
         }
@@ -118,6 +121,7 @@ struct RecordingSnapshot: Codable, Sendable, Equatable {
         recording.transcriptionEngine = transcriptionEngine
         recording.audioAvailable = audioAvailable
         recording.askHistoryJSON = askHistoryJSON
+        recording.expectedSpeakersRaw = expectedSpeakersRaw
         recording.segments = segments.map {
             let segment = TranscriptSegment(index: $0.index, start: $0.start, end: $0.end, text: $0.text, originalText: $0.originalText, speakerKey: $0.speakerKey, words: $0.words)
             segment.translatedText = $0.translatedText

@@ -83,6 +83,10 @@ struct PersistenceTests {
         #expect(loaded.source == .sample)
         #expect(!loaded.isTrashed)
         #expect(loaded.audioAvailable)
+        #expect(loaded.expectedSpeakers == nil, "a recording follows the Settings default until it is answered for")
+        loaded.expectedSpeakers = .three
+        try context.save()
+        #expect(try #require(try context.fetch(FetchDescriptor<Recording>()).first).expectedSpeakers == .three)
         let marks = loaded.bookmarks.sorted { $0.time < $1.time }
         #expect(marks.map(\.kind) == [.manual, .interrupted, .manual])
         #expect(marks.map(\.isUserMark) == [true, false, false])

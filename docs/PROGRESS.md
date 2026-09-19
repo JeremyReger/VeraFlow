@@ -200,6 +200,10 @@ Waves A, B and C were written together in one build on 2026-09-19 while Jeremy w
   - [x] The overflow retry does something different now. It only ever shrank the chunk size, which a transcript that fits one call never reads — so the retry repeated the call that had just failed, three times. It now forces the map-reduce path as well, so each call asks for short notes instead of a whole summary. Same for a timeout
   - [x] `TranscriptChunkerTests`: instructions + schema + input budget + reserve is exactly the context size, so a call that fills its budget and answers to the cap still fits; and the one case where that doesn't hold (a window too small for its own overheads, which keeps an input floor so chunking terminates)
   - [ ] Device: the recording that failed should summarize on Retry. If it fails again, the log lines that say why are `context N tokens; instructions …; input budget …` and `model call failed (contextSizeExceeded)` — the second one after the cap is in place would mean the prompt, not the answer, is overrunning
+- [x] Expected voices belongs to the recording (2026-09-19, from Jeremy's Mac log)
+  - [x] `Recording.expectedSpeakersRaw` holds the count when the user has answered for that recording; Settings is the default for the ones that haven't. The one-voice notice writes to the recording, so answering it for one meeting no longer forces that number on every recording after it — and no longer switches the notice off for all of them
+  - [x] Carried through the library archive; the view saves before relabelling, because the pipeline reads the recording through its own `ModelContext`
+  - [ ] Device: set Expected voices back to Automatic in Settings, record a two-person conversation with the mic on the table, answer the one-voice notice with 2, then record a voice memo and check the log says `hint automatic` for it
 - [ ] Wave G — iPad (opens 1.2)
 
 ## Requests from device testing

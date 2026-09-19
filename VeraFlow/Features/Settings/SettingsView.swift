@@ -12,7 +12,7 @@ struct SettingsView: View {
     @Environment(AppState.self) private var appState: AppState?
     @Environment(AppLock.self) private var appLock: AppLock?
     @AppStorage(AppPreferences.appearanceKey) private var appearance: Appearance = .system
-    @State private var expectedSpeakers = DiarizationPreference.expectedSpeakers()
+    @State private var expectedSpeakers = DiarizationPreference.defaultExpectedSpeakers()
     @State private var defaultTemplate = AppPreferences.defaultTemplate()
     @State private var consentReminder = AppPreferences.showsConsentReminder()
     @State private var notifySummaryReady = AppPreferences.notifiesWhenSummaryReady()
@@ -247,12 +247,12 @@ struct SettingsView: View {
                 .accessibilityLabel("Transcription language: \(transcriptionLanguageName)")
                 .accessibilityIdentifier("settings.language")
                 VFHairline()
-                VFSettingsRow(title: "Expected voices", detail: "A hint for speaker labels") {
+                VFSettingsRow(title: "Expected voices", detail: "The default when a recording doesn't say") {
                     Menu {
                         ForEach(DiarizationPreference.ExpectedSpeakers.allCases, id: \.self) { choice in
                             Button {
                                 expectedSpeakers = choice
-                                DiarizationPreference.setExpectedSpeakers(choice)
+                                DiarizationPreference.setDefaultExpectedSpeakers(choice)
                             } label: {
                                 if choice == expectedSpeakers {
                                     Label(choice.displayName, systemImage: "checkmark")

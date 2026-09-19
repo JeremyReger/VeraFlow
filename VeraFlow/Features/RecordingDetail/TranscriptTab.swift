@@ -142,7 +142,7 @@ struct TranscriptTab: View {
         SpeakerCountNotice.shouldOfferHint(
             speakerCount: recording.speakers.count,
             duration: recording.duration,
-            hint: DiarizationPreference.expectedSpeakers(),
+            hint: DiarizationPreference.resolved(for: recording.expectedSpeakers, default: DiarizationPreference.defaultExpectedSpeakers()),
             isLabeled: recording.stage == .diarized || recording.stage == .ready
         )
     }
@@ -158,7 +158,12 @@ struct TranscriptTab: View {
             Menu("Label again") {
                 ForEach(SpeakerCountNotice.choices, id: \.self) { choice in
                     Button("\(choice.displayName) speakers") {
-                        DiarizationPreference.setExpectedSpeakers(choice)
+                        // On this recording only. How many people were in the room is a fact about
+                        // the meeting, not a preference for every meeting after it.
+                        recording.expectedSpeakers = choice
+                        // The pipeline reads the recording through its own ModelContext, so the
+                        // count has to be on disk before the relabel starts or it reads the old one.
+                        try? modelContext.save()
                         Task { await services.pipeline.retry(recordingID: recording.id, from: .diarizing) }
                     }
                 }

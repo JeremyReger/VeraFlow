@@ -1,6 +1,8 @@
 import Foundation
 
-/// The "Expected number of speakers" setting (SPEC §10.3): a hint for the diarizer's clustering.
+/// The "Expected voices" setting (SPEC §10.3): a hint for the diarizer's clustering. The value in
+/// Settings is the *default* for recordings the user hasn't answered for; a recording that carries
+/// its own count (`Recording.expectedSpeakers`) uses that instead.
 enum DiarizationPreference {
     enum ExpectedSpeakers: String, CaseIterable, Sendable {
         case automatic
@@ -35,12 +37,18 @@ enum DiarizationPreference {
 
     static let key = "diarization.expectedSpeakers"
 
-    static func expectedSpeakers(in defaults: UserDefaults = .standard) -> ExpectedSpeakers {
+    /// The default for recordings that don't carry a count of their own.
+    static func defaultExpectedSpeakers(in defaults: UserDefaults = .standard) -> ExpectedSpeakers {
         ExpectedSpeakers(rawValue: defaults.string(forKey: key) ?? "") ?? .automatic
     }
 
-    static func setExpectedSpeakers(_ value: ExpectedSpeakers, in defaults: UserDefaults = .standard) {
+    static func setDefaultExpectedSpeakers(_ value: ExpectedSpeakers, in defaults: UserDefaults = .standard) {
         defaults.set(value.rawValue, forKey: key)
+    }
+
+    /// What the diarizer is told for one recording: its own count when it has one, else the default.
+    static func resolved(for recording: ExpectedSpeakers?, default fallback: ExpectedSpeakers) -> ExpectedSpeakers {
+        recording ?? fallback
     }
 }
 
@@ -91,8 +99,9 @@ enum SpeakerCountNotice {
         isLabeled: Bool
     ) -> Bool {
         // Only once the labels have actually run, only when they found exactly one voice, and
-        // only while the user hasn't already told us a number — if they said 2 and still got 1,
-        // repeating the advice is no help.
+        // only while the user hasn't already answered for *this* recording — if they said 2 and
+        // still got 1, repeating the advice is no help. `hint` is the resolved count, so a
+        // recording that has never been answered for is still asked even when another one was.
         guard isLabeled, speakerCount == 1, hint == .automatic else { return false }
         return duration >= minimumDuration
     }

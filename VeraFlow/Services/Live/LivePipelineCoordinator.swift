@@ -21,8 +21,9 @@ actor LivePipelineCoordinator: PipelineCoordinating {
     private let purchases: any PurchaseService
     private let storage: RecordingStorage
     private let background: any BackgroundProcessing
-    /// Reads the "Expected speakers" setting at the moment diarization starts.
-    private let speakerHint: @Sendable () -> SpeakerCountHint
+    /// Reads the "Expected voices" default at the moment diarization starts. A recording that
+    /// carries a count of its own wins over it.
+    private let defaultSpeakerCount: @Sendable () -> DiarizationPreference.ExpectedSpeakers
     private let events = PipelineEventHub()
 
     private lazy var context = ModelContext(container)
@@ -61,7 +62,7 @@ actor LivePipelineCoordinator: PipelineCoordinating {
         purchases: any PurchaseService,
         storage: RecordingStorage,
         background: any BackgroundProcessing,
-        speakerHint: @escaping @Sendable () -> SpeakerCountHint = { .automatic },
+        defaultSpeakerCount: @escaping @Sendable () -> DiarizationPreference.ExpectedSpeakers = { .automatic },
         rateLimitRetryDelay: Duration = .seconds(180),
         isAppActive: @escaping @Sendable () async -> Bool = { true }
     ) {
@@ -76,7 +77,7 @@ actor LivePipelineCoordinator: PipelineCoordinating {
         self.purchases = purchases
         self.storage = storage
         self.background = background
-        self.speakerHint = speakerHint
+        self.defaultSpeakerCount = defaultSpeakerCount
     }
 
     // MARK: PipelineCoordinating
@@ -333,7 +334,8 @@ actor LivePipelineCoordinator: PipelineCoordinating {
                 }
             }
             try Task.checkCancellation()
-            let turns = try await diarization.diarize(fileURL: url, expectedSpeakers: speakerHint()) { fraction in
+            let hint = SpeakerCountHint(DiarizationPreference.resolved(for: recording.expectedSpeakers, default: defaultSpeakerCount()))
+            let turns = try await diarization.diarize(fileURL: url, expectedSpeakers: hint) { fraction in
                 hub.emit(.progress(recordingID: id, stage: .diarizing, fraction: fraction))
                 progress(fraction)
             }

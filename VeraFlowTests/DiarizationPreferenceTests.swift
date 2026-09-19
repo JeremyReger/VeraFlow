@@ -9,9 +9,14 @@ struct DiarizationPreferenceTests {
         let defaults = try #require(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
 
-        #expect(DiarizationPreference.expectedSpeakers(in: defaults) == .automatic)
-        DiarizationPreference.setExpectedSpeakers(.three, in: defaults)
-        #expect(DiarizationPreference.expectedSpeakers(in: defaults) == .three)
+        #expect(DiarizationPreference.defaultExpectedSpeakers(in: defaults) == .automatic)
+        DiarizationPreference.setDefaultExpectedSpeakers(.three, in: defaults)
+        #expect(DiarizationPreference.defaultExpectedSpeakers(in: defaults) == .three)
+
+        // The default only decides for a recording that hasn't been answered for.
+        #expect(DiarizationPreference.resolved(for: nil, default: .three) == .three)
+        #expect(DiarizationPreference.resolved(for: .two, default: .three) == .two)
+        #expect(DiarizationPreference.resolved(for: .automatic, default: .three) == .automatic)
 
         #expect(SpeakerCountHint(.automatic) == .automatic)
         #expect(SpeakerCountHint(.two) == SpeakerCountHint(exact: 2))
@@ -55,11 +60,19 @@ struct DiarizationPreferenceTests {
         ))
     }
 
-    @Test("Once the user has said how many people there were, the advice is not repeated")
+    @Test("Once this recording has been answered for, the advice is not repeated on it")
     func hintAlreadyGiven() {
         for choice in SpeakerCountNotice.choices {
             #expect(!SpeakerCountNotice.shouldOfferHint(speakerCount: 1, duration: 131, hint: choice, isLabeled: true))
         }
+        // The count belongs to the recording, so the next one still gets asked: what silences the
+        // notice is `resolved` reading that recording's own answer, not a global that outlives it.
+        #expect(SpeakerCountNotice.shouldOfferHint(
+            speakerCount: 1,
+            duration: 131,
+            hint: DiarizationPreference.resolved(for: nil, default: .automatic),
+            isLabeled: true
+        ))
         #expect(SpeakerCountNotice.choices == [.two, .three, .fourOrMore])
         #expect(!SpeakerCountNotice.choices.contains(.automatic))
     }

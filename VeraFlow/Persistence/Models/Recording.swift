@@ -34,6 +34,11 @@ final class Recording {
     /// "Ask this recording" history as JSON `[StoredAskExchange]`, oldest first (v1.1). Optional
     /// so stores written before it decode unchanged.
     var askHistoryJSON: Data?
+    /// How many voices this recording has, when the user has said. `nil` means they haven't, and
+    /// the Settings default decides. How many people were in a room is a fact about the recording,
+    /// not a preference: a number set for one meeting used to be applied to every recording after
+    /// it, including voice memos (2026-09-19).
+    var expectedSpeakersRaw: String?
 
     @Relationship(deleteRule: .cascade, inverse: \TranscriptSegment.recording)
     var segments: [TranscriptSegment]
@@ -82,6 +87,12 @@ final class Recording {
 
     /// In Recently Deleted (plan item 10).
     var isTrashed: Bool { deletedAt != nil }
+
+    /// The count the user set for this recording, or `nil` to follow the Settings default.
+    var expectedSpeakers: DiarizationPreference.ExpectedSpeakers? {
+        get { expectedSpeakersRaw.flatMap(DiarizationPreference.ExpectedSpeakers.init(rawValue:)) }
+        set { expectedSpeakersRaw = newValue?.rawValue }
+    }
 
     /// The questions asked of this recording, oldest first. Unreadable history reads as none
     /// rather than throwing: it is a convenience, never the recording itself.

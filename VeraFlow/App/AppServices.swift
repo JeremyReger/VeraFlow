@@ -127,7 +127,7 @@ struct AppServices: Sendable {
             purchases: services.purchases,
             storage: storage,
             background: services.background,
-            speakerHint: { SpeakerCountHint(DiarizationPreference.expectedSpeakers()) },
+            defaultSpeakerCount: { DiarizationPreference.defaultExpectedSpeakers() },
             isAppActive: { await Self.isAppActive() }
         )
         return services

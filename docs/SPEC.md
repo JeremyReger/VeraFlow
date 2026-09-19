@@ -376,7 +376,7 @@ Confirm the exact type names against the FluidAudio docs for the pinned version.
 ### 10.3 UX
 - Rename a speaker once → updates everywhere, including summaries: summaries store `speakerKey` references and display names are substituted at render time.
 - "Merge speakers" (S3 is really S1) and "Change speaker for this paragraph."
-- Setting: "Expected number of speakers" (Auto / 2 / 3 / 4+) if the FluidAudio config supports a hint.
+- Setting: "Expected voices" (Auto / 2 / 3 / 4+) is the **default**; the count belongs to the recording (`Recording.expectedSpeakers`), which the one-voice notice sets for that recording alone. How many people were in a room is a fact about the meeting, not a preference for every meeting after it.
 - Be honest in the UI: labels can be wrong when people talk over each other.
 
 ---

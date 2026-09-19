@@ -35,8 +35,14 @@ struct LivePipelineCoordinatorTests {
         }
 
         @discardableResult
-        func insert(title: String = "Meeting", stage: PipelineStage = .recorded, createdAt: Date = .now) throws -> UUID {
+        func insert(
+            title: String = "Meeting",
+            stage: PipelineStage = .recorded,
+            createdAt: Date = .now,
+            expectedSpeakers: DiarizationPreference.ExpectedSpeakers? = nil
+        ) throws -> UUID {
             let recording = Recording(title: title, createdAt: createdAt, stage: stage)
+            recording.expectedSpeakers = expectedSpeakers
             container.mainContext.insert(recording)
             try container.mainContext.save()
             try storage.folder(for: recording.id)
@@ -51,7 +57,7 @@ struct LivePipelineCoordinatorTests {
         func set(_ isActive: Bool) { self.isActive = isActive }
     }
 
-    private func makeHarness(speakerHint: SpeakerCountHint = .automatic, unlocked: Bool = true, freeSummariesUsed: Int = 0, rateLimitRetryDelay: Duration = .seconds(180), activity: AppActivity? = nil) throws -> Harness {
+    private func makeHarness(defaultSpeakerCount: DiarizationPreference.ExpectedSpeakers = .automatic, unlocked: Bool = true, freeSummariesUsed: Int = 0, rateLimitRetryDelay: Duration = .seconds(180), activity: AppActivity? = nil) throws -> Harness {
         let storage = RecordingStorage(rootDirectory: try TestAudioFiles.temporaryDirectory())
         let container = try ModelContainerFactory.makeInMemory()
         let transcription = FakeTranscriptionService()
@@ -69,7 +75,7 @@ struct LivePipelineCoordinatorTests {
             purchases: purchases,
             storage: storage,
             background: background,
-            speakerHint: { speakerHint },
+            defaultSpeakerCount: { defaultSpeakerCount },
             rateLimitRetryDelay: rateLimitRetryDelay,
             isAppActive: { await activity?.isActive ?? true }
         )
@@ -353,9 +359,9 @@ struct LivePipelineCoordinatorTests {
         #expect(await harness.diarization.diarizedURLs.count == 1, "only the summary is redone")
     }
 
-    @Test("Missing speaker-label models are downloaded first; the Settings hint reaches the diarizer")
+    @Test("Missing speaker-label models are downloaded first; the Settings default reaches the diarizer")
     func downloadsDiarizerModels() async throws {
-        let harness = try makeHarness(speakerHint: SpeakerCountHint(exact: 2))
+        let harness = try makeHarness(defaultSpeakerCount: .two)
         defer { harness.cleanUp() }
         await harness.diarization.setReady(false)
         let id = try harness.insert()
@@ -370,6 +376,22 @@ struct LivePipelineCoordinatorTests {
         #expect(await harness.diarization.prepareCount == 1)
         #expect(await harness.diarization.hints == [SpeakerCountHint(exact: 2)])
         #expect(seen.contains(.preparingAssets(recordingID: id, stage: .diarizing, fraction: 1)))
+    }
+
+    @Test("A recording's own speaker count beats the Settings default; without one the default is used")
+    func recordingSpeakerCountWinsOverTheDefault() async throws {
+        let harness = try makeHarness(defaultSpeakerCount: .two)
+        defer { harness.cleanUp() }
+        let answered = try harness.insert(title: "Site walk", expectedSpeakers: .fourOrMore)
+        let unanswered = try harness.insert(title: "Voice memo")
+
+        await harness.coordinator.enqueue(recordingID: answered)
+        try await waitUntil { try harness.stage(of: answered) == .ready }
+        await harness.coordinator.enqueue(recordingID: unanswered)
+        try await waitUntil { try harness.stage(of: unanswered) == .ready }
+
+        // The count set for the site walk doesn't follow the voice memo recorded after it.
+        #expect(await harness.diarization.hints == [SpeakerCountHint(minimum: 4), SpeakerCountHint(exact: 2)])
     }
 
     @Test("Diarization failure is non-fatal: one speaker, a Retry reason, and Retry relabels")

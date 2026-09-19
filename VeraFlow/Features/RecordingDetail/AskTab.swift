@@ -226,14 +226,19 @@ struct AskTab: View {
         .accessibilityIdentifier("ask.exchange")
     }
 
+    /// The field takes the whole width and the Ask button sits under it, full width, like every
+    /// other primary action in the app (Jeremy, 2026-09-19: the arrow beside the field was a
+    /// small target and cut the field short).
     private func questionBar(_ controller: AskController) -> some View {
-        HStack(spacing: 10) {
+        let canSend = AskController.canSend(question: question, isWorking: controller.isWorking)
+        return VStack(spacing: 10) {
             TextField("Ask about this recording", text: $question)
                 .vfText(VFText.rowLabel)
                 .focused($isFieldFocused)
                 .submitLabel(.send)
                 .onSubmit { send(controller) }
                 .padding(.horizontal, 14)
+                .frame(maxWidth: .infinity)
                 .frame(minHeight: VFMetric.minHit)
                 .background(VFColor.surface, in: RoundedRectangle(cornerRadius: VFRadius.field, style: .continuous))
                 .overlay {
@@ -241,28 +246,29 @@ struct AskTab: View {
                         .strokeBorder(VFColor.border, lineWidth: VFMetric.hairline)
                 }
                 .accessibilityIdentifier("ask.field")
-            Button {
+            Button(controller.isWorking ? "Asking…" : "Ask") {
                 send(controller)
-            } label: {
-                Image(systemName: "arrow.up.circle.fill")
-                    .font(.system(size: 30))
-                    .foregroundStyle(question.trimmingCharacters(in: .whitespaces).isEmpty || controller.isWorking ? VFColor.textTertiary : VFColor.accent)
-                    .frame(width: VFMetric.minHit, height: VFMetric.minHit)
             }
-            .buttonStyle(.plain)
-            .disabled(question.trimmingCharacters(in: .whitespaces).isEmpty || controller.isWorking)
-            .accessibilityLabel("Ask")
+            .buttonStyle(VFPrimaryPillStyle())
+            // The pill keeps its shape when it can't be used; the dimming says so, and
+            // VoiceOver hears "dimmed" from `disabled` (A-8).
+            .opacity(canSend ? 1 : 0.45)
+            .disabled(!canSend)
             .accessibilityIdentifier("ask.send")
         }
         .padding(.horizontal, VFSpace.gutterTight)
-        .padding(.vertical, 10)
+        .padding(.top, 10)
+        .padding(.bottom, 12)
         .background(VFColor.playerBar)
         .overlay(alignment: .top) {
             Rectangle().fill(VFColor.border).frame(height: VFMetric.hairline)
         }
     }
 
+    /// Return on the keyboard sends the same way the button does, and keeps what was typed
+    /// when it can't (an answer already running), instead of clearing the field.
     private func send(_ controller: AskController) {
+        guard AskController.canSend(question: question, isWorking: controller.isWorking) else { return }
         let text = question
         question = ""
         Task { await controller.ask(text) }

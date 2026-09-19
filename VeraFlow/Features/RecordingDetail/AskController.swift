@@ -62,6 +62,12 @@ final class AskController {
         return result
     }
 
+    /// Whether the Ask button does anything: a question with more than whitespace, and no
+    /// answer already on its way. The same rule `ask(_:)` guards itself with.
+    static func canSend(question: String, isWorking: Bool) -> Bool {
+        !isWorking && !question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     func ask(_ question: String) async {
         let cleaned = question.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleaned.isEmpty, !isWorking else { return }

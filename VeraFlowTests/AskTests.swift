@@ -74,6 +74,14 @@ struct AskTests {
         #expect(controller.exchanges.isEmpty)
     }
 
+    @Test("The Ask button sends only a real question, and never while an answer is on its way")
+    func canSend() {
+        #expect(AskController.canSend(question: "What was decided?", isWorking: false))
+        #expect(!AskController.canSend(question: "", isWorking: false))
+        #expect(!AskController.canSend(question: "   \n ", isWorking: false))
+        #expect(!AskController.canSend(question: "What was decided?", isWorking: true))
+    }
+
     @Test("Suggestions come from open questions, then generic ones with a named speaker; Ask is unlocked or sample only")
     func suggestionsAndGate() {
         let items = AskController.suggestions(openQuestions: ["Who signs the permit?", " ", "When is the pour?"], speakerNames: ["Speaker 1", "Dana"])

@@ -156,7 +156,7 @@ struct LivePipelineCoordinatorTests {
         // The summary is post-processed: the fake's action item quotes Speaker 1's first line.
         let summary = try #require(recording.currentSummary)
         #expect(summary.templateID == .general)
-        #expect(summary.modelInfo == "FakeSummarizationService · prompt v1")
+        #expect(summary.modelInfo == "FakeSummarizationService · prompt v\(Prompts.version)")
         let payload = try summary.payload()
         #expect(payload.actionItems.count == 1)
         #expect(payload.actionItems.first?.ownerSpeakerKey == "S1")

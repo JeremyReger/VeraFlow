@@ -551,7 +551,7 @@ enum PipelineFailure {
                 switch availability {
                 case .available: return "Summaries aren't available right now."
                 case .deviceNotEligible: return "AI summaries need an Apple Intelligence–capable \(Platform.deviceNoun). Transcripts still work."
-                case .appleIntelligenceNotEnabled: return "Turn on Apple Intelligence in Settings to get summaries."
+                case .appleIntelligenceNotEnabled: return "Turn on Apple Intelligence in \(Platform.settingsAppName) to get summaries."
                 case .modelNotReady: return "Apple Intelligence is still downloading. Try again later."
                 case .unknown(let detail): return "Summaries aren't available: \(detail)"
                 }

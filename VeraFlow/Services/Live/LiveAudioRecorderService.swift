@@ -211,9 +211,17 @@ actor LiveAudioRecorderService: AudioRecorderService {
         RecorderPlatform.deactivate()
 
         let result = RecorderResult(fileURL: fileURL, duration: writer.elapsed)
+        let writeError = writer.firstWriteError
+        let peak = writer.maxPeak
         tearDown()
         status = .idle
         publishSnapshot()
+        // Nothing reached the file. Say so now: the alternative is a 0-byte file that only
+        // fails later, in the transcription step, as a Core Audio error number.
+        guard result.duration > 0 else {
+            Self.log.error("stop: no audio written to \(fileURL.lastPathComponent, privacy: .public); peak \(peak, format: .fixed(precision: 3), privacy: .public); first write error \(writeError ?? "none", privacy: .public)")
+            throw AudioRecorderError.noAudioCaptured(writeError)
+        }
         return result
     }
 
@@ -515,6 +523,10 @@ actor LiveAudioRecorderService: AudioRecorderService {
     private func logProgress() {
         guard let writer else { return }
         Self.log.info("recording: \(writer.elapsed, format: .fixed(precision: 1), privacy: .public)s written, level \(writer.level, format: .fixed(precision: 2), privacy: .public), peak so far \(writer.maxPeak, format: .fixed(precision: 3), privacy: .public)")
+        // A live meter with nothing written means the buffers arrive but the file rejects them.
+        if let writeError = writer.firstWriteError {
+            Self.log.error("recording: the file is rejecting audio: \(writeError, privacy: .public)")
+        }
     }
 
     private func startDiskWatch() {
@@ -614,6 +626,9 @@ private final class TapWriter: @unchecked Sendable {
     private var peak: Float = 0
     private var largestPeak: Float = 0
     private var isClosed = false
+    /// The first `AVAudioFile.write` failure, kept so a file that rejects every buffer is
+    /// reported instead of passing for a silent recording. Later failures are the same one.
+    private var _firstWriteError: String?
     private var _isPaused = false
     private var _previewSink: AudioBufferSink?
 
@@ -661,9 +676,17 @@ private final class TapWriter: @unchecked Sendable {
             framesWritten += AVAudioFramePosition(buffer.frameLength)
         } catch {
             // Keep going; the next buffer may succeed. Disk-full is caught by the disk watch.
+            if _firstWriteError == nil { _firstWriteError = error.localizedDescription }
         }
         peak = bufferPeak
         largestPeak = max(largestPeak, bufferPeak)
+    }
+
+    /// The first write failure, or nil if every buffer went in.
+    var firstWriteError: String? {
+        lock.lock()
+        defer { lock.unlock() }
+        return _firstWriteError
     }
 
     /// Largest sample seen since start; 0 means the file is silent.

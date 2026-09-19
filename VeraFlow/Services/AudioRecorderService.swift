@@ -49,6 +49,9 @@ enum AudioRecorderError: Error, Equatable {
     case notRecording
     case diskFull
     case sessionFailed(String)
+    /// Capture ran but not one frame reached the file. The string is the first write error, if
+    /// the file rejected the audio; nil when no buffer ever arrived from the microphone.
+    case noAudioCaptured(String?)
 }
 
 /// Records audio to a crash-safe AAC (ADTS) file (SPEC §8; see docs/DECISIONS.md). Implemented for real in M1.

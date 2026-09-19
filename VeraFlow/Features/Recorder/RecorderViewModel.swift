@@ -532,11 +532,12 @@ final class RecorderViewModel {
         streamTasks.removeAll()
     }
 
-    private static func message(for error: Error) -> String {
+    /// What the Record screen says about a recorder failure. Internal so the copy is testable.
+    static func message(for error: Error) -> String {
         if let error = error as? AudioRecorderError {
             switch error {
             case .permissionDenied:
-                return "Microphone access is off. Turn it on in Settings to record."
+                return "Microphone access is off. Turn it on in \(Platform.settingsAppName) to record."
             case .alreadyRecording:
                 return "A recording is already in progress."
             case .notRecording:
@@ -545,6 +546,9 @@ final class RecorderViewModel {
                 return "Not enough free storage to record. Free up space and try again."
             case .sessionFailed(let detail):
                 return "Recording couldn't start: \(detail)"
+            case .noAudioCaptured(let detail):
+                let reason = detail.map { " (\($0))" } ?? ""
+                return "No audio was captured, so the recording is empty\(reason). Check the microphone in the Record screen and try again."
             }
         }
         return error.localizedDescription

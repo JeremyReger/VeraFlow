@@ -196,7 +196,7 @@ final class ExportController {
     static func message(for error: Error) -> String {
         if let error = error as? ExportError {
             switch error {
-            case .remindersAccessDenied: return "VeraFlow doesn't have access to Reminders. You can allow it in Settings → Privacy & Security → Reminders."
+            case .remindersAccessDenied: return "VeraFlow doesn't have access to Reminders. You can allow it in \(Platform.settingsAppName) → Privacy & Security → Reminders."
             case .remindersFailed(let detail): return "Couldn't create the reminders: \(detail)"
             case .pdfFailed(let detail): return "Couldn't make the PDF: \(detail)"
             case .audioExportFailed(let detail): return "Couldn't export the audio: \(detail)"

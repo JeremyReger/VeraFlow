@@ -25,6 +25,9 @@ struct MacPlatformTests {
         #endif
         #expect(Platform.yourDevice == "your \(Platform.deviceNoun)")
         #expect(Platform.microphoneSettingsURL != nil)
+        #expect(Platform.osName == (Platform.isMac ? "macOS" : "iOS"))
+        // The Mac's permission panes live in System Settings; the iPhone's in Settings.
+        #expect(Platform.settingsAppName == (Platform.isMac ? "System Settings" : "Settings"))
     }
 
     @Test("Copy that names the device uses the platform's noun, never a hard-coded iPhone on the Mac")

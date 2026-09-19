@@ -121,6 +121,9 @@ actor LiveTranscriptionService: TranscriptionService {
         guard let analyzerFormat = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: modules) else {
             throw TranscriptionError.assetDownloadFailed("The speech model isn't installed yet.")
         }
+        guard !AudioFileInfo.isEmpty(at: fileURL) else {
+            throw TranscriptionError.analysisFailed("The recording is empty: no audio was captured.")
+        }
         let file: AVAudioFile
         do {
             file = try AVAudioFile(forReading: fileURL)

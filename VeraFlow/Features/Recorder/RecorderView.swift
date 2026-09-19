@@ -190,7 +190,7 @@ private struct RecorderContent: View {
             .padding(.horizontal, VFSpace.gutter + 8)
             Spacer()
             VStack(spacing: VFSpace.listGap) {
-                Button(Platform.isMac ? "Open System Settings" : "Open Settings") {
+                Button("Open \(Platform.settingsAppName)") {
                     if let url = Platform.microphoneSettingsURL {
                         openURL(url)
                     }

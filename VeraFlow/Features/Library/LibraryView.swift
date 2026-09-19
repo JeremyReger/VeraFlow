@@ -34,6 +34,8 @@ struct LibraryView: View {
 
     private var allTags: [String] { LibraryFilter.allTags(in: recordings) }
     private var visibleRecordings: [Recording] { filter.apply(to: recordings) }
+    /// Everything but Recently Deleted (v1.1 plan item 10).
+    private var liveRecordings: [Recording] { recordings.filter { !$0.isTrashed } }
 
     var body: some View {
         Group {
@@ -102,7 +104,7 @@ struct LibraryView: View {
 
     @ViewBuilder
     private func content(_ controller: RecordingActionsController) -> some View {
-        if recordings.isEmpty {
+        if liveRecordings.isEmpty {
             emptyState
         } else {
             // The header and the search field stay put above the list: a text field inside a
@@ -250,7 +252,7 @@ struct LibraryView: View {
 
     /// All / Starred / the templates in use / the user's tags.
     private var chips: some View {
-        let templates = TemplateID.allCases.filter { template in recordings.contains { $0.templateID == template } }
+        let templates = TemplateID.allCases.filter { template in liveRecordings.contains { $0.templateID == template } }
         return ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 VFChip("All", isSelected: !filter.favoritesOnly && filter.template == nil && filter.tag == nil) {

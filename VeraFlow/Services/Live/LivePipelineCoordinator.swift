@@ -133,7 +133,7 @@ actor LivePipelineCoordinator: PipelineCoordinating {
 
     func resumePendingWork() async {
         let pending = ((try? context.fetch(FetchDescriptor<Recording>())) ?? [])
-            .filter { Self.needsWork($0.stage) }
+            .filter { Self.needsWork($0.stage) && !$0.isTrashed }
             .sorted { $0.createdAt < $1.createdAt }
         for recording in pending {
             await enqueue(recordingID: recording.id)
@@ -142,7 +142,7 @@ actor LivePipelineCoordinator: PipelineCoordinating {
 
     func retrySummariesBlockedByFreeLimit() async {
         let blocked = ((try? context.fetch(FetchDescriptor<Recording>())) ?? [])
-            .filter { $0.failedStage == .summarizing && $0.failureMessage == SummarizationError.freeLimitMessage }
+            .filter { $0.failedStage == .summarizing && $0.failureMessage == SummarizationError.freeLimitMessage && !$0.isTrashed }
             .sorted { $0.createdAt < $1.createdAt }
         Self.log.info("unlocked: retrying \(blocked.count, privacy: .public) summaries stopped at the free limit")
         for recording in blocked {

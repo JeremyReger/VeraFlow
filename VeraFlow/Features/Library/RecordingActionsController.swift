@@ -67,11 +67,12 @@ final class RecordingActionsController {
         deleteTarget = recording
     }
 
-    /// Same as `commitRename`: the dialog is already dismissed when this runs.
+    /// Same as `commitRename`: the dialog is already dismissed when this runs. Delete moves the
+    /// recording to Recently Deleted (v1.1 plan item 10); Settings → Storage removes it for good.
     func confirmDelete(_ recording: Recording) async {
         deleteTarget = nil
         do {
-            try await actions.delete(recording)
+            try await actions.trash(recording)
             onDeleted?(recording)
         } catch {
             errorMessage = error.localizedDescription
@@ -137,7 +138,7 @@ struct RecordingActionsModifier: ViewModifier {
                 }
                 Button("Cancel", role: .cancel) { controller.deleteTarget = nil }
             } message: { _ in
-                Text("This removes the audio and everything made from it.")
+                Text("It moves to Recently Deleted for \(Int(TrashPolicy.retention / 86_400)) days, where you can restore it from Settings.")
             }
             .alert("Something went wrong", isPresented: Binding(
                 get: { controller.errorMessage != nil },

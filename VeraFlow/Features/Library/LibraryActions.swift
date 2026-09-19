@@ -42,13 +42,38 @@ struct LibraryActions {
         return result
     }
 
-    /// Removes the row, its audio folder, and any queued pipeline work.
+    /// Moves the recording to Recently Deleted (v1.1 plan item 10): the row and audio stay for
+    /// `TrashPolicy.retention`, queued work is cancelled, and the Library hides it.
+    func trash(_ recording: Recording, now: Date = .now) async throws {
+        await services.pipeline.cancel(recordingID: recording.id)
+        recording.deletedAt = now
+        try context.save()
+    }
+
+    /// Back from Recently Deleted; processing that was cut short is queued again.
+    func restore(_ recording: Recording) async throws {
+        recording.deletedAt = nil
+        try context.save()
+        if LivePipelineCoordinator.needsWork(recording.stage) {
+            await services.pipeline.enqueue(recordingID: recording.id)
+        }
+    }
+
+    /// Removes the row, its audio folder, and any queued pipeline work, for good.
     func delete(_ recording: Recording) async throws {
         let id = recording.id
         await services.pipeline.cancel(recordingID: id)
         context.delete(recording)
         try context.save()
         try services.storage.deleteFolder(for: id)
+    }
+
+    /// Everything in Recently Deleted, for good.
+    func emptyTrash() async throws {
+        let trashed = try context.fetch(FetchDescriptor<Recording>()).filter(\.isTrashed)
+        for recording in trashed {
+            try await delete(recording)
+        }
     }
 
     /// "Delete all data" (SPEC §14.4): every row, every audio folder (orphans included), and any queued work.

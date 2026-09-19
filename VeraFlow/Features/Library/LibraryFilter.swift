@@ -37,9 +37,11 @@ struct LibraryFilter: Equatable, Sendable {
         searchText.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    /// Recently Deleted rows never show here, whatever the other filters say.
     func apply(to recordings: [Recording]) -> [Recording] {
         let query = trimmedSearch
         var result = recordings.filter { recording in
+            if recording.isTrashed { return false }
             if favoritesOnly, !recording.isFavorite { return false }
             if let tag, !recording.tags.contains(tag) { return false }
             if let template, recording.templateID != template { return false }
@@ -81,8 +83,8 @@ struct LibraryFilter: Equatable, Sendable {
         return fields
     }
 
-    /// Every distinct tag in use, alphabetically.
+    /// Every distinct tag in use (Recently Deleted excluded), alphabetically.
     static func allTags(in recordings: [Recording]) -> [String] {
-        Array(Set(recordings.flatMap(\.tags))).sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+        Array(Set(recordings.filter { !$0.isTrashed }.flatMap(\.tags))).sorted { $0.localizedStandardCompare($1) == .orderedAscending }
     }
 }

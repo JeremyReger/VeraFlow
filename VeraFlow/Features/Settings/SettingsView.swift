@@ -20,6 +20,7 @@ struct SettingsView: View {
     @State private var versionTaps = 0
     @State private var confirmDeleteAll = false
     @State private var deleteMessage: String?
+    @Query private var allRecordings: [Recording]
 
     var body: some View {
         NavigationStack {
@@ -29,6 +30,7 @@ struct SettingsView: View {
                     deviceGroup
                     displayGroup
                     recordingGroup
+                    storageGroup
                     privacyGroup
                     aboutGroup
                     footer
@@ -221,6 +223,39 @@ struct SettingsView: View {
         }
         .frame(minHeight: VFMetric.minHit)
         .contentShape(Rectangle())
+    }
+
+    // MARK: Storage (v1.1)
+
+    private var trashedCount: Int { allRecordings.filter(\.isTrashed).count }
+
+    private var storageGroup: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            VFSectionLabel("Storage")
+            VFSettingsGroup {
+                NavigationLink {
+                    RecentlyDeletedView()
+                } label: {
+                    HStack {
+                        Text("Recently Deleted").vfText(VFText.rowLabel)
+                        Spacer()
+                        if trashedCount > 0 {
+                            Text("\(trashedCount)").vfText(VFText.meta, color: VFColor.textSecondary)
+                        }
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(VFColor.textTertiary)
+                            .accessibilityHidden(true)
+                    }
+                    .frame(minHeight: 54)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("settings.recentlyDeleted")
+            }
+            Text("Deleted recordings can be restored for \(Int(TrashPolicy.retention / 86_400)) days.")
+                .vfText(VFText.snippet, color: VFColor.textTertiary)
+        }
     }
 
     // MARK: Privacy

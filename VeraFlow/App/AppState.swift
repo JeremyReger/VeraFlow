@@ -22,6 +22,8 @@ final class AppState {
     /// Set when launch found an interrupted recording (SPEC §8.2); shown once as an alert.
     private(set) var recoveryMessage: String?
     private(set) var lastRecovery: RecordingRecoveryOutcome?
+    /// Recordings the launch sweep removed from Recently Deleted (v1.1 plan item 10).
+    private(set) var sweptTrashIDs: [UUID] = []
     /// Audio files handed to the app via the share sheet / "Open in", waiting for the Library to import them.
     private(set) var pendingImportURLs: [URL] = []
     /// Processing progress by recording id; absent when nothing is running for it.
@@ -48,6 +50,7 @@ final class AppState {
         isUnlocked = await services.purchases.isUnlocked()
         freeSummariesUsed = await services.purchases.freeSummariesUsed()
         recoverInterruptedRecordings()
+        sweepTrash()
         await observePipeline()
         await services.pipeline.resumePendingWork()
         didFinishStartup = true
@@ -120,6 +123,11 @@ final class AppState {
         } catch {
             recoveryMessage = "Couldn't check for interrupted recordings: \(error.localizedDescription)"
         }
+    }
+
+    private func sweepTrash() {
+        guard let modelContext else { return }
+        sweptTrashIDs = (try? TrashSweeper(context: modelContext, storage: services.storage).sweep()) ?? []
     }
 
     /// The scene became active: fire retries whose wait elapsed while iOS had the app suspended.

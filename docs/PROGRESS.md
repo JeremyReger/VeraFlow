@@ -175,6 +175,11 @@ Waves A, B and C were written together in one build on 2026-09-19 while Jeremy w
   - [ ] Jeremy's Mac, on device: run the `VeraFlow-macOS` scheme: onboarding → allow the microphone → record from the built-in mic and from a USB or Bluetooth mic (switch mid-recording) → import a Teams recording by dragging it onto the window → transcript, speakers, summary → PDF and Markdown through the save panel → Email summary → Reminders → Export library → Settings → restore purchase in the StoreKit sandbox
   - [ ] App Store Connect before the first Mac upload: turn on universal purchase for the existing app record (it can't be turned on later for a separately created Mac app); Mac screenshots; a proper macOS icon (the 1024 iOS mark is reused for now; Apple's Mac template adds the rounded rectangle and margin)
   - [ ] Not done in this pass: ⌘E / ⌘⇧S shortcuts, Mac UI tests, Mac-specific screenshots in `ScreenshotTests`
+- [x] Speaker labels: one-voice notice (2026-09-19, from Jeremy's Mac recordings)
+  - [x] `SpeakerCountNotice`: labels done, exactly one speaker, over 45 seconds, no expected count set → the transcript offers "Label again" with 2 / 3 / 4 or more, sets the preference and re-runs the labels in one tap. Suppressed once a count is set
+  - [x] The diarizer logs the hint it was given and how the speech split between the speakers it found, so a bad run is diagnosable from our own log
+  - [ ] Device: on a recording that came back with one speaker, use the notice to ask for 2 and check the labels change; then check the notice is gone
+
 - [x] Summary section editing, tier one (2026-09-19, from Jeremy's question about per-section edit buttons)
   - [x] `SummaryEdits` overlay (`SummaryField`, `lines` / `added` / `paragraphs`), stored on `SummaryRecord.summaryEditsJSON`; `payload().applying(edits)` feeds `resolvedPayload()` and `resolvedTranslation(in:)`, so exports, the library card, Reminders and library search all read the user's wording while `payloadJSON` keeps the model's
   - [x] `SummarySectionEditor` sheet: rewrite a line, add one, swipe to delete, "Use the original wording"; a pencil in each section header, and an "Add a section" menu at the foot for blocks the model left empty

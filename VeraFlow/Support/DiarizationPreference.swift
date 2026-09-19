@@ -71,3 +71,32 @@ extension SpeakerCountHint: CustomStringConvertible {
         }
     }
 }
+
+/// Whether to offer the speaker-count hint on a recording the diarizer heard as one voice.
+///
+/// Clustering can collapse to a single speaker when the voices reach the microphone through the
+/// same channel — a meeting on speakerphone, a broadcast across a room — because the room and the
+/// codec dominate the speaker embedding. Jeremy's 2:11 Mac recording: 60 embedding windows, one
+/// centroid. The setting that fixes it already exists, so the transcript says so rather than
+/// leaving a wrong answer sitting there (2026-09-19).
+enum SpeakerCountNotice {
+    /// Long enough that one voice for the whole recording is worth questioning. A short memo
+    /// really is one person, and nagging about it would be noise.
+    static let minimumDuration: TimeInterval = 45
+
+    static func shouldOfferHint(
+        speakerCount: Int,
+        duration: TimeInterval,
+        hint: DiarizationPreference.ExpectedSpeakers,
+        isLabeled: Bool
+    ) -> Bool {
+        // Only once the labels have actually run, only when they found exactly one voice, and
+        // only while the user hasn't already told us a number — if they said 2 and still got 1,
+        // repeating the advice is no help.
+        guard isLabeled, speakerCount == 1, hint == .automatic else { return false }
+        return duration >= minimumDuration
+    }
+
+    /// What the banner offers, in the order it offers them.
+    static let choices: [DiarizationPreference.ExpectedSpeakers] = [.two, .three, .fourOrMore]
+}

@@ -131,8 +131,41 @@ struct TranscriptTab: View {
                     }
                     .accessibilityIdentifier("transcript.retrySpeakers")
                 }
+            } else if offersSpeakerHint {
+                oneSpeakerBanner
             }
         }
+    }
+
+    /// The labels ran and heard one voice for a long recording, with no expected count set.
+    private var offersSpeakerHint: Bool {
+        SpeakerCountNotice.shouldOfferHint(
+            speakerCount: recording.speakers.count,
+            duration: recording.duration,
+            hint: DiarizationPreference.expectedSpeakers(),
+            isLabeled: recording.stage == .diarized || recording.stage == .ready
+        )
+    }
+
+    /// Clustering collapsed to one voice. The fix is a setting the user has never seen, so offer
+    /// it here with the number of people, and re-label in the same tap.
+    private var oneSpeakerBanner: some View {
+        banner(
+            systemImage: "person.2.wave.2",
+            text: "Everyone sounded like one voice. If more people were talking, say how many.",
+            tint: .orange
+        ) {
+            Menu("Label again") {
+                ForEach(SpeakerCountNotice.choices, id: \.self) { choice in
+                    Button("\(choice.displayName) speakers") {
+                        DiarizationPreference.setExpectedSpeakers(choice)
+                        Task { await services.pipeline.retry(recordingID: recording.id, from: .diarizing) }
+                    }
+                }
+            }
+            .accessibilityLabel("Label the speakers again, with the number of people")
+        }
+        .accessibilityIdentifier("transcript.speakerHint")
     }
 
     private func progressBanner(working: String, downloading: String, systemImage: String) -> some View {

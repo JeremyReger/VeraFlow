@@ -26,4 +26,41 @@ struct DiarizationPreferenceTests {
         #expect(SpeakerCountHint(.three).description == "exactly 3")
         #expect(SpeakerCountHint(.fourOrMore).description == "4 or more")
     }
+
+    // MARK: The one-voice notice
+
+    @Test("A long recording heard as one voice offers the speaker count")
+    func offersTheHint() {
+        #expect(SpeakerCountNotice.shouldOfferHint(speakerCount: 1, duration: 131, hint: .automatic, isLabeled: true))
+    }
+
+    @Test("Nothing is offered before the labels have run, or when they found more than one voice")
+    func staysQuiet() {
+        // Still transcribing: one speaker means nothing yet.
+        #expect(!SpeakerCountNotice.shouldOfferHint(speakerCount: 1, duration: 131, hint: .automatic, isLabeled: false))
+        // Two voices found: the labels worked.
+        #expect(!SpeakerCountNotice.shouldOfferHint(speakerCount: 2, duration: 131, hint: .automatic, isLabeled: true))
+        // No speech at all.
+        #expect(!SpeakerCountNotice.shouldOfferHint(speakerCount: 0, duration: 131, hint: .automatic, isLabeled: true))
+    }
+
+    @Test("A short memo really is one person, so it is never questioned")
+    func shortRecordings() {
+        #expect(!SpeakerCountNotice.shouldOfferHint(speakerCount: 1, duration: 20, hint: .automatic, isLabeled: true))
+        #expect(SpeakerCountNotice.shouldOfferHint(
+            speakerCount: 1,
+            duration: SpeakerCountNotice.minimumDuration,
+            hint: .automatic,
+            isLabeled: true
+        ))
+    }
+
+    @Test("Once the user has said how many people there were, the advice is not repeated")
+    func hintAlreadyGiven() {
+        for choice in SpeakerCountNotice.choices {
+            #expect(!SpeakerCountNotice.shouldOfferHint(speakerCount: 1, duration: 131, hint: choice, isLabeled: true))
+        }
+        #expect(SpeakerCountNotice.choices == [.two, .three, .fourOrMore])
+        #expect(!SpeakerCountNotice.choices.contains(.automatic))
+    }
 }

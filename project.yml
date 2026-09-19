@@ -97,7 +97,21 @@ targets:
         # Lets Voice Memos, Files, Mail, etc. hand audio to VeraFlow. The system copies the file into
         # Documents/Inbox and calls onOpenURL (SPEC M2; onOpenURL chosen over a Share Extension).
         LSSupportsOpeningDocumentsInPlace: false
+        # The library archive package (v1.1 plan item 5): a folder Files shows as one item.
+        UTExportedTypeDeclarations:
+          - UTTypeIdentifier: com.jeremyreger.veraflow.archive
+            UTTypeDescription: VeraFlow Archive
+            UTTypeConformsTo:
+              - com.apple.package
+            UTTypeTagSpecification:
+              public.filename-extension:
+                - veraflowarchive
         CFBundleDocumentTypes:
+          - CFBundleTypeName: VeraFlow Archive
+            CFBundleTypeRole: Editor
+            LSHandlerRank: Owner
+            LSItemContentTypes:
+              - com.jeremyreger.veraflow.archive
           - CFBundleTypeName: Audio
             CFBundleTypeRole: Viewer
             LSHandlerRank: Alternate

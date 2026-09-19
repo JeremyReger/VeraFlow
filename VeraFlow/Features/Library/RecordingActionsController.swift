@@ -13,6 +13,8 @@ final class RecordingActionsController {
     var deleteTarget: Recording?
     /// "Transcribe again in…" (v1.1 plan item 8).
     var retranscribeTarget: Recording?
+    /// "Export recording…" (v1.1 plan item 5).
+    let archiveExport = ArchiveExportController()
     var errorMessage: String?
     /// Called after a recording is deleted, e.g. so the detail screen can pop.
     var onDeleted: ((Recording) -> Void)?
@@ -73,6 +75,10 @@ final class RecordingActionsController {
         retranscribeTarget = recording
     }
 
+    func exportPackage(_ recording: Recording) async {
+        await archiveExport.exportRecording(recording, using: actions)
+    }
+
     func confirmRetranscribe(_ recording: Recording, in locale: Locale) async {
         retranscribeTarget = nil
         do {
@@ -120,6 +126,10 @@ struct RecordingMenuItems: View {
             controller.beginRetranscribe(recording)
         }
         .disabled(recording.stage == .recording || recording.stage.isProcessing || !recording.audioAvailable)
+        Button("Export recording…", systemImage: "shippingbox") {
+            Task { await controller.exportPackage(recording) }
+        }
+        .disabled(recording.stage == .recording)
         Divider()
         Button("Delete", systemImage: "trash", role: .destructive) {
             controller.requestDelete(recording)
@@ -153,6 +163,7 @@ struct RecordingActionsModifier: ViewModifier {
                     Task { await controller.confirmRetranscribe(recording, in: locale) }
                 }
             }
+            .modifier(ArchiveExportPresentation(controller: controller.archiveExport))
             .confirmationDialog("Delete this recording?", isPresented: Binding(
                 get: { controller.deleteTarget != nil },
                 set: { if !$0 { controller.deleteTarget = nil } }

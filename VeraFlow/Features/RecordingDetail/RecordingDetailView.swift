@@ -123,7 +123,11 @@ struct RecordingDetailView: View {
             if exportController == nil {
                 exportController = ExportController(services: services)
             }
-            player.load(url: services.storage.audioURL(for: recording.id, fileName: recording.audioFileName), title: recording.title)
+            if recording.audioAvailable {
+                player.load(url: services.storage.audioURL(for: recording.id, fileName: recording.audioFileName), title: recording.title)
+            } else {
+                player.markUnavailable("The audio isn't on this iPhone; it wasn't included when this recording was imported.")
+            }
             // Opened: the "Summary ready" notification for it has done its job.
             await services.notifications.clear(recordingID: recording.id)
         }

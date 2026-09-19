@@ -74,6 +74,15 @@ struct RecordingStorage: Sendable {
         }
     }
 
+    /// Bytes used by one recording's folder (audio and anything else in it). Missing folder → 0.
+    func folderSize(for id: UUID) -> Int64 {
+        let url = rootDirectory.appending(path: id.uuidString, directoryHint: .isDirectory)
+        guard let files = try? FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: [.fileSizeKey]) else { return 0 }
+        return files.reduce(0) { total, file in
+            total + Int64((try? file.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+        }
+    }
+
     /// Free space on the volume that holds the recordings, in bytes. `nil` if it can't be read.
     func availableCapacity() -> Int64? {
         let values = try? rootDirectory.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])

@@ -171,7 +171,7 @@ final class RecorderViewModel {
             templateID: selectedTemplate
         )
         do {
-            try services.storage.folder(for: recording.id)
+            try services.storage.folder(for: recording.id, excludeFromBackup: !AppPreferences.includesRecordingsInBackup(in: defaults))
             let url = services.storage.audioURL(for: recording.id, fileName: recording.audioFileName)
             context.insert(recording)
             try context.save()

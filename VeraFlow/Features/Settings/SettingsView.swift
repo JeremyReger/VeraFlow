@@ -22,6 +22,9 @@ struct SettingsView: View {
     @State private var confirmDeleteAll = false
     @State private var deleteMessage: String?
     @Query private var allRecordings: [Recording]
+    @State private var includeInBackup = AppPreferences.includesRecordingsInBackup()
+    @State private var usage: StorageUsage?
+    @State private var archiveExport = ArchiveExportController()
 
     var body: some View {
         NavigationStack {
@@ -55,7 +58,17 @@ struct SettingsView: View {
             } message: {
                 Text(deleteMessage ?? "")
             }
+            .modifier(ArchiveExportPresentation(controller: archiveExport))
+            .task(id: allRecordings.count) { await loadUsage() }
         }
+    }
+
+    private func loadUsage() async {
+        let rows = allRecordings.map { (id: $0.id, isTrashed: $0.isTrashed) }
+        let storage = services.storage
+        usage = await Task.detached(priority: .utility) {
+            StorageUsage.compute(recordings: rows, storage: storage)
+        }.value
     }
 
     // MARK: Header
@@ -271,6 +284,39 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 10) {
             VFSectionLabel("Storage")
             VFSettingsGroup {
+                VFSettingsRow(title: "Recordings on this iPhone", detail: usage.map { $0.trashedBytes > 0 ? "\(StorageUsage.text($0.trashedBytes)) of it in Recently Deleted" : nil } ?? nil) {
+                    Text(usage.map { StorageUsage.text($0.totalBytes) } ?? "…")
+                        .vfText(VFText.meta, color: VFColor.textSecondary)
+                }
+                .accessibilityElement(children: .combine)
+                VFHairline()
+                Toggle("Include recordings in iPhone backup", isOn: $includeInBackup)
+                    .toggleStyle(VFToggleRowStyle(detail: "Off keeps recordings out of iCloud and computer backups"))
+                    .onChange(of: includeInBackup) { _, value in
+                        AppPreferences.setIncludesRecordingsInBackup(value)
+                        try? services.storage.setExcludedFromBackupForAll(!value)
+                    }
+                    .accessibilityIdentifier("settings.includeInBackup")
+                VFHairline()
+                Button {
+                    Task { await archiveExport.exportLibrary(allRecordings, using: LibraryActions(context: modelContext, services: services)) }
+                } label: {
+                    HStack {
+                        Text("Export library…").vfText(VFText.rowLabel)
+                        Spacer()
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(VFColor.iconPrimary)
+                            .accessibilityHidden(true)
+                    }
+                    .frame(minHeight: 54)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(allRecordings.filter { !$0.isTrashed }.isEmpty || archiveExport.isWorking)
+                .accessibilityHint("Saves every recording, transcript and summary as one package you choose where to keep")
+                .accessibilityIdentifier("settings.exportLibrary")
+                VFHairline()
                 NavigationLink {
                     RecentlyDeletedView()
                 } label: {
@@ -291,7 +337,7 @@ struct SettingsView: View {
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("settings.recentlyDeleted")
             }
-            Text("Deleted recordings can be restored for \(Int(TrashPolicy.retention / 86_400)) days.")
+            Text("The exported package holds audio, transcripts and summaries; import it on another iPhone from the Library's Import menu. The backup switch uses Apple's own backup; VeraFlow still sends nothing anywhere. Deleted recordings can be restored for \(Int(TrashPolicy.retention / 86_400)) days.")
                 .vfText(VFText.snippet, color: VFColor.textTertiary)
         }
     }

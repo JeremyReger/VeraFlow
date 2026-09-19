@@ -40,6 +40,13 @@ final class AudioPlayerController {
         self.skipsSilence = AppPreferences.skipsSilence(in: defaults)
     }
 
+    /// The recording's audio isn't on this iPhone (an archive without it, v1.1 plan item 5):
+    /// the player shows why instead of "file not found".
+    func markUnavailable(_ message: String) {
+        stop()
+        errorMessage = message
+    }
+
     func load(url: URL, title: String = "") {
         stop()
         self.title = title

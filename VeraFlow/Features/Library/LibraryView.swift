@@ -30,6 +30,7 @@ struct LibraryView: View {
         UTType("com.apple.coreaudio-format") ?? .audio,
         .mpeg4Movie,
         .quickTimeMovie,
+        LibraryArchive.contentType,   // a .veraflowarchive package (v1.1 plan item 5)
     ]
 
     private var allTags: [String] { LibraryFilter.allTags(in: recordings) }
@@ -236,6 +237,9 @@ struct LibraryView: View {
                     Button("Import Video from Photos", systemImage: "photo.on.rectangle") {
                         isShowingPhotosPicker = true
                     }
+                    Button("Import VeraFlow Archive", systemImage: "shippingbox") {
+                        isShowingImporter = true
+                    }
                 } label: {
                     Image(systemName: "ellipsis")
                         .font(.system(size: 17, weight: .medium))
@@ -370,15 +374,21 @@ struct LibraryView: View {
         isImporting = true
         defer { isImporting = false }
         var failures: [String] = []
+        var notes: [String] = []
         for url in urls {
             do {
-                try await actions.importAudio(from: url)
+                if LibraryArchive.isArchive(url) {
+                    let outcome = try await actions.importArchive(from: url)
+                    notes.append(outcome.userMessage)
+                } else {
+                    try await actions.importAudio(from: url)
+                }
             } catch {
                 failures.append("\(url.lastPathComponent): \(Self.describe(error))")
             }
         }
-        if !failures.isEmpty {
-            importMessage = failures.joined(separator: "\n")
+        if !failures.isEmpty || !notes.isEmpty {
+            importMessage = (notes + failures).joined(separator: "\n")
         }
     }
 
@@ -411,6 +421,16 @@ struct LibraryView: View {
     }
 
     private static func describe(_ error: Error) -> String {
+        if let error = error as? ArchiveError {
+            switch error {
+            case .newerFormat:
+                return "This archive was made by a newer VeraFlow. Update the app to import it."
+            case .notAnArchive:
+                return "This isn't a VeraFlow archive."
+            case .unreadable(let detail):
+                return "The archive couldn't be read: \(detail)"
+            }
+        }
         if let error = error as? AudioImportError {
             switch error {
             case .unsupportedType(let ext):

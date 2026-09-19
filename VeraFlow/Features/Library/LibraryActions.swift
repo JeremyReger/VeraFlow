@@ -94,7 +94,7 @@ struct LibraryActions {
     @discardableResult
     func importAudio(from sourceURL: URL) async throws -> Recording {
         let id = UUID()
-        let folder = try services.storage.folder(for: id)
+        let folder = try services.storage.folder(for: id, excludeFromBackup: !AppPreferences.includesRecordingsInBackup())
         let imported: ImportedAudio
         do {
             imported = try await services.importer.importAudio(from: sourceURL, into: folder)
@@ -144,6 +144,82 @@ struct LibraryActions {
         try context.save()
         await services.pipeline.enqueue(recordingID: recording.id)
     }
+
+    // MARK: Archive (v1.1 plan item 5)
+
+    /// Writes the recordings (Recently Deleted excluded) as a `.veraflowarchive` package at
+    /// `destination`, audio included. Runs the file work off the main actor.
+    func exportArchive(_ recordings: [Recording], to destination: URL, progress: @escaping @Sendable (Double) -> Void = { _ in }) async throws {
+        let live = recordings.filter { !$0.isTrashed }
+        let snapshots = live.map { RecordingSnapshot(recording: $0) }
+        var audioURLs: [UUID: URL] = [:]
+        for recording in live where recording.audioAvailable {
+            audioURLs[recording.id] = services.storage.audioURL(for: recording.id, fileName: recording.audioFileName)
+        }
+        let urls = audioURLs
+        let version = AppInfo.versionString
+        try await Task.detached(priority: .userInitiated) {
+            try LibraryArchive.write(snapshots, audioURLs: urls, appVersion: version, to: destination, progress: progress)
+        }.value
+    }
+
+    /// Reads a package and inserts its recordings. Ones already in the Library are skipped unless
+    /// `replace` is set. Audio is copied into the recording's folder; a snapshot without audio is
+    /// still imported with `audioAvailable` off (its transcript and summary stay usable).
+    @discardableResult
+    func importArchive(from packageURL: URL, replace: Bool = false, source: RecordingSource? = nil, extraTags: [String] = []) async throws -> ArchiveImportOutcome {
+        let isScoped = packageURL.startAccessingSecurityScopedResource()
+        defer {
+            if isScoped { packageURL.stopAccessingSecurityScopedResource() }
+        }
+        let (_, snapshots) = try LibraryArchive.read(packageURL)
+        var outcome = ArchiveImportOutcome()
+        let existingIDs = Set(try context.fetch(FetchDescriptor<Recording>()).map(\.id))
+        for snapshot in snapshots {
+            if existingIDs.contains(snapshot.id) {
+                guard replace, let existing = try context.fetch(FetchDescriptor<Recording>()).first(where: { $0.id == snapshot.id }) else {
+                    outcome.skippedIDs.append(snapshot.id)
+                    continue
+                }
+                try await delete(existing)
+            }
+            let folder = try services.storage.folder(for: snapshot.id, excludeFromBackup: !AppPreferences.includesRecordingsInBackup())
+            let recording = snapshot.makeRecording(source: source, extraTags: extraTags)
+            if let audio = LibraryArchive.audioURL(in: packageURL, for: snapshot) {
+                let destination = folder.appending(path: snapshot.audioFileName)
+                try? FileManager.default.removeItem(at: destination)
+                try FileManager.default.copyItem(at: audio, to: destination)
+                try? FileManager.default.setAttributes(
+                    [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
+                    ofItemAtPath: destination.path(percentEncoded: false)
+                )
+                recording.audioAvailable = true
+            } else {
+                recording.audioAvailable = false
+                outcome.missingAudioIDs.append(snapshot.id)
+                if LivePipelineCoordinator.needsWork(recording.stage) || recording.stage == .recording {
+                    // Nothing can transcribe it; keep whatever text came along.
+                    recording.stage = recording.segments.isEmpty ? .failed : .ready
+                    recording.failureMessage = recording.segments.isEmpty ? Self.missingAudioMessage : nil
+                }
+            }
+            context.insert(recording)
+            outcome.importedIDs.append(recording.id)
+        }
+        try context.save()
+        for id in outcome.importedIDs {
+            if let recording = try context.fetch(FetchDescriptor<Recording>()).first(where: { $0.id == id }),
+               recording.audioAvailable, LivePipelineCoordinator.needsWork(recording.stage) {
+                await services.pipeline.enqueue(recordingID: id)
+            }
+        }
+        if Self.isInboxURL(packageURL) {
+            try? FileManager.default.removeItem(at: packageURL)
+        }
+        return outcome
+    }
+
+    static let missingAudioMessage = "The archive didn't include this recording's audio."
 
     /// "Voice Memo 3.m4a" → "Voice Memo 3"; falls back to the dated default.
     static func title(for url: URL) -> String {

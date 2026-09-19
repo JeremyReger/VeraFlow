@@ -62,15 +62,17 @@ extension SummaryPayload {
     /// Runs SPEC §11.6 post-processing over every action item (and walk-through measurements'
     /// timestamps) in the payload, then validates the chapter starts (v1.1 plan item 12).
     func postProcessed(with processor: ActionItemPostProcessor, context: ActionItemPostProcessor.Context) -> SummaryPayload {
-        var result = self
-        let sources = chapterSources
+        // The model pads a thin transcript by repeating itself; drop the repeats before anything
+        // downstream reads the topics, so a dropped topic never claims a chapter.
+        var result = SummaryDeduplicator.cleaned(self)
+        let sources = result.chapterSources
         result.setChapterStarts(ChapterPostProcessor.starts(
             for: sources.map(\.title),
             given: sources.map(\.start),
             duration: context.duration,
             segments: context.segments
         ))
-        let drafts = actionItems.map {
+        let drafts = result.actionItems.map {
             ActionItemDraft(
                 task: $0.task,
                 owner: $0.owner,

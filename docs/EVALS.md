@@ -22,6 +22,19 @@ Columns: **Complete** = every action item a person would have written down is th
 | 2026-09-18 | device 4:40 | General | v1 | 8,192 | 1 | yes | none | yes | title, overview, key points, decisions, action items, open questions all grounded |
 | 2026-09-19 | device-25min | General | v2 | 8,192 | 2 (≤6,140 tok) | | | | 6 action items, no model error after the error bridge |
 | | | | v3 | | | | | | |
+| 2026-09-19 | device 1:58 (Mac) | General | v3 | 4,096 | 1 | | none | | **repetition**: 3 subjects with identical point lists, the points being the open questions repeated; 8 action items |
+| | device 1:58 (Mac) | General | v4 | 4,096 | | | | | after `SummaryDeduplicator` + prompt v4: expect 1–2 subjects, no point twice, questions only under Open Questions |
+
+## Prompt v4 checks (repetition)
+
+A short recording is the stress case: with little to say the model pads the arrays. One row per fixture,
+shortest first.
+
+| Date | Fixture | Topics returned | Any point under two subjects? | Any point that is a question? | Topics dropped by the deduplicator | Notes |
+|---|---|---|---|---|---|---|
+| | device 1:58 (Mac) | | | | | the recording this came from |
+| | monologue-2min | | | | | |
+| | meeting-10min | | | | | |
 
 ## Prompt v3 checks (v1.1 plan items 1 and 12)
 

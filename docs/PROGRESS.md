@@ -210,6 +210,20 @@ Waves A, B and C were written together in one build on 2026-09-19 while Jeremy w
   - [x] **The output cap alone would not have fixed this.** Capping at the reserve turns "ran on until the window blew" into "ran on until the cap" — the same truncated JSON. The cap stays as the second line of defence; the bounded schema is the fix
   - [ ] Device: the 1:58 recording should summarize. If it fails again, the log line to read is `answer ran on (…); retrying chunked at N tokens` — its absence means the retry isn't firing, its presence three times means the chunked path loops too
   - [ ] Noticed, not fixed: `KeyPointTopic.start` is parsed but never clamped to the recording's duration (the runaway invented 04:10 on a 1:58 recording). `ChapterPostProcessor` clamps the chapter list, so this only affects a topic's own start; worth folding into that clamp rather than widening this change
+- [x] Summaries: the loop is bounded, so now the repeats are removed (2026-09-19, from Jeremy's 1:58 Mac recording)
+  - [x] Device result of the `.maximumCount` fix: **the summary generated, first attempt, no retry** (`context 4096 tokens; … input budget 2119`, then `summarized … with general: 8 action items`). The decoding failure is gone
+  - [x] But the summary showed three subjects with byte-identical point lists, and those "points" were the three open questions repeated. `@Generable` fills fields in declaration order, so the model wrote them as points first and reused them for the questions. Bounding the arrays stopped the answer running past the window; it could never stop the padding itself
+  - [x] `SummaryDeduplicator`, run first inside `postProcessed` so a dropped topic never claims a chapter: a point used under an earlier subject goes, a topic left with nothing goes, a "key point" phrased as a question that is also an open question goes, and walk-through areas get the same for tasks, measurements and materials
+  - [x] Action items are left to `ActionItemPostProcessor`, which already merges on token similarity and owner — a better rule than string identity, and it keeps whichever fields each copy filled in
+  - [x] Prompt v4: "A short list is a good answer… leave a list empty rather than filling it", plus key points are statements and never repeat across subjects. The prompt reduces how often padding happens; the deduplicator is what guarantees it never reaches the screen
+  - [ ] Device: re-run the 1:58 recording. Expect one or two subjects instead of four, no point appearing twice, and the three questions only under Open Questions. `Model` at the foot of the summary should read `prompt v4`
+  - [ ] Still open, and the real fix: scale the schema to the transcript, so a two-minute recording is asked for one or two topics rather than eight. Needs a runtime `DynamicGenerationSchema` — `@Guide(.maximumCount(n))` takes a literal — and the API wants verifying against the SDK first
+  - [ ] Still noticed, still not fixed: `KeyPointTopic.start` is parsed but never clamped to the recording's duration; fold it into the `ChapterPostProcessor` clamp
+- [x] Mini player: drag to seek (2026-09-19, Jeremy)
+  - [x] The bottom bar's progress line was a display-only capsule — no tap, no drag. `VFMiniPlayer` takes an optional `onScrub` (fraction, ended) and draws a thumb when it has one; the gesture is `DragGesture(minimumDistance: 0)` so a plain click seeks, in a 26 pt invisible overlay so the 3 pt line stays a 3 pt line and the bar's height is unchanged
+  - [x] `MiniPlayerBar` holds the drag position: the bar and the elapsed time follow the pointer, and the player only moves on release, the same shape the Audio tab's waveform already uses
+  - [x] VoiceOver: the track is its own "Playback position" element with an adjustable action wired to ±15 s
+  - [ ] Device: drag the bottom bar on Mac and iPhone; check the audio jumps on release and not during, and that dragging past either end lands on 0:00 and the full length
 - [ ] Wave G — iPad (opens 1.2)
 
 ## Requests from device testing

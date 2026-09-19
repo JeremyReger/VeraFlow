@@ -5,6 +5,11 @@ import SwiftUI
 struct MiniPlayerBar: View {
     let player: AudioPlayerController
 
+    /// Where the drag is, while it lasts. The bar follows the finger or pointer and the elapsed
+    /// time reads the position it would seek to; the player itself only moves when the drag ends,
+    /// so scrubbing never fights the ticker (same shape as the Audio tab's waveform).
+    @State private var scrubFraction: Double?
+
     var body: some View {
         if let message = player.errorMessage {
             Text(message)
@@ -18,18 +23,45 @@ struct MiniPlayerBar: View {
         } else {
             VFMiniPlayer(
                 isPlaying: player.isPlaying,
-                elapsed: timeText(player.currentTime),
+                elapsed: timeText(shownTime),
                 total: timeText(player.duration),
-                progress: player.duration > 0 ? min(1, max(0, player.currentTime / player.duration)) : 0,
+                progress: shownProgress,
                 rate: player.rateLabel,
                 togglePlayback: { player.togglePlayPause() },
-                cycleRate: { player.cycleRate() }
+                cycleRate: { player.cycleRate() },
+                onScrub: scrub,
+                onScrubStep: { player.skip(by: Double($0) * 15) }
             )
             .disabled(!player.isLoaded)
             .accessibilityElement(children: .contain)
             .accessibilityLabel("Player")
-            .accessibilityValue("\(SpokenFormat.duration(player.currentTime)) of \(SpokenFormat.duration(player.duration))")
+            .accessibilityValue("\(SpokenFormat.duration(shownTime)) of \(SpokenFormat.duration(player.duration))")
         }
+    }
+
+    private func scrub(to fraction: Double, isFinal: Bool) {
+        guard player.isLoaded, player.duration > 0 else {
+            scrubFraction = nil
+            return
+        }
+        if isFinal {
+            player.seek(to: fraction * player.duration)
+            scrubFraction = nil
+        } else {
+            scrubFraction = fraction
+        }
+    }
+
+    /// The drag wins over the playhead while it is happening.
+    private var shownProgress: Double {
+        if let scrubFraction { return scrubFraction }
+        guard player.duration > 0 else { return 0 }
+        return min(1, max(0, player.currentTime / player.duration))
+    }
+
+    private var shownTime: TimeInterval {
+        if let scrubFraction { return scrubFraction * player.duration }
+        return player.currentTime
     }
 
     private func timeText(_ seconds: TimeInterval) -> String {

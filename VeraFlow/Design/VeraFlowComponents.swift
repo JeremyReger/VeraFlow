@@ -419,9 +419,23 @@ public struct VFMiniPlayer: View {
     private let rate: String
     private let togglePlayback: () -> Void
     private let cycleRate: () -> Void
+    /// Where the finger or pointer is, as 0...1, and whether the drag has ended. Called
+    /// continuously while dragging so the caller can show the position it would seek to; `nil`
+    /// leaves the bar a read-only progress indicator.
+    private let onScrub: ((Double, Bool) -> Void)?
+    /// VoiceOver's increment/decrement on the position bar: -1 or +1.
+    private let onScrubStep: ((Int) -> Void)?
+
+    @State private var isDragging = false
+
+    /// Tall enough to grab: the drawn bar is a 3 pt line, which is not a target on either
+    /// platform, so the gesture lives in an overlay that doesn't change the layout.
+    private static let hitHeight: CGFloat = 26
+    private static let thumbSize: CGFloat = 11
 
     public init(isPlaying: Bool, elapsed: String, total: String, progress: Double,
-                rate: String, togglePlayback: @escaping () -> Void, cycleRate: @escaping () -> Void) {
+                rate: String, togglePlayback: @escaping () -> Void, cycleRate: @escaping () -> Void,
+                onScrub: ((Double, Bool) -> Void)? = nil, onScrubStep: ((Int) -> Void)? = nil) {
         self.isPlaying = isPlaying
         self.elapsed = elapsed
         self.total = total
@@ -429,6 +443,8 @@ public struct VFMiniPlayer: View {
         self.rate = rate
         self.togglePlayback = togglePlayback
         self.cycleRate = cycleRate
+        self.onScrub = onScrub
+        self.onScrubStep = onScrubStep
     }
 
     public var body: some View {
@@ -449,9 +465,28 @@ public struct VFMiniPlayer: View {
                         Capsule().fill(VFColor.borderStrong)
                         Capsule().fill(VFColor.accent)
                             .frame(width: geo.size.width * progress)
+                        if onScrub != nil {
+                            Circle()
+                                .fill(VFColor.accent)
+                                .frame(width: Self.thumbSize, height: Self.thumbSize)
+                                .scaleEffect(isDragging ? 1.35 : 1)
+                                .offset(x: Self.thumbX(progress: progress, width: geo.size.width))
+                                .animation(.easeOut(duration: 0.12), value: isDragging)
+                        }
                     }
+                    .overlay { scrubTarget(width: geo.size.width) }
                 }
                 .frame(height: 3)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Playback position")
+                .accessibilityValue("\(elapsed) of \(total)")
+                .accessibilityAdjustableAction { direction in
+                    switch direction {
+                    case .increment: onScrubStep?(1)
+                    case .decrement: onScrubStep?(-1)
+                    @unknown default: break
+                    }
+                }
 
                 HStack {
                     Text(elapsed)
@@ -478,6 +513,41 @@ public struct VFMiniPlayer: View {
         .overlay(alignment: .top) {
             Rectangle().fill(VFColor.border).frame(height: VFMetric.hairline)
         }
+    }
+
+    /// The invisible grab area over the 3 pt line. An overlay so the bar's height is unchanged.
+    @ViewBuilder
+    private func scrubTarget(width: CGFloat) -> some View {
+        if let onScrub {
+            Color.clear
+                .frame(height: Self.hitHeight)
+                .contentShape(Rectangle())
+                .gesture(
+                    // minimumDistance 0 so a plain click or tap seeks, without a drag.
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { value in
+                            guard width > 0 else { return }
+                            isDragging = true
+                            onScrub(Self.fraction(value.location.x, width: width), false)
+                        }
+                        .onEnded { value in
+                            defer { isDragging = false }
+                            guard width > 0 else { return }
+                            onScrub(Self.fraction(value.location.x, width: width), true)
+                        }
+                )
+        }
+    }
+
+    static func fraction(_ x: CGFloat, width: CGFloat) -> Double {
+        guard width > 0 else { return 0 }
+        return min(max(Double(x / width), 0), 1)
+    }
+
+    /// Keeps the thumb's whole width on the track at both ends.
+    static func thumbX(progress: Double, width: CGFloat) -> CGFloat {
+        let travel = max(0, width - thumbSize)
+        return min(max(0, width * progress - thumbSize / 2), travel)
     }
 }
 

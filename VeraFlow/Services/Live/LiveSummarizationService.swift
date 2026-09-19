@@ -42,7 +42,7 @@ struct ChunkNotesGenerable {
 struct KeyPointTopicGenerable {
     @Guide(description: "The subject, 2–6 words, as the participants would name it.")
     var title: String
-    @Guide(description: "Key points on this subject, each under 20 words.", .maximumCount(5))
+    @Guide(description: "Key points on this subject, each under 20 words. Statements, never questions. Never a point already used under another subject.", .maximumCount(5))
     var points: [String]
     @Guide(description: "Timestamp mm:ss or h:mm:ss of the first transcript line about this subject. Empty if unsure.")
     var startTimestamp: String

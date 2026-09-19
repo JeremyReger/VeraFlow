@@ -3,8 +3,10 @@ import Foundation
 /// Versioned model instructions (SPEC §11.5). `version` is saved in `SummaryRecord.modelInfo`
 /// so a summary can be traced to the prompt that produced it.
 enum Prompts {
-    /// v3 (2026-09-19): marked moments (★ lines) and topic start times for chapters.
-    static let version = 3
+    /// v4 (2026-09-19): short is allowed. A thin transcript had the model padding every list
+    /// with the same sentences, so the rules now say plainly that a short or empty list is the
+    /// right answer when there is nothing more to say.
+    static let version = 4
 
     /// Prepended to every template.
     static let sharedRules = """
@@ -12,6 +14,7 @@ enum Prompts {
     Use only information in the transcript. Never invent names, numbers, dates, prices, or measurements.
     If something is not stated, leave that field empty.
     Write plainly and concisely. No filler.
+    A short list is a good answer. Say each thing once, in the one place it belongs, and stop; never repeat a line to make a list longer, and leave a list empty rather than filling it.
     Lines look like: [mm:ss] Speaker N: text. Use those timestamps when citing.
     Refer to people exactly as they are labeled or named in the transcript.
     A line like [mm:ss] ★ Marked: label is a moment the person recording flagged as important. Give what was said around it extra weight and cite its time; the label, if any, says why it mattered.
@@ -27,7 +30,7 @@ enum Prompts {
         let combine = "Combine these notes into one summary of the whole recording. Merge duplicates. Keep the most specific version of each action item."
         switch template {
         case .general:
-            return combine + " Group the key points by subject: one topic per distinct subject, in the order it came up, with the points that belong to it and the timestamp of the first line about it. The overview should let someone who missed the meeting understand what it was for, what was covered, what was decided, and what is still open."
+            return combine + " Group the key points by subject: one topic per distinct subject, in the order it came up, with the points that belong to it and the timestamp of the first line about it. A recording that covers one subject gets one topic; a short recording gets one or two. Key points are statements about what was said, never questions — a question belongs in openQuestions and nowhere else. No point may appear under more than one subject. The overview should let someone who missed the meeting understand what it was for, what was covered, what was decided, and what is still open."
         case .client:
             return combine + " This was a meeting between a consultant and a client. Focus on client goals, concerns, commitments made by either side, and next steps. List the subjects discussed in order, each with the timestamp of the first line about it."
         case .walkthrough:

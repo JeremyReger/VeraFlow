@@ -4,6 +4,7 @@ import Testing
 
 /// The iOS 18 floor (v1.1 plan item 16): which engine runs where, and what the older-iPhone
 /// services report. The Parakeet run itself needs a phone on iOS 18 (see docs/PROGRESS.md).
+@MainActor
 struct OlderIPhoneTests {
     @Test("Apple's engine from iOS 26; Parakeet before that; summaries only from iOS 26")
     func policy() {

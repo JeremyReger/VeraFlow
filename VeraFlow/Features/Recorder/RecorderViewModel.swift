@@ -162,6 +162,7 @@ final class RecorderViewModel {
             title: Recording.suggestedTitle(for: startedAt),
             createdAt: startedAt,
             stage: .recording,
+            localeIdentifier: AppPreferences.effectiveTranscriptionLocale(in: defaults).identifier(.bcp47),
             templateID: selectedTemplate
         )
         do {

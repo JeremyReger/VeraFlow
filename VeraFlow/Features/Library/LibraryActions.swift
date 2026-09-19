@@ -113,7 +113,8 @@ struct LibraryActions {
             duration: imported.duration,
             audioFileName: imported.fileName,
             source: .imported,
-            stage: .recorded
+            stage: .recorded,
+            localeIdentifier: AppPreferences.effectiveTranscriptionLocale().identifier(.bcp47)
         )
         context.insert(recording)
         try context.save()
@@ -123,6 +124,25 @@ struct LibraryActions {
             try? FileManager.default.removeItem(at: sourceURL)
         }
         return recording
+    }
+
+    /// "Transcribe again in…" (v1.1 plan item 8): the transcript, speaker labels and summaries
+    /// are replaced by a fresh run in `locale`; marks, tags and the title stay.
+    func retranscribe(_ recording: Recording, in locale: Locale) async throws {
+        await services.pipeline.cancel(recordingID: recording.id)
+        for segment in recording.segments { context.delete(segment) }
+        for speaker in recording.speakers { context.delete(speaker) }
+        for summary in recording.summaries { context.delete(summary) }
+        recording.segments = []
+        recording.speakers = []
+        recording.summaries = []
+        recording.localeIdentifier = locale.identifier(.bcp47)
+        recording.transcriptionEngine = nil
+        recording.stage = .recorded
+        recording.failedStage = nil
+        recording.failureMessage = nil
+        try context.save()
+        await services.pipeline.enqueue(recordingID: recording.id)
     }
 
     /// "Voice Memo 3.m4a" → "Voice Memo 3"; falls back to the dated default.

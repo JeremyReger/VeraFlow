@@ -160,6 +160,15 @@ actor LiveSummarizationService: SummarizationService {
         }
     }
 
+    /// Compared by language code, never by `Locale.Language` equality (a regional variant must
+    /// still match). Verify against the SDK: `SystemLanguageModel.supportedLanguages: Set<Locale.Language>`.
+    func supportsLanguage(_ language: Locale.Language) async -> Bool {
+        guard let code = language.languageCode?.identifier else { return true }
+        let supported = model.supportedLanguages
+        guard !supported.isEmpty else { return true }
+        return supported.contains { $0.languageCode?.identifier == code }
+    }
+
     func prewarm() async {
         guard case .available = model.availability else { return }
         LanguageModelSession(instructions: Prompts.instructions(Prompts.map)).prewarm()

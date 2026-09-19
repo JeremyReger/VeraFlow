@@ -495,3 +495,43 @@ struct LivePipelineCoordinatorTests {
         #expect(try harness.fetch(id)?.failureMessage == nil)
     }
 }
+
+extension LivePipelineCoordinatorTests {
+    @Test("A transcript in a language the model can't summarize parks the row with the reason; the transcript stays usable")
+    func unsupportedSummaryLanguage() async throws {
+        let harness = try makeHarness()
+        defer { harness.cleanUp() }
+        await harness.summarization.setUnsupportedLanguageCodes(["mt"])
+        let recording = Recording(title: "Maltese", stage: .recorded, localeIdentifier: "mt-MT")
+        harness.container.mainContext.insert(recording)
+        try harness.container.mainContext.save()
+        try harness.storage.folder(for: recording.id)
+
+        await harness.coordinator.enqueue(recordingID: recording.id)
+        try await waitUntil { try harness.stage(of: recording.id) == .ready }
+
+        let parked = try #require(try harness.fetch(recording.id))
+        #expect(!parked.segments.isEmpty, "transcription ran")
+        #expect(parked.summaries.isEmpty)
+        #expect(parked.failedStage == .summarizing)
+        #expect(parked.failureMessage?.contains("can't summarize") == true)
+        #expect(await harness.summarization.inputs.isEmpty, "no model call")
+    }
+
+    @Test("Trashed recordings are not resumed on launch")
+    func trashedNotResumed() async throws {
+        let harness = try makeHarness()
+        defer { harness.cleanUp() }
+        let live = try harness.insert(title: "live")
+        let trashed = try harness.insert(title: "trashed")
+        let context = ModelContext(harness.container)
+        if let row = try context.fetch(FetchDescriptor<Recording>()).first(where: { $0.id == trashed }) {
+            row.deletedAt = .now
+            try context.save()
+        }
+
+        await harness.coordinator.resumePendingWork()
+        try await waitUntil { try harness.stage(of: live) == .ready }
+        #expect(try harness.stage(of: trashed) == .recorded)
+    }
+}

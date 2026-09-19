@@ -39,6 +39,8 @@ enum SummarizationError: Error, Equatable {
     case contextOverflow
     case generationFailed(String)
     case cancelled
+    /// The transcript's language isn't one the on-device model can summarize (v1.1 plan item 8).
+    case unsupportedLanguage(String)
 
     static let freeLimitMessage = "You've used your \(FreeTier.summaryLimit) free summaries. Unlock VeraFlow for unlimited summaries."
     static let rateLimitedMessage = "The on-device model is busy right now. VeraFlow will try again in a few minutes."
@@ -58,6 +60,8 @@ struct SummarizationProgress: Sendable, Equatable {
 /// Generates template summaries with the on-device model (SPEC §11). Implemented for real in M5.
 protocol SummarizationService: Sendable {
     func availability() async -> SummarizationAvailability
+    /// Whether the model can summarize transcripts in `language` (v1.1 plan item 8).
+    func supportsLanguage(_ language: Locale.Language) async -> Bool
     /// Loads the model ahead of time so the first summary starts faster.
     func prewarm() async
     func summarize(
@@ -74,6 +78,7 @@ protocol SummarizationService: Sendable {
 actor FakeSummarizationService: SummarizationService {
     var availabilityToReport: SummarizationAvailability = .available
     var errorToThrow: SummarizationError?
+    var unsupportedLanguageCodes: Set<String> = []
     private(set) var prewarmCount = 0
     private(set) var inputs: [SummarizationInput] = []
 
@@ -82,6 +87,10 @@ actor FakeSummarizationService: SummarizationService {
     }
 
     func availability() async -> SummarizationAvailability { availabilityToReport }
+
+    func supportsLanguage(_ language: Locale.Language) async -> Bool {
+        !unsupportedLanguageCodes.contains(language.languageCode?.identifier ?? "")
+    }
 
     func prewarm() async { prewarmCount += 1 }
 
@@ -156,4 +165,5 @@ actor FakeSummarizationService: SummarizationService {
 
     func setAvailability(_ availability: SummarizationAvailability) { availabilityToReport = availability }
     func setError(_ error: SummarizationError?) { errorToThrow = error }
+    func setUnsupportedLanguageCodes(_ codes: Set<String>) { unsupportedLanguageCodes = codes }
 }

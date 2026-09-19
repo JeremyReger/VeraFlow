@@ -46,6 +46,8 @@ actor EngineSelectingTranscriptionService: TranscriptionService {
 
     func isAvailable() async -> Bool { await current.isAvailable() }
 
+    func supportedLocales() async -> [Locale] { await current.supportedLocales() }
+
     func assetStatus(for locale: Locale) async -> TranscriptionAssetStatus {
         await current.assetStatus(for: locale)
     }

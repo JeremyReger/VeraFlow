@@ -368,6 +368,10 @@ actor LivePipelineCoordinator: PipelineCoordinating {
             let availability = await summarization.availability()
             guard availability.isAvailable else { throw SummarizationError.unavailable(availability) }
             guard !recording.segments.isEmpty else { throw SummarizationError.generationFailed("There is no transcript to summarize.") }
+            let language = Locale(identifier: recording.localeIdentifier).language
+            guard await summarization.supportsLanguage(language) else {
+                throw SummarizationError.unsupportedLanguage(recording.localeIdentifier)
+            }
             // Free tier: 3 summaries in total, any template (SPEC §13.2). Checked here so a queued
             // 4th summary stops cleanly with the paywall reason instead of a model call.
             let unlocked = await purchases.isUnlocked()
@@ -555,6 +559,8 @@ enum PipelineFailure {
             case .contextOverflow: return "The recording was too long to summarize in one pass."
             case .generationFailed(let detail): return "The summary couldn't be generated: \(detail)"
             case .cancelled: return "The summary was cancelled."
+            case .unsupportedLanguage(let identifier):
+                return "Apple Intelligence can't summarize \(TranscriptionLanguages.name(for: Locale(identifier: identifier))) yet. The transcript still works."
             }
         }
         if let error = error as? DiarizationError {

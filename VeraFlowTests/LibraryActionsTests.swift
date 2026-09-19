@@ -154,3 +154,31 @@ struct LibraryActionsTests {
         #expect(state.takePendingImports().isEmpty)
     }
 }
+
+extension LibraryActionsTests {
+    @Test("Transcribe again replaces the transcript, labels and summaries, keeps marks and tags, and re-queues in the new language")
+    func retranscribe() async throws {
+        let harness = try makeHarness()
+        defer { harness.cleanUp() }
+        let recording = PreviewData.sampleRecording()
+        recording.tags = ["contractor"]
+        harness.context.insert(recording)
+        try harness.context.save()
+        #expect(recording.segments.count == 2)
+
+        try await harness.actions.retranscribe(recording, in: Locale(identifier: "es_ES"))
+
+        #expect(recording.segments.isEmpty)
+        #expect(recording.speakers.isEmpty)
+        #expect(recording.summaries.isEmpty)
+        #expect(recording.bookmarks.count == 1)
+        #expect(recording.tags == ["contractor"])
+        #expect(recording.localeIdentifier == "es-ES")
+        #expect(recording.transcriptionEngine == nil)
+        #expect(recording.stage == .recorded)
+        #expect(await harness.pipeline.cancelled == [recording.id])
+        #expect(await harness.pipeline.enqueued == [recording.id])
+        #expect(try harness.context.fetchCount(FetchDescriptor<TranscriptSegment>()) == 0)
+        #expect(try harness.context.fetchCount(FetchDescriptor<SummaryRecord>()) == 0)
+    }
+}

@@ -36,6 +36,8 @@ enum TranscriptionError: Error, Equatable {
 protocol TranscriptionService: Sendable {
     /// Whether any on-device transcriber is available on this device.
     func isAvailable() async -> Bool
+    /// Every locale this engine can transcribe on this device (v1.1 plan item 8: the language picker).
+    func supportedLocales() async -> [Locale]
     /// Checks whether assets for `locale` are installed.
     func assetStatus(for locale: Locale) async -> TranscriptionAssetStatus
     /// Downloads assets for `locale` if needed, reporting 0...1 progress. Idempotent.
@@ -54,6 +56,7 @@ actor FakeTranscriptionService: TranscriptionService {
     var assetStatusToReport: TranscriptionAssetStatus = .ready
     var wordsToReturn: [TimedWord]
     var errorToThrow: TranscriptionError?
+    var locales: [Locale] = [Locale(identifier: "en_US"), Locale(identifier: "es_ES"), Locale(identifier: "fr_FR")]
     /// Test control: how long `transcribe` pretends to work (honours cancellation).
     var delay: Duration = .zero
     private(set) var transcribedURLs: [URL] = []
@@ -64,6 +67,8 @@ actor FakeTranscriptionService: TranscriptionService {
     }
 
     func isAvailable() async -> Bool { available }
+
+    func supportedLocales() async -> [Locale] { locales }
 
     func assetStatus(for locale: Locale) async -> TranscriptionAssetStatus { assetStatusToReport }
 
@@ -99,6 +104,7 @@ actor FakeTranscriptionService: TranscriptionService {
     func setAssetStatus(_ status: TranscriptionAssetStatus) { assetStatusToReport = status }
     func setAvailable(_ available: Bool) { self.available = available }
     func setDelay(_ delay: Duration) { self.delay = delay }
+    func setLocales(_ locales: [Locale]) { self.locales = locales }
 
     /// A short two-sentence exchange, ~6 seconds long.
     static let sampleWords: [TimedWord] = {

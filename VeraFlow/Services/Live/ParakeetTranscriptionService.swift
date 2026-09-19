@@ -17,6 +17,19 @@ actor ParakeetTranscriptionService: TranscriptionService {
         true
     }
 
+    /// Parakeet TDT v3's 25 European languages (ISO 639-1), kept as data so the list doesn't
+    /// depend on FluidAudio's `Language` being iterable; codes the pinned version doesn't know are dropped.
+    static let languageCodes = [
+        "bg", "hr", "cs", "da", "nl", "en", "et", "fi", "fr", "de", "el", "hu", "it",
+        "lv", "lt", "mt", "pl", "pt", "ro", "ru", "sk", "sl", "es", "sv", "uk",
+    ]
+
+    func supportedLocales() async -> [Locale] {
+        Self.languageCodes
+            .map { Locale(identifier: $0) }
+            .filter { Self.language(for: $0) != nil }
+    }
+
     func assetStatus(for locale: Locale) async -> TranscriptionAssetStatus {
         guard Self.language(for: locale) != nil else { return .localeUnsupported }
         if models != nil { return .ready }

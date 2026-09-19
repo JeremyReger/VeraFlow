@@ -44,6 +44,16 @@ actor LiveTranscriptionService: TranscriptionService {
         return await !DictationTranscriber.supportedLocales.isEmpty
     }
 
+    /// `SpeechTranscriber`'s list when that engine exists, else the dictation set.
+    /// Verify against the SDK: `SpeechTranscriber.supportedLocales` (static, async, `[Locale]`).
+    func supportedLocales() async -> [Locale] {
+        if SpeechTranscriber.isAvailable {
+            let locales = await SpeechTranscriber.supportedLocales
+            if !locales.isEmpty { return locales }
+        }
+        return Array(await DictationTranscriber.supportedLocales)
+    }
+
     func assetStatus(for locale: Locale) async -> TranscriptionAssetStatus {
         guard let (module, _) = await makeModule(for: locale) else { return .localeUnsupported }
         switch await AssetInventory.status(forModules: [module.any]) {

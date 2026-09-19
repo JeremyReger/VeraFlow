@@ -198,6 +198,26 @@ struct SettingsView: View {
                     .accessibilityIdentifier("settings.template")
                 }
                 VFHairline()
+                NavigationLink {
+                    LanguagePickerView()
+                } label: {
+                    VFSettingsRow(title: "Transcription language", detail: "For new recordings and imports") {
+                        HStack(spacing: 6) {
+                            Text(transcriptionLanguageName)
+                                .vfText(VFText.meta, color: VFColor.textSecondary)
+                                .lineLimit(1)
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(VFColor.textTertiary)
+                                .accessibilityHidden(true)
+                        }
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Transcription language: \(transcriptionLanguageName)")
+                .accessibilityIdentifier("settings.language")
+                VFHairline()
                 VFSettingsRow(title: "Expected voices", detail: "A hint for speaker labels") {
                     Menu {
                         ForEach(DiarizationPreference.ExpectedSpeakers.allCases, id: \.self) { choice in
@@ -222,6 +242,13 @@ struct SettingsView: View {
             Text(ConsentSheet.message + " Labels can be wrong when people talk over each other.")
                 .vfText(VFText.snippet, color: VFColor.textTertiary)
         }
+    }
+
+    private var transcriptionLanguageName: String {
+        if let chosen = AppPreferences.transcriptionLocale() {
+            return TranscriptionLanguages.name(for: chosen)
+        }
+        return "iPhone language"
     }
 
     private func menuValue(_ value: String) -> some View {

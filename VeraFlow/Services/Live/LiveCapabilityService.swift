@@ -29,7 +29,9 @@ actor LiveCapabilityService: CapabilityService {
         } else {
             engine = nil
         }
-        let assets = engine == nil ? TranscriptionAssetStatus.localeUnsupported : await transcription.assetStatus(for: .current)
+        // The chosen transcription language, else the device's (v1.1 plan item 8).
+        let locale = AppPreferences.effectiveTranscriptionLocale()
+        let assets = engine == nil ? TranscriptionAssetStatus.localeUnsupported : await transcription.assetStatus(for: locale)
         let hasRuntimeContextSize: Bool
         if #available(iOS 26.4, *) {
             hasRuntimeContextSize = true

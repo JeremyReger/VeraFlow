@@ -11,6 +11,8 @@ final class RecordingActionsController {
     var renameDraft = ""
     var tagTarget: Recording?
     var deleteTarget: Recording?
+    /// "Transcribe again in…" (v1.1 plan item 8).
+    var retranscribeTarget: Recording?
     var errorMessage: String?
     /// Called after a recording is deleted, e.g. so the detail screen can pop.
     var onDeleted: ((Recording) -> Void)?
@@ -67,6 +69,19 @@ final class RecordingActionsController {
         deleteTarget = recording
     }
 
+    func beginRetranscribe(_ recording: Recording) {
+        retranscribeTarget = recording
+    }
+
+    func confirmRetranscribe(_ recording: Recording, in locale: Locale) async {
+        retranscribeTarget = nil
+        do {
+            try await actions.retranscribe(recording, in: locale)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
     /// Same as `commitRename`: the dialog is already dismissed when this runs. Delete moves the
     /// recording to Recently Deleted (v1.1 plan item 10); Settings → Storage removes it for good.
     func confirmDelete(_ recording: Recording) async {
@@ -101,6 +116,10 @@ struct RecordingMenuItems: View {
         Button("Tags", systemImage: "tag") {
             controller.beginTags(recording)
         }
+        Button("Transcribe again in…", systemImage: "globe") {
+            controller.beginRetranscribe(recording)
+        }
+        .disabled(recording.stage == .recording || recording.stage.isProcessing || !recording.audioAvailable)
         Divider()
         Button("Delete", systemImage: "trash", role: .destructive) {
             controller.requestDelete(recording)
@@ -127,6 +146,11 @@ struct RecordingActionsModifier: ViewModifier {
             .sheet(item: $controller.tagTarget) { recording in
                 TagEditorView(tags: recording.tags, suggestions: allTags) { tags in
                     controller.saveTags(recording, tags)
+                }
+            }
+            .sheet(item: $controller.retranscribeTarget) { recording in
+                RetranscribeSheet(recording: recording) { locale in
+                    Task { await controller.confirmRetranscribe(recording, in: locale) }
                 }
             }
             .confirmationDialog("Delete this recording?", isPresented: Binding(

@@ -1,12 +1,13 @@
 import Foundation
-#if canImport(ActivityKit)
+#if os(iOS)
 import ActivityKit
 #endif
 
 /// What the Live Activity shows while recording (Lock Screen banner and Dynamic Island).
 /// Lives in the top-level Shared/ folder because it is compiled into both the app and the
-/// widget extension; keep it to plain data. The Mac has no ActivityKit, so the conformance
-/// is conditional and the recorder's state stays plain `Codable` data there.
+/// widget extension; keep it to plain data. ActivityKit imports on the Mac but every one of its
+/// types is marked unavailable there, so the conformance is guarded on `os(iOS)` — not on
+/// `canImport` — and the recorder's state stays plain `Codable` data on the Mac.
 struct RecordingActivityAttributes: Codable, Hashable, Sendable {
     struct ContentState: Codable, Hashable, Sendable {
         /// Wall-clock moment the timer counts up from: "now minus audio recorded so far".
@@ -32,6 +33,6 @@ struct RecordingActivityAttributes: Codable, Hashable, Sendable {
     var title: String
 }
 
-#if canImport(ActivityKit)
+#if os(iOS)
 extension RecordingActivityAttributes: ActivityAttributes {}
 #endif

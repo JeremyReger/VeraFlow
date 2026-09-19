@@ -45,7 +45,7 @@ struct OlderIPhoneTests {
         let questions = UnavailableQuestionService()
         #expect(await questions.availability() == .deviceNotEligible)
         await #expect(throws: SummarizationError.unavailable(.deviceNotEligible)) {
-            _ = try await questions.answer(question: "q", excerpts: [])
+            _ = try await questions.answer(question: "q", excerpts: [], context: nil)
         }
         let preview = UnavailableTranscriptPreview()
         #expect(await preview.isAvailable(locale: Locale(identifier: "en-US")) == false)

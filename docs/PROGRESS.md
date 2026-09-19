@@ -173,6 +173,13 @@ Waves A, B and C were written together in one build on 2026-09-19 while Jeremy w
   - [ ] Jeremy's Mac: `git pull`, `scripts/test.sh --unit-only` (the iPhone build must stay green), then `scripts/test.sh --platform macos` and paste the errors; expect a first round of fixes (API names the Mac SDK spells differently, sandbox entitlements Xcode wants added under the Personal Team). Then run the `VeraFlow-macOS` scheme: onboarding → allow the microphone → record from the built-in mic and from a USB or Bluetooth mic (switch mid-recording) → import a Teams recording by dragging it onto the window → transcript, speakers, summary → PDF and Markdown through the save panel → Email summary → Reminders → Export library → Settings → restore purchase in the StoreKit sandbox
   - [ ] App Store Connect before the first Mac upload: turn on universal purchase for the existing app record (it can't be turned on later for a separately created Mac app); Mac screenshots; a proper macOS icon (the 1024 iOS mark is reused for now; Apple's Mac template adds the rounded rectangle and margin)
   - [ ] Not done in this pass: ⌘E / ⌘⇧S shortcuts, Mac UI tests, Mac-specific screenshots in `ScreenshotTests`
+- [x] Summary section editing, tier one (2026-09-19, from Jeremy's question about per-section edit buttons)
+  - [x] `SummaryEdits` overlay (`SummaryField`, `lines` / `added` / `paragraphs`), stored on `SummaryRecord.summaryEditsJSON`; `payload().applying(edits)` feeds `resolvedPayload()` and `resolvedTranslation(in:)`, so exports, the library card, Reminders and library search all read the user's wording while `payloadJSON` keeps the model's
+  - [x] `SummarySectionEditor` sheet: rewrite a line, add one, swipe to delete, "Use the original wording"; a pencil in each section header, and an "Add a section" menu at the foot for blocks the model left empty
+  - [x] Editable: overview, decisions, open questions, client goals, concerns, next meeting, location, customer requests, issues found, quote notes. Not yet: key points and work areas (both render as groups; a group's lines need an addressing scheme of their own — next pass)
+  - [x] Carried through the library archive (`summaryEditsJSON` on the snapshot; older archives decode with none)
+  - [x] 18 tests in `SummaryEditsTests`
+  - [ ] Device: edit a decision on the sample, delete one, add one, reopen the recording, export a PDF and check the edit is in it, then "Use the original wording" and check the model's line comes back; re-run the summary and confirm the new version starts clean
 - [ ] Wave G — iPad (opens 1.2)
 
 ## Requests from device testing

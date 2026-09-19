@@ -133,7 +133,8 @@ struct AskTab: View {
     }
 
     private func suggestions(_ controller: AskController) -> some View {
-        let open = (try? recording.currentSummary?.payload()).map { payload -> [String] in
+        // Resolved, so a question the user rewrote or added is the one suggested (plan item 18).
+        let open = (try? recording.currentSummary?.resolvedPayload()).map { payload -> [String] in
             switch payload {
             case .general(let summary): summary.openQuestions
             case .client(let summary): summary.openQuestions

@@ -77,7 +77,8 @@ struct LibraryFilter: Equatable, Sendable {
     /// the transcript text. Recorded once per recording per keystroke; fine for a personal library.
     static func searchableText(for recording: Recording) -> [String] {
         var fields = [recording.title]
-        if let payload = try? recording.currentSummary?.payload() {
+        // The resolved payload, so a search finds the user's own wording (v1.1 plan item 18).
+        if let payload = try? recording.currentSummary?.resolvedPayload() {
             fields.append(payload.title)
             fields.append(payload.overview)
         }

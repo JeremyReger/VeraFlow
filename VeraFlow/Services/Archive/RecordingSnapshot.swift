@@ -38,6 +38,8 @@ struct RecordingSnapshot: Codable, Sendable, Equatable {
         var customTemplateID: UUID?
         var focus: String?
         var translationsJSON: Data?
+        /// v1.1: the user's prose edits; absent in archives written before they existed.
+        var summaryEditsJSON: Data?
     }
 
     var id: UUID
@@ -90,7 +92,7 @@ struct RecordingSnapshot: Codable, Sendable, Equatable {
             Mark(time: $0.time, note: $0.note, kind: $0.kind)
         }
         summaries = recording.summaries.sorted { $0.createdAt < $1.createdAt }.map {
-            Summary(id: $0.id, createdAt: $0.createdAt, templateID: $0.templateID, payloadJSON: $0.payloadJSON, actionItemsState: $0.actionItemsState, modelInfo: $0.modelInfo, customTemplateID: $0.customTemplateID, focus: $0.focus, translationsJSON: $0.translationsJSON)
+            Summary(id: $0.id, createdAt: $0.createdAt, templateID: $0.templateID, payloadJSON: $0.payloadJSON, actionItemsState: $0.actionItemsState, modelInfo: $0.modelInfo, customTemplateID: $0.customTemplateID, focus: $0.focus, translationsJSON: $0.translationsJSON, summaryEditsJSON: $0.summaryEditsJSON)
         }
     }
 
@@ -129,6 +131,7 @@ struct RecordingSnapshot: Codable, Sendable, Equatable {
             record.customTemplateID = $0.customTemplateID
             record.focus = $0.focus ?? ""
             record.translationsJSON = $0.translationsJSON
+            record.summaryEditsJSON = $0.summaryEditsJSON
             return record
         }
         return recording

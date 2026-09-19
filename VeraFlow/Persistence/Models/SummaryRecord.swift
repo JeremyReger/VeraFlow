@@ -19,6 +19,8 @@ final class SummaryRecord {
     var focus: String = ""
     /// v1.1: encoded `SummaryTranslations`, the payload's prose in other languages (plan item 14).
     var translationsJSON: Data?
+    /// v1.1: encoded `SummaryEdits`, the user's corrections to the prose (plan item 18).
+    var summaryEditsJSON: Data?
 
     var recording: Recording?
 
@@ -49,10 +51,16 @@ final class SummaryRecord {
         return try JSONDecoder().decode(ActionItemsState.self, from: actionItemsState)
     }
 
-    /// The payload with the user's action-item edits applied (v1.1 plan item 2), for exports,
-    /// Reminders and the library card.
+    /// Decodes the stored prose edits; nothing stored means no edits (v1.1 plan item 18).
+    func summaryEdits() throws -> SummaryEdits {
+        guard let summaryEditsJSON, !summaryEditsJSON.isEmpty else { return SummaryEdits() }
+        return try JSONDecoder().decode(SummaryEdits.self, from: summaryEditsJSON)
+    }
+
+    /// The payload with the user's edits applied — action items (v1.1 plan item 2) and prose
+    /// (plan item 18) — for exports, Reminders and the library card.
     func resolvedPayload() throws -> SummaryPayload {
-        var payload = try payload()
+        var payload = try payload().applying(try summaryEdits())
         payload.actionItems = payload.resolvedActionItems(applying: try actionItems())
         return payload
     }
@@ -60,6 +68,11 @@ final class SummaryRecord {
     /// Persists a changed state.
     func store(_ state: ActionItemsState) throws {
         actionItemsState = try JSONEncoder().encode(state)
+    }
+
+    /// Persists changed prose edits; an empty overlay clears the field.
+    func store(_ edits: SummaryEdits) throws {
+        summaryEditsJSON = edits.isEmpty ? nil : try JSONEncoder().encode(edits)
     }
 
     // MARK: Translations (v1.1 plan item 14)
@@ -74,10 +87,11 @@ final class SummaryRecord {
         (try? translations())?[language]
     }
 
-    /// Like `resolvedPayload()`, in `language`: the translated prose with the user's action-item
-    /// edits applied (the edits are in whatever language the user typed).
+    /// Like `resolvedPayload()`, in `language`: the translated prose with the user's edits
+    /// applied (the edits are in whatever language the user typed).
     func resolvedTranslation(in language: String) throws -> SummaryPayload? {
-        guard var payload = translation(in: language) else { return nil }
+        guard let translated = translation(in: language) else { return nil }
+        var payload = translated.applying(try summaryEdits())
         payload.actionItems = payload.resolvedActionItems(applying: try actionItems())
         return payload
     }

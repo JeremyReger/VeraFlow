@@ -21,6 +21,10 @@ struct SummaryTab: View {
     @State private var isEditingFocus = false
     /// The action item being edited or added (v1.1 plan item 2).
     @State private var editing: EditingItem?
+    /// The user's corrections to the summary's prose (v1.1 plan item 18).
+    @State private var edits = SummaryEdits()
+    /// The section whose editor is open.
+    @State private var editingSection: SummaryField?
 
     private struct EditingItem: Identifiable {
         var item: ActionItem
@@ -68,6 +72,7 @@ struct SummaryTab: View {
         .background(VFColor.background)
         .task(id: selected?.id) {
             state = (try? selected?.actionItems()) ?? ActionItemsState()
+            edits = (try? selected?.summaryEdits()) ?? SummaryEdits()
         }
         .sheet(isPresented: $showsPaywall) {
             PaywallView()
@@ -93,6 +98,19 @@ struct SummaryTab: View {
                     isNew: editing.isNew,
                     onSave: { item in save(item, isNew: editing.isNew, in: record) },
                     onDelete: editing.isNew ? nil : { remove(editing.item.id, in: record) }
+                )
+            }
+        }
+        .sheet(item: $editingSection) { field in
+            if let record = selected, let payload = try? record.payload() {
+                SummarySectionEditor(
+                    field: field,
+                    modelLines: payload.list(for: field) ?? [],
+                    modelParagraph: payload.paragraph(for: field) ?? "",
+                    currentLines: edits.resolved(payload.list(for: field) ?? [], in: field),
+                    currentParagraph: edits.resolved(payload.paragraph(for: field) ?? "", in: field),
+                    hasEdits: edits.hasEdits(in: field),
+                    onSave: { edit in save(edit, in: field, record: record, payload: payload) }
                 )
             }
         }
@@ -239,11 +257,15 @@ struct SummaryTab: View {
     @ViewBuilder
     private func content(for payload: SummaryPayload, record: SummaryRecord) -> some View {
         let hidden = customTemplate(for: record)?.hiddenSections ?? []
+        let editable = shownTranslationName == nil
         Section {
-            Text(payload.overview)
+            Text(edits.resolved(payload.overview, in: .overview))
                 .vfText(VFText.summaryBody)
                 .padding(.vertical, 4)
                 .listRowSeparator(.hidden)
+            if edits.hasEdits(in: .overview) {
+                editedNote
+            }
             if !record.focus.isEmpty {
                 Label(record.focus, systemImage: "scope")
                     .vfText(VFText.meta, color: VFColor.textTertiary)
@@ -267,6 +289,7 @@ struct SummaryTab: View {
                     .background(VFColor.accent.opacity(0.12), in: Capsule())
                     .accessibilityLabel("Template: \(record.templateID.displayName)")
                 Spacer()
+                if editable { editButton(for: .overview) }
                 templateMenu
             }
             .textCase(nil)
@@ -276,40 +299,30 @@ struct SummaryTab: View {
         switch payload {
         case .general(let summary):
             if !hidden.contains(.keyPoints) { keyPoints(summary.keyPointGroups) }
-            if !hidden.contains(.decisions) { stringList("Decisions", summary.decisions) }
+            if !hidden.contains(.decisions) { editableList(.decisions, summary.decisions, editable: editable) }
             if !hidden.contains(.actionItems) { actionItems(items, record: record) }
-            if !hidden.contains(.openQuestions) { stringList("Open questions", summary.openQuestions) }
+            if !hidden.contains(.openQuestions) { editableList(.openQuestions, summary.openQuestions, editable: editable) }
         case .client(let summary):
-            if !hidden.contains(.clientGoals) { stringList("Client goals", summary.clientGoals) }
-            if !hidden.contains(.concerns) { stringList("Concerns", summary.concerns) }
-            if !hidden.contains(.decisions) { stringList("Decisions", summary.decisions) }
+            if !hidden.contains(.clientGoals) { editableList(.clientGoals, summary.clientGoals, editable: editable) }
+            if !hidden.contains(.concerns) { editableList(.concerns, summary.concerns, editable: editable) }
+            if !hidden.contains(.decisions) { editableList(.decisions, summary.decisions, editable: editable) }
             if !hidden.contains(.actionItems) { actionItems(items, record: record) }
-            if !summary.nextMeeting.isEmpty, !hidden.contains(.nextMeeting) {
-                Section {
-                    Text(summary.nextMeeting).vfText(VFText.summaryBody)
-                } header: {
-                    VFSectionLabel("Next meeting")
-                }
-            }
-            if !hidden.contains(.openQuestions) { stringList("Open questions", summary.openQuestions) }
+            if !hidden.contains(.nextMeeting) { editableParagraph(.nextMeeting, summary.nextMeeting, editable: editable) }
+            if !hidden.contains(.openQuestions) { editableList(.openQuestions, summary.openQuestions, editable: editable) }
         case .walkthrough(let summary):
-            if !summary.location.isEmpty {
-                Section {
-                    Text(summary.location).vfText(VFText.summaryBody)
-                } header: {
-                    VFSectionLabel("Location")
-                }
-            }
+            editableParagraph(.location, summary.location, editable: editable)
             if !hidden.contains(.areas) {
                 ForEach(Array(summary.areas.enumerated()), id: \.offset) { _, area in
                     workArea(area)
                 }
             }
-            if !hidden.contains(.customerRequests) { stringList("Customer requests", summary.customerRequests) }
-            if !hidden.contains(.issuesFound) { stringList("Issues found", summary.issuesFound) }
-            if !hidden.contains(.quoteNotes) { stringList("Quote notes", summary.quoteNotes) }
+            if !hidden.contains(.customerRequests) { editableList(.customerRequests, summary.customerRequests, editable: editable) }
+            if !hidden.contains(.issuesFound) { editableList(.issuesFound, summary.issuesFound, editable: editable) }
+            if !hidden.contains(.quoteNotes) { editableList(.quoteNotes, summary.quoteNotes, editable: editable) }
             if !hidden.contains(.actionItems) { actionItems(items, record: record) }
         }
+
+        addSectionMenu(payload, editable: editable)
 
         Section {
             LabeledContent("Generated", value: record.createdAt.formatted(date: .abbreviated, time: .shortened))
@@ -379,6 +392,125 @@ struct SummaryTab: View {
         try? modelContext.save()
         selectedSummaryID = nil
         Task { await services.pipeline.retry(recordingID: recording.id, from: .summarizing) }
+    }
+
+    // MARK: Editable sections (v1.1 plan item 18)
+
+    /// The pencil that opens `SummarySectionEditor`. Hidden while a translation is shown: the
+    /// edits are in whatever language the user types, so editing translated prose would mix them.
+    private func editButton(for field: SummaryField) -> some View {
+        Button {
+            editingSection = field
+        } label: {
+            Image(systemName: "square.and.pencil")
+                .font(.footnote)
+                .foregroundStyle(VFColor.accent)
+                .frame(minWidth: VFMetric.minHit, minHeight: 32)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Edit \(field.title.lowercased())")
+        .accessibilityIdentifier("summary.editSection")
+    }
+
+    private func sectionHeader(_ field: SummaryField, editable: Bool) -> some View {
+        HStack(spacing: 8) {
+            VFSectionLabel(field.title)
+            Spacer(minLength: 0)
+            if editable { editButton(for: field) }
+        }
+        .textCase(nil)
+    }
+
+    private var editedNote: some View {
+        Text("Edited by you. The model's version stays with the summary.")
+            .vfText(VFText.meta, color: VFColor.textTertiary)
+            .listRowSeparator(.hidden)
+    }
+
+    /// Sections this template has that are empty right now. They draw nothing in the body — the
+    /// "Add a section" menu at the foot is how the first line gets typed.
+    private func emptyFields(in payload: SummaryPayload) -> [SummaryField] {
+        payload.editableFields.filter { field in
+            if field.isParagraph {
+                return edits.resolved(payload.paragraph(for: field) ?? "", in: field).isEmpty
+            }
+            return edits.resolved(payload.list(for: field) ?? [], in: field).isEmpty
+        }
+    }
+
+    @ViewBuilder
+    private func addSectionMenu(_ payload: SummaryPayload, editable: Bool) -> some View {
+        let fields = emptyFields(in: payload)
+        if editable, !fields.isEmpty {
+            Section {
+                Menu {
+                    ForEach(fields) { field in
+                        Button(field.title) { editingSection = field }
+                    }
+                } label: {
+                    Label("Add a section", systemImage: "plus.circle")
+                        .vfText(VFText.rowLabel, color: VFColor.accent)
+                        .frame(minHeight: VFMetric.minHit)
+                }
+                .accessibilityIdentifier("summary.addSection")
+            } footer: {
+                Text("For something the model left out. It is your text, not the model's.")
+                    .vfText(VFText.meta, color: VFColor.textTertiary)
+            }
+        }
+    }
+
+    /// A numbered list the user can rewrite, add to, or clear.
+    @ViewBuilder
+    private func editableList(_ field: SummaryField, _ modelItems: [String], editable: Bool) -> some View {
+        let items = edits.resolved(modelItems, in: field)
+        if !items.isEmpty {
+            Section {
+                ForEach(Array(items.enumerated()), id: \.offset) { index, item in
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        Text("\(index + 1)")
+                            .vfText(VFText.meta, color: VFColor.textTertiary)
+                            .frame(width: 18, alignment: .trailing)
+                            .accessibilityHidden(true)
+                        Text(item)
+                            .vfText(VFText.summaryBody)
+                    }
+                    .padding(.vertical, 4)
+                    .listRowSeparatorTint(VFColor.separator)
+                }
+            } header: {
+                sectionHeader(field, editable: editable)
+            } footer: {
+                if edits.hasEdits(in: field) { editedNote }
+            }
+        }
+    }
+
+    /// One paragraph the user can rewrite (next meeting, location).
+    @ViewBuilder
+    private func editableParagraph(_ field: SummaryField, _ modelText: String, editable: Bool) -> some View {
+        let text = edits.resolved(modelText, in: field)
+        if !text.isEmpty {
+            Section {
+                Text(text).vfText(VFText.summaryBody)
+            } header: {
+                sectionHeader(field, editable: editable)
+            } footer: {
+                if edits.hasEdits(in: field) { editedNote }
+            }
+        }
+    }
+
+    /// Stores the editor's result next to the summary; the model's payload is never touched.
+    private func save(_ edit: SummarySectionEdit, in field: SummaryField, record: SummaryRecord, payload: SummaryPayload) {
+        edits.apply(edit, in: field, model: payload)
+        do {
+            try record.store(edits)
+            try modelContext.save()
+        } catch {
+            AccessibilityNotification.Announcement("Couldn't save the change").post()
+        }
     }
 
     /// Numbered points separated by hairlines (design spec §4 Summary).

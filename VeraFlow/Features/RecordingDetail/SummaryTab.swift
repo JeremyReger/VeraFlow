@@ -23,8 +23,8 @@ struct SummaryTab: View {
     @State private var editing: EditingItem?
     /// The user's corrections to the summary's prose (v1.1 plan item 18).
     @State private var edits = SummaryEdits()
-    /// The section whose editor is open.
-    @State private var editingSection: SummaryField?
+    /// The block whose editor is open.
+    @State private var editingSection: SummaryBlock?
 
     private struct EditingItem: Identifiable {
         var item: ActionItem
@@ -101,16 +101,25 @@ struct SummaryTab: View {
                 )
             }
         }
-        .sheet(item: $editingSection) { field in
+        .sheet(item: $editingSection) { block in
             if let record = selected, let payload = try? record.payload() {
+                let field = block.field
+                let group = block.group
+                let modelLines = payload.list(for: field, group: group) ?? []
+                let modelParagraph = payload.paragraph(for: field, group: group) ?? ""
+                let headingField = block.heading?.field
+                let modelHeading = headingField.flatMap { payload.paragraph(for: $0, group: group) }
                 SummarySectionEditor(
-                    field: field,
-                    modelLines: payload.list(for: field) ?? [],
-                    modelParagraph: payload.paragraph(for: field) ?? "",
-                    currentLines: edits.resolved(payload.list(for: field) ?? [], in: field),
-                    currentParagraph: edits.resolved(payload.paragraph(for: field) ?? "", in: field),
-                    hasEdits: edits.hasEdits(in: field),
-                    onSave: { edit in save(edit, in: field, record: record, payload: payload) }
+                    block: block,
+                    modelLines: modelLines,
+                    modelParagraph: modelParagraph,
+                    modelHeading: modelHeading,
+                    currentLines: edits.resolved(modelLines, in: field, group: group),
+                    currentParagraph: edits.resolved(modelParagraph, in: field, group: group),
+                    currentHeading: headingField.map { edits.resolved(modelHeading ?? "", in: $0, group: group) } ?? "",
+                    hasEdits: edits.hasEdits(in: field, group: group)
+                        || (headingField.map { edits.hasEdits(in: $0, group: group) } ?? false),
+                    onSave: { edit in save(edit, in: block, record: record, payload: payload) }
                 )
             }
         }
@@ -289,7 +298,7 @@ struct SummaryTab: View {
                     .background(VFColor.accent.opacity(0.12), in: Capsule())
                     .accessibilityLabel("Template: \(record.templateID.displayName)")
                 Spacer()
-                if editable { editButton(for: .overview) }
+                if editable { editButton(for: SummaryBlock(.overview)) }
                 templateMenu
             }
             .textCase(nil)
@@ -298,7 +307,11 @@ struct SummaryTab: View {
         let items = payload.resolvedActionItems(applying: state)
         switch payload {
         case .general(let summary):
-            if !hidden.contains(.keyPoints) { keyPoints(summary.keyPointGroups) }
+            // Key points render from the resolved summary: the groups carry the index of the
+            // subject they came from, which is where an edit is written back (plan item 18).
+            if !hidden.contains(.keyPoints) {
+                keyPoints(edits.resolvedTopics(summary.topics), edits.resolved(summary.keyPoints, in: .keyPoints), editable: editable)
+            }
             if !hidden.contains(.decisions) { editableList(.decisions, summary.decisions, editable: editable) }
             if !hidden.contains(.actionItems) { actionItems(items, record: record) }
             if !hidden.contains(.openQuestions) { editableList(.openQuestions, summary.openQuestions, editable: editable) }
@@ -312,8 +325,8 @@ struct SummaryTab: View {
         case .walkthrough(let summary):
             editableParagraph(.location, summary.location, editable: editable)
             if !hidden.contains(.areas) {
-                ForEach(Array(summary.areas.enumerated()), id: \.offset) { _, area in
-                    workArea(area)
+                ForEach(Array(edits.resolvedAreas(summary.areas).enumerated()), id: \.offset) { index, area in
+                    workArea(area, at: index, editable: editable)
                 }
             }
             if !hidden.contains(.customerRequests) { editableList(.customerRequests, summary.customerRequests, editable: editable) }
@@ -398,9 +411,9 @@ struct SummaryTab: View {
 
     /// The pencil that opens `SummarySectionEditor`. Hidden while a translation is shown: the
     /// edits are in whatever language the user types, so editing translated prose would mix them.
-    private func editButton(for field: SummaryField) -> some View {
+    private func editButton(for block: SummaryBlock, named name: String? = nil) -> some View {
         Button {
-            editingSection = field
+            editingSection = block
         } label: {
             Image(systemName: "square.and.pencil")
                 .font(.footnote)
@@ -409,7 +422,7 @@ struct SummaryTab: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Edit \(field.title.lowercased())")
+        .accessibilityLabel("Edit \((name ?? block.field.title).lowercased())")
         .accessibilityIdentifier("summary.editSection")
     }
 
@@ -417,7 +430,17 @@ struct SummaryTab: View {
         HStack(spacing: 8) {
             VFSectionLabel(field.title)
             Spacer(minLength: 0)
-            if editable { editButton(for: field) }
+            if editable { editButton(for: SummaryBlock(field)) }
+        }
+        .textCase(nil)
+    }
+
+    /// A header for one subject or work area, with the pencil that edits its name and its lines.
+    private func groupHeader(_ title: String, block: SummaryBlock, editable: Bool) -> some View {
+        HStack(spacing: 8) {
+            VFSectionLabel(title)
+            Spacer(minLength: 0)
+            if editable { editButton(for: block, named: title) }
         }
         .textCase(nil)
     }
@@ -446,7 +469,7 @@ struct SummaryTab: View {
             Section {
                 Menu {
                     ForEach(fields) { field in
-                        Button(field.title) { editingSection = field }
+                        Button(field.title) { editingSection = SummaryBlock(field) }
                     }
                 } label: {
                     Label("Add a section", systemImage: "plus.circle")
@@ -503,8 +526,8 @@ struct SummaryTab: View {
     }
 
     /// Stores the editor's result next to the summary; the model's payload is never touched.
-    private func save(_ edit: SummarySectionEdit, in field: SummaryField, record: SummaryRecord, payload: SummaryPayload) {
-        edits.apply(edit, in: field, model: payload)
+    private func save(_ edit: SummarySectionEdit, in block: SummaryBlock, record: SummaryRecord, payload: SummaryPayload) {
+        edits.apply(edit, in: block, model: payload)
         do {
             try record.store(edits)
             try modelContext.save()
@@ -513,67 +536,74 @@ struct SummaryTab: View {
         }
     }
 
-    /// Numbered points separated by hairlines (design spec §4 Summary).
+    /// One subject → the numbered list; several → each subject as its own section, so the pencil
+    /// sits next to the subject it edits (v1.1 plan item 18, tier two). `topics` and `points` are
+    /// the user's resolved versions; the group's source says where an edit goes back.
     @ViewBuilder
-    private func stringList(_ title: String, _ items: [String]) -> some View {
-        if !items.isEmpty {
+    private func keyPoints(_ topics: [KeyPointTopic], _ points: [String], editable: Bool) -> some View {
+        let groups = KeyPointLayout.groups(topics: topics, keyPoints: points)
+        if groups.count == 1, let only = groups.first, only.title == nil {
+            editableKeyPointBlock(only, heading: SummaryField.keyPoints.title, editable: editable)
+        } else {
+            ForEach(Array(groups.enumerated()), id: \.offset) { index, group in
+                editableKeyPointBlock(
+                    group,
+                    heading: group.title ?? (index == 0 ? SummaryField.keyPoints.title : "More key points"),
+                    editable: editable
+                )
+            }
+        }
+    }
+
+    /// One block of key points, with the pencil when the block maps to a single subject.
+    @ViewBuilder
+    private func editableKeyPointBlock(_ group: KeyPointGroup, heading: String, editable: Bool) -> some View {
+        if !group.points.isEmpty {
             Section {
-                ForEach(Array(items.enumerated()), id: \.offset) { index, item in
+                ForEach(Array(group.points.enumerated()), id: \.offset) { index, point in
                     HStack(alignment: .firstTextBaseline, spacing: 12) {
-                        Text("\(index + 1)")
+                        Text(group.title == nil ? "\(index + 1)" : "•")
                             .vfText(VFText.meta, color: VFColor.textTertiary)
                             .frame(width: 18, alignment: .trailing)
                             .accessibilityHidden(true)
-                        Text(item)
+                        Text(point)
                             .vfText(VFText.summaryBody)
                     }
                     .padding(.vertical, 4)
                     .listRowSeparatorTint(VFColor.separator)
                 }
             } header: {
-                VFSectionLabel(title)
-            }
-        }
-    }
-
-    /// One subject → the numbered list; several → each subject as a heading with bullets under it.
-    @ViewBuilder
-    private func keyPoints(_ groups: [KeyPointGroup]) -> some View {
-        if groups.count == 1, let only = groups.first, only.title == nil {
-            stringList("Key points", only.points)
-        } else if !groups.isEmpty {
-            Section {
-                ForEach(Array(groups.enumerated()), id: \.offset) { _, group in
-                    if let title = group.title {
-                        Text(title)
-                            .vfText(VFText.rowLabel)
-                            .padding(.top, 10)
-                            .padding(.bottom, 2)
-                            .listRowSeparator(.hidden)
-                            .accessibilityAddTraits(.isHeader)
-                    }
-                    ForEach(Array(group.points.enumerated()), id: \.offset) { index, point in
-                        HStack(alignment: .firstTextBaseline, spacing: 12) {
-                            Text("•")
-                                .vfText(VFText.meta, color: VFColor.textTertiary)
-                                .frame(width: 18, alignment: .trailing)
-                                .accessibilityHidden(true)
-                            Text(point)
-                                .vfText(VFText.summaryBody)
-                        }
-                        .padding(.vertical, 4)
-                        .listRowSeparator(index == group.points.count - 1 ? .hidden : .visible)
-                        .listRowSeparatorTint(VFColor.separator)
-                    }
+                switch group.source {
+                case .flat:
+                    groupHeader(heading, block: SummaryBlock(.keyPoints), editable: editable)
+                case .topic(let index):
+                    groupHeader(heading, block: SummaryBlock(.topicPoints, group: index), editable: editable)
+                case .merged:
+                    // Several untitled subjects drawn as one block: no single place to write to.
+                    VFSectionLabel(heading)
                 }
-            } header: {
-                VFSectionLabel("Key points")
+            } footer: {
+                keyPointNote(group.source)
             }
         }
     }
 
     @ViewBuilder
-    private func workArea(_ area: WorkArea) -> some View {
+    private func keyPointNote(_ source: KeyPointSource) -> some View {
+        switch source {
+        case .flat where edits.hasEdits(in: .keyPoints):
+            editedNote
+        case .topic(let index) where edits.hasEdits(in: .topicPoints, group: index) || edits.hasEdits(in: .topicTitle, group: index):
+            editedNote
+        default:
+            EmptyView()
+        }
+    }
+
+    /// One work area. The pencil edits the area's name and its task list; the measurements and
+    /// materials underneath are structured, not prose, and stay as the model recorded them.
+    @ViewBuilder
+    private func workArea(_ area: WorkArea, at index: Int, editable: Bool) -> some View {
         Section {
             ForEach(Array(area.tasks.enumerated()), id: \.offset) { _, task in
                 Text(task)
@@ -601,11 +631,16 @@ struct SummaryTab: View {
                 }
             }
         } header: {
-            VFSectionLabel(area.name)
+            groupHeader(area.name, block: SummaryBlock(.areaTasks, group: index), editable: editable)
         } footer: {
-            if !area.measurements.isEmpty {
-                Text("Check measurements against the audio before quoting.")
-                    .vfText(VFText.reassurance, color: VFColor.textSecondary)
+            VStack(alignment: .leading, spacing: 6) {
+                if !area.measurements.isEmpty {
+                    Text("Check measurements against the audio before quoting.")
+                        .vfText(VFText.reassurance, color: VFColor.textSecondary)
+                }
+                if edits.hasEdits(in: .areaTasks, group: index) || edits.hasEdits(in: .areaName, group: index) {
+                    editedNote
+                }
             }
         }
     }

@@ -329,11 +329,16 @@ struct TranscriptTab: View {
                     let chapters = chapters
                     let chapterPlacements = chapterPlacements
                     ForEach(Array(visibleSegments.enumerated()), id: \.element.index) { position, segment in
+                        // The whole stack is one view list, so a chapter and a mark that share an
+                        // index would share an id; name them apart (SwiftUI warns and the rows
+                        // are then undefined).
                         ForEach(chapterPlacements[position] ?? [], id: \.self) { chapterIndex in
                             chapterHeading(chapters[chapterIndex])
+                                .id("chapter-\(chapterIndex)")
                         }
                         ForEach(placements[position] ?? [], id: \.self) { markIndex in
                             markerRow(marks[markIndex])
+                                .id("mark-\(markIndex)")
                         }
                         paragraph(
                             segment,

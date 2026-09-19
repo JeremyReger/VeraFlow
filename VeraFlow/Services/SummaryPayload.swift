@@ -206,34 +206,63 @@ struct GeneralSummary: Codable, Sendable, Equatable {
     }
 }
 
-/// One block of key points: a subject heading (nil for a plain list) and its points.
+/// Where a rendered block of key points came from, so an edit can be written back to the right
+/// place in the stored summary (v1.1 plan item 18, tier two).
+enum KeyPointSource: Equatable, Sendable {
+    /// The flat `keyPoints` array: this summary has no subjects.
+    case flat
+    /// `topics[index]`, and only that one, so its points and its heading are editable.
+    case topic(Int)
+    /// Several subjects drawn as one block. There is no single place to write an edit, so the
+    /// block is read-only; it takes two or more untitled subjects to reach this.
+    case merged
+}
+
+/// One block of key points: a subject heading (nil for a plain list), its points, and where they
+/// came from.
 struct KeyPointGroup: Equatable, Sendable {
     var title: String?
     var points: [String]
+    var source: KeyPointSource = .flat
 }
 
 enum KeyPointLayout {
     /// Grouped only when the model found more than one titled subject; a single subject or an
     /// older summary without topics reads as one plain list. Empty topics are dropped, and
-    /// points under an untitled topic come first as a plain block.
+    /// points under an untitled topic come first as a plain block. Each group carries the index
+    /// of the topic it came from — the index in the *stored* array, not in the cleaned one.
     static func groups(topics: [KeyPointTopic], keyPoints: [String]) -> [KeyPointGroup] {
-        let cleaned = topics.compactMap { topic -> KeyPointTopic? in
+        let cleaned = topics.enumerated().compactMap { index, topic -> (index: Int, topic: KeyPointTopic)? in
             let points = topic.points.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
             guard !points.isEmpty else { return nil }
-            return KeyPointTopic(title: topic.title.trimmingCharacters(in: .whitespacesAndNewlines), points: points)
+            return (index, KeyPointTopic(title: topic.title.trimmingCharacters(in: .whitespacesAndNewlines), points: points))
         }
-        let titled = cleaned.filter { !$0.title.isEmpty }
+        let titled = cleaned.filter { !$0.topic.title.isEmpty }
         if titled.count < 2 {
-            let flat = cleaned.isEmpty ? keyPoints : cleaned.flatMap(\.points)
-            return flat.isEmpty ? [] : [KeyPointGroup(title: nil, points: flat)]
+            let flat = cleaned.isEmpty ? keyPoints : cleaned.flatMap(\.topic.points)
+            guard !flat.isEmpty else { return [] }
+            return [KeyPointGroup(title: nil, points: flat, source: source(of: cleaned))]
         }
         var groups: [KeyPointGroup] = []
-        let untitled = cleaned.filter(\.title.isEmpty).flatMap(\.points)
+        let untitled = cleaned.filter(\.topic.title.isEmpty)
         if !untitled.isEmpty {
-            groups.append(KeyPointGroup(title: nil, points: untitled))
+            groups.append(KeyPointGroup(
+                title: nil,
+                points: untitled.flatMap(\.topic.points),
+                source: source(of: untitled)
+            ))
         }
-        groups += titled.map { KeyPointGroup(title: $0.title, points: $0.points) }
+        groups += titled.map { KeyPointGroup(title: $0.topic.title, points: $0.topic.points, source: .topic($0.index)) }
         return groups
+    }
+
+    /// One subject is editable in place; none means the flat list; several merged are not.
+    private static func source(of topics: [(index: Int, topic: KeyPointTopic)]) -> KeyPointSource {
+        switch topics.count {
+        case 0: .flat
+        case 1: .topic(topics[0].index)
+        default: .merged
+        }
     }
 }
 

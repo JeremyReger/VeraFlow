@@ -167,7 +167,7 @@ struct SummaryEditsTests {
 
     @Test("Each template offers only the sections it has")
     func editableFields() {
-        #expect(general().editableFields == [.overview, .decisions, .openQuestions])
+        #expect(general().editableFields == [.overview, .keyPoints, .decisions, .openQuestions])
         #expect(general().list(for: .clientGoals) == nil)
         #expect(general().paragraph(for: .nextMeeting) == nil)
         let walkthrough = SummaryPayload.walkthrough(WalkthroughSummary(
@@ -185,10 +185,167 @@ struct SummaryEditsTests {
         #expect(walkthrough.list(for: .decisions) == nil)
     }
 
-    @Test("Key points and work areas are deliberately not editable yet")
-    func groupedSectionsExcluded() {
-        #expect(!SummaryField.allCases.contains { $0.rawValue == "keyPoints" })
-        #expect(!SummaryField.allCases.contains { $0.rawValue == "areas" })
+    @Test("Only the blocks that belong to a subject or work area need an index")
+    func groupedFields() {
+        let grouped = SummaryField.allCases.filter(\.isGrouped)
+        #expect(Set(grouped) == [.topicPoints, .topicTitle, .areaTasks, .areaName])
+        #expect(!SummaryField.keyPoints.isGrouped)
+        #expect(SummaryField.topicPoints.headingField == .topicTitle)
+        #expect(SummaryField.areaTasks.headingField == .areaName)
+        #expect(SummaryField.decisions.headingField == nil)
+        // Measurements and materials are structured pairs, not prose: no field addresses them.
+        #expect(!SummaryField.allCases.contains { $0.rawValue.contains("measurement") })
+        #expect(!SummaryField.allCases.contains { $0.rawValue.contains("material") })
+    }
+
+    // MARK: Subjects and work areas (tier two)
+
+    private func grouped() -> SummaryPayload {
+        .general(GeneralSummary(
+            title: "Planning",
+            overview: "We planned the quarter.",
+            keyPoints: ["Cap is 40k", "No overtime", "Start in March"],
+            topics: [
+                KeyPointTopic(title: "Budget", points: ["Cap is 40k", "No overtime"]),
+                KeyPointTopic(title: "Schedule", points: ["Start in March"]),
+            ],
+            decisions: [],
+            actionItems: [],
+            openQuestions: []
+        ))
+    }
+
+    @Test("Each subject's points are addressed separately and don't reach the next subject")
+    func topicPoints() {
+        let payload = grouped()
+        var edits = SummaryEdits()
+        #expect(payload.list(for: .topicPoints, group: 0) == ["Cap is 40k", "No overtime"])
+        #expect(payload.list(for: .topicPoints, group: 1) == ["Start in March"])
+        #expect(payload.list(for: .topicPoints, group: 9) == nil)
+
+        edits.replace(["Cap is 45k", "No overtime"], model: payload.list(for: .topicPoints, group: 0) ?? [], in: .topicPoints, group: 0)
+        #expect(edits.hasEdits(in: .topicPoints, group: 0))
+        #expect(!edits.hasEdits(in: .topicPoints, group: 1))
+        #expect(edits.resolved(payload.list(for: .topicPoints, group: 1) ?? [], in: .topicPoints, group: 1) == ["Start in March"])
+    }
+
+    @Test("A subject's heading is edited with its points and stored beside them")
+    func topicTitle() {
+        let payload = grouped()
+        var edits = SummaryEdits()
+        #expect(payload.paragraph(for: .topicTitle, group: 1) == "Schedule")
+        edits.setParagraph("Timeline", model: "Schedule", in: .topicTitle, group: 1)
+        let resolved = payload.applying(edits)
+        if case .general(let summary) = resolved {
+            #expect(summary.topics[1].title == "Timeline")
+            #expect(summary.topics[0].title == "Budget")
+        } else {
+            Issue.record("the template changed")
+        }
+    }
+
+    @Test("Editing a subject keeps the flat key points, which exports and search read, in step")
+    func flatListFollowsTheSubjects() {
+        let payload = grouped()
+        var edits = SummaryEdits()
+        edits.replace(["Cap is 45k"], model: payload.list(for: .topicPoints, group: 0) ?? [], in: .topicPoints, group: 0)
+        let resolved = payload.applying(edits)
+        if case .general(let summary) = resolved {
+            #expect(summary.topics[0].points == ["Cap is 45k"])
+            #expect(summary.keyPoints == ["Cap is 45k", "Start in March"])
+        } else {
+            Issue.record("the template changed")
+        }
+    }
+
+    @Test("A summary with no subjects edits its flat key points instead")
+    func flatKeyPoints() {
+        let payload = general()
+        var edits = SummaryEdits()
+        #expect(payload.list(for: .keyPoints) == ["One", "Two"])
+        edits.replace(["One", "Two", "Three"], model: payload.list(for: .keyPoints) ?? [], in: .keyPoints)
+        let resolved = payload.applying(edits)
+        if case .general(let summary) = resolved {
+            #expect(summary.keyPoints == ["One", "Two", "Three"])
+            #expect(summary.topics.isEmpty)
+        } else {
+            Issue.record("the template changed")
+        }
+    }
+
+    @Test("A work area's name and tasks are editable; its measurements and materials are not touched")
+    func workAreas() {
+        let payload = SummaryPayload.walkthrough(WalkthroughSummary(
+            title: "Kitchen",
+            location: "12 Mill Lane",
+            overview: "Walked the kitchen.",
+            areas: [
+                WorkArea(
+                    name: "Kitchen",
+                    tasks: ["Strip the tiles", "Re-plaster"],
+                    measurements: [Measurement(item: "North wall", value: "12 ft 4 in", timestamp: 61)],
+                    materials: [Material(name: "Splashback", quantity: "3 m²", notes: "matte")]
+                ),
+                WorkArea(name: "Hall", tasks: ["Paint"], measurements: [], materials: []),
+            ],
+            customerRequests: [],
+            issuesFound: [],
+            quoteNotes: [],
+            actionItems: []
+        ))
+        var edits = SummaryEdits()
+        edits.setParagraph("Kitchen (rear)", model: "Kitchen", in: .areaName, group: 0)
+        edits.replace(["Strip the tiles", "Re-plaster", "Seal the floor"], model: payload.list(for: .areaTasks, group: 0) ?? [], in: .areaTasks, group: 0)
+
+        guard case .walkthrough(let resolved) = payload.applying(edits) else {
+            Issue.record("the template changed")
+            return
+        }
+        #expect(resolved.areas[0].name == "Kitchen (rear)")
+        #expect(resolved.areas[0].tasks == ["Strip the tiles", "Re-plaster", "Seal the floor"])
+        // Verbatim, and never the model's or the user's guess.
+        #expect(resolved.areas[0].measurements == [Measurement(item: "North wall", value: "12 ft 4 in", timestamp: 61)])
+        #expect(resolved.areas[0].materials.first?.quantity == "3 m²")
+        #expect(resolved.areas[1].name == "Hall")
+        #expect(resolved.areas[1].tasks == ["Paint"])
+    }
+
+    @Test("A block's storage key keeps the plain field name when it has no group")
+    func storageKeys() throws {
+        #expect(SummaryEdits.key(.decisions, group: nil) == "decisions")
+        #expect(SummaryEdits.key(.topicPoints, group: 2) == "topicPoints#2")
+        #expect(SummaryBlock(.topicPoints, group: 2).id == "topicPoints#2")
+        #expect(SummaryBlock(.areaTasks, group: 0).heading == SummaryBlock(.areaName, group: 0))
+        #expect(SummaryBlock(.decisions).heading == nil)
+
+        // Edits written before grouped blocks existed still read back.
+        let old = try JSONDecoder().decode(SummaryEdits.self, from: Data(#"{"paragraphs":{"overview":"Mine."}}"#.utf8))
+        #expect(old.resolved("Theirs.", in: .overview) == "Mine.")
+    }
+
+    @Test("Subject edits survive a round trip through the record")
+    func groupedStorage() throws {
+        let payload = grouped()
+        let record = SummaryRecord(templateID: .general, payloadJSON: try payload.encoded(), modelInfo: "test")
+        var edits = SummaryEdits()
+        edits.setParagraph("Timeline", model: "Schedule", in: .topicTitle, group: 1)
+        edits.replace(["Start in April"], model: payload.list(for: .topicPoints, group: 1) ?? [], in: .topicPoints, group: 1)
+        try record.store(edits)
+
+        let reloaded = try record.summaryEdits()
+        #expect(reloaded == edits)
+        guard case .general(let resolved) = try record.resolvedPayload() else {
+            Issue.record("the template changed")
+            return
+        }
+        #expect(resolved.topics[1].title == "Timeline")
+        #expect(resolved.topics[1].points == ["Start in April"])
+        // The model's own output is untouched.
+        guard case .general(let stored) = try record.payload() else {
+            Issue.record("the template changed")
+            return
+        }
+        #expect(stored.topics[1].title == "Schedule")
     }
 
     // MARK: Copy
@@ -211,10 +368,23 @@ struct SummaryEditsTests {
     func editorResult() {
         let payload = general()
         var edits = SummaryEdits()
-        edits.apply(.lines(["Ship on the 10th"]), in: .decisions, model: payload)
-        edits.apply(.paragraph("Shipping on the 10th."), in: .overview, model: payload)
+        edits.apply(.lines(["Ship on the 10th"]), in: SummaryBlock(.decisions), model: payload)
+        edits.apply(.paragraph("Shipping on the 10th."), in: SummaryBlock(.overview), model: payload)
         #expect(edits.resolved(payload.list(for: .decisions) ?? [], in: .decisions) == ["Ship on the 10th"])
         #expect(edits.resolved(payload.overview, in: .overview) == "Shipping on the 10th.")
+    }
+
+    @Test("A group result saves the heading and the lines together")
+    func editorGroupResult() {
+        let payload = grouped()
+        var edits = SummaryEdits()
+        edits.apply(
+            .group(heading: "Timeline", lines: ["Start in April"]),
+            in: SummaryBlock(.topicPoints, group: 1),
+            model: payload
+        )
+        #expect(edits.resolved("Schedule", in: .topicTitle, group: 1) == "Timeline")
+        #expect(edits.resolved(payload.list(for: .topicPoints, group: 1) ?? [], in: .topicPoints, group: 1) == ["Start in April"])
     }
 
     // MARK: Storage

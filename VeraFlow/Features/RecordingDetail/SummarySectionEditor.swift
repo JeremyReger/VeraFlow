@@ -1,20 +1,25 @@
 import SwiftUI
 
 /// Edits one block of a summary (v1.1 plan item 18): rewrite a line, delete one, add one, or
-/// put the model's own words back. Like the action-item editor, nothing here touches the stored
-/// payload — the result is handed back as a `SummaryEdits` change.
+/// put the model's own words back. A block that has a heading — a key-point subject, a work
+/// area — is edited with it, so the name and its lines are saved together. Like the action-item
+/// editor, nothing here touches the stored payload; the result is handed back as a change.
 struct SummarySectionEditor: View {
-    let field: SummaryField
+    let block: SummaryBlock
     /// What the model wrote, before any edit. "Use the original" restores this.
     let modelLines: [String]
     let modelParagraph: String
+    let modelHeading: String?
     let hasEdits: Bool
     let onSave: (SummarySectionEdit) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var lines: [Line]
     @State private var paragraph: String
+    @State private var heading: String
     @FocusState private var focused: UUID?
+
+    private var field: SummaryField { block.field }
 
     /// A line with a stable id, so SwiftUI keeps the text fields in place while one is deleted.
     private struct Line: Identifiable, Equatable {
@@ -23,26 +28,31 @@ struct SummarySectionEditor: View {
     }
 
     init(
-        field: SummaryField,
+        block: SummaryBlock,
         modelLines: [String] = [],
         modelParagraph: String = "",
+        modelHeading: String? = nil,
         currentLines: [String] = [],
         currentParagraph: String = "",
+        currentHeading: String = "",
         hasEdits: Bool,
         onSave: @escaping (SummarySectionEdit) -> Void
     ) {
-        self.field = field
+        self.block = block
         self.modelLines = modelLines
         self.modelParagraph = modelParagraph
+        self.modelHeading = modelHeading
         self.hasEdits = hasEdits
         self.onSave = onSave
         _lines = State(initialValue: currentLines.map { Line(text: $0) })
         _paragraph = State(initialValue: currentParagraph)
+        _heading = State(initialValue: currentHeading)
     }
 
     var body: some View {
         NavigationStack {
             Form {
+                if modelHeading != nil { headingSection }
                 if field.isParagraph {
                     paragraphSection
                 } else {
@@ -74,6 +84,18 @@ struct SummarySectionEditor: View {
                     .accessibilityIdentifier("summarySection.save")
                 }
             }
+        }
+    }
+
+    /// The name of the subject or work area these lines sit under.
+    @ViewBuilder
+    private var headingSection: some View {
+        Section {
+            TextField(field.headingField?.title ?? "Heading", text: $heading)
+                .frame(minHeight: VFMetric.minHit)
+                .accessibilityIdentifier("summarySection.heading")
+        } header: {
+            Text(field.headingField?.title ?? "Heading")
         }
     }
 
@@ -120,30 +142,48 @@ struct SummarySectionEditor: View {
         } else {
             lines = modelLines.map { Line(text: $0) }
         }
+        if let modelHeading { heading = modelHeading }
     }
 
     private var result: SummarySectionEdit {
         if field.isParagraph {
             return .paragraph(paragraph)
         }
+        if modelHeading != nil {
+            return .group(heading: heading, lines: lines.map(\.text))
+        }
         return .lines(lines.map(\.text))
     }
 }
 
-/// What the editor produced for one field.
+/// What the editor produced for one block.
 enum SummarySectionEdit: Equatable, Sendable {
     case lines([String])
     case paragraph(String)
+    /// A subject or work area: its name and its lines, saved together.
+    case group(heading: String, lines: [String])
 }
 
 extension SummaryEdits {
     /// Folds the editor's result into the overlay. `model` is what the summary itself holds.
-    mutating func apply(_ edit: SummarySectionEdit, in field: SummaryField, model: SummaryPayload) {
+    mutating func apply(_ edit: SummarySectionEdit, in block: SummaryBlock, model: SummaryPayload) {
+        let field = block.field
+        let group = block.group
         switch edit {
         case .lines(let lines):
-            replace(lines, model: model.list(for: field) ?? [], in: field)
+            replace(lines, model: model.list(for: field, group: group) ?? [], in: field, group: group)
         case .paragraph(let text):
-            setParagraph(text, model: model.paragraph(for: field) ?? "", in: field)
+            setParagraph(text, model: model.paragraph(for: field, group: group) ?? "", in: field, group: group)
+        case .group(let heading, let lines):
+            replace(lines, model: model.list(for: field, group: group) ?? [], in: field, group: group)
+            if let headingBlock = block.heading {
+                setParagraph(
+                    heading,
+                    model: model.paragraph(for: headingBlock.field, group: group) ?? "",
+                    in: headingBlock.field,
+                    group: group
+                )
+            }
         }
     }
 }

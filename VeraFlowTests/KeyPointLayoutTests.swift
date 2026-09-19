@@ -12,18 +12,42 @@ struct KeyPointLayoutTests {
             KeyPointTopic(title: "Empty", points: ["  "]),
         ], keyPoints: [])
         #expect(groups == [
-            KeyPointGroup(title: nil, points: ["Meeting ran long"]),
-            KeyPointGroup(title: "Budget", points: ["Cap is 40k", "Contingency 10%"]),
-            KeyPointGroup(title: "Schedule", points: ["Start in March"]),
+            KeyPointGroup(title: nil, points: ["Meeting ran long"], source: .topic(1)),
+            KeyPointGroup(title: "Budget", points: ["Cap is 40k", "Contingency 10%"], source: .topic(0)),
+            KeyPointGroup(title: "Schedule", points: ["Start in March"], source: .topic(2)),
         ])
+    }
+
+    @Test("A group's source is the index in the stored topics, not in the cleaned ones")
+    func sourceSurvivesDroppedTopics() {
+        // topics[0] and topics[2] are empty and never drawn; the addresses must skip them.
+        let groups = KeyPointLayout.groups(topics: [
+            KeyPointTopic(title: "Empty", points: []),
+            KeyPointTopic(title: "Budget", points: ["Cap is 40k"]),
+            KeyPointTopic(title: "Blank", points: ["   "]),
+            KeyPointTopic(title: "Schedule", points: ["Start in March"]),
+        ], keyPoints: [])
+        #expect(groups.map(\.source) == [.topic(1), .topic(3)])
+    }
+
+    @Test("Two or more untitled subjects merge into a block with no single home for an edit")
+    func merged() {
+        let groups = KeyPointLayout.groups(topics: [
+            KeyPointTopic(title: "", points: ["One"]),
+            KeyPointTopic(title: "", points: ["Two"]),
+            KeyPointTopic(title: "Budget", points: ["Cap is 40k"]),
+            KeyPointTopic(title: "Schedule", points: ["Start in March"]),
+        ], keyPoints: [])
+        #expect(groups.first?.source == .merged)
+        #expect(groups.first?.points == ["One", "Two"])
     }
 
     @Test("One subject reads as a plain list; no topics falls back to the flat key points")
     func flat() {
         let one = KeyPointLayout.groups(topics: [KeyPointTopic(title: "Budget", points: ["Cap is 40k", "No overtime"])], keyPoints: [])
-        #expect(one == [KeyPointGroup(title: nil, points: ["Cap is 40k", "No overtime"])])
+        #expect(one == [KeyPointGroup(title: nil, points: ["Cap is 40k", "No overtime"], source: .topic(0))])
         let legacy = KeyPointLayout.groups(topics: [], keyPoints: ["Old point"])
-        #expect(legacy == [KeyPointGroup(title: nil, points: ["Old point"])])
+        #expect(legacy == [KeyPointGroup(title: nil, points: ["Old point"], source: .flat)])
         #expect(KeyPointLayout.groups(topics: [], keyPoints: []).isEmpty)
     }
 
@@ -34,7 +58,7 @@ struct KeyPointLayoutTests {
         """
         let summary = try JSONDecoder().decode(GeneralSummary.self, from: Data(json.utf8))
         #expect(summary.topics.isEmpty)
-        #expect(summary.keyPointGroups == [KeyPointGroup(title: nil, points: ["a", "b"])])
+        #expect(summary.keyPointGroups == [KeyPointGroup(title: nil, points: ["a", "b"], source: .flat)])
 
         let grouped = GeneralSummary(
             title: "T", overview: "O", keyPoints: ["a", "b"],

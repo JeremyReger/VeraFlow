@@ -87,8 +87,21 @@ actor LiveDiarizationService: DiarizationService {
             .filter { $0.end > $0.start }
             .sorted { $0.start < $1.start }
         let speakerCount = Set(turns.map(\.speakerID)).count
-        Self.log.info("diarized \(fileURL.lastPathComponent, privacy: .public): \(turns.count, privacy: .public) turns, \(speakerCount, privacy: .public) speakers")
+        // Say what the diarizer was told and how the time actually split. A recording that ends
+        // up with one speaker when there were clearly two is the common complaint, and the split
+        // is what tells a hint that was ignored from a second voice the clustering never found.
+        Self.log.info("diarized \(fileURL.lastPathComponent, privacy: .public): \(turns.count, privacy: .public) turns, \(speakerCount, privacy: .public) speakers; hint \(expectedSpeakers.description, privacy: .public); \(Self.split(of: turns), privacy: .public)")
         return turns
+    }
+
+    /// "S1 31.2s, S2 4.1s", longest first: how the speech divided between the speakers found.
+    private static func split(of turns: [SpeakerTurn]) -> String {
+        guard !turns.isEmpty else { return "no speech" }
+        return Dictionary(grouping: turns, by: \.speakerID)
+            .map { (id: $0.key, seconds: $0.value.reduce(0) { $0 + ($1.end - $1.start) }) }
+            .sorted { $0.seconds > $1.seconds }
+            .map { "\($0.id) \(String(format: "%.1f", $0.seconds))s" }
+            .joined(separator: ", ")
     }
 
     /// True when every required compiled model is in FluidAudio's cache folder, so no download

@@ -60,3 +60,14 @@ struct SpeakerCountHint: Sendable, Equatable {
         self.init(exact: preference.exactCount, minimum: preference.minimumCount)
     }
 }
+
+extension SpeakerCountHint: CustomStringConvertible {
+    /// For the device log, so a run that found the wrong number of speakers says what it was told.
+    var description: String {
+        switch (exact, minimum) {
+        case (let exact?, _): "exactly \(exact)"
+        case (nil, let minimum?): "\(minimum) or more"
+        default: "automatic"
+        }
+    }
+}

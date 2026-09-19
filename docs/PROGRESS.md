@@ -178,10 +178,12 @@ Waves A, B and C were written together in one build on 2026-09-19 while Jeremy w
 - [x] Summary section editing, tier one (2026-09-19, from Jeremy's question about per-section edit buttons)
   - [x] `SummaryEdits` overlay (`SummaryField`, `lines` / `added` / `paragraphs`), stored on `SummaryRecord.summaryEditsJSON`; `payload().applying(edits)` feeds `resolvedPayload()` and `resolvedTranslation(in:)`, so exports, the library card, Reminders and library search all read the user's wording while `payloadJSON` keeps the model's
   - [x] `SummarySectionEditor` sheet: rewrite a line, add one, swipe to delete, "Use the original wording"; a pencil in each section header, and an "Add a section" menu at the foot for blocks the model left empty
-  - [x] Editable: overview, decisions, open questions, client goals, concerns, next meeting, location, customer requests, issues found, quote notes. Not yet: key points and work areas (both render as groups; a group's lines need an addressing scheme of their own — next pass)
+  - [x] Editable: overview, decisions, open questions, client goals, concerns, next meeting, location, customer requests, issues found, quote notes
+  - [x] Tier two, same day: key points and work areas. A block key carries the group's index (`topicPoints#2`), `KeyPointLayout` reports which stored topic each rendered group came from, and a block merged from several untitled subjects draws without a pencil rather than guessing. The subject or area name is edited in the sheet with its lines; editing a subject rebuilds the flat `keyPoints` that exports and search read. Measurements and materials stay model-only: structured pairs, not prose
   - [x] Carried through the library archive (`summaryEditsJSON` on the snapshot; older archives decode with none)
   - [x] 18 tests in `SummaryEditsTests`
   - [ ] Device: edit a decision on the sample, delete one, add one, reopen the recording, export a PDF and check the edit is in it, then "Use the original wording" and check the model's line comes back; re-run the summary and confirm the new version starts clean
+  - [ ] Device, tier two: rename a key-point subject and rewrite one of its points, check the other subjects are untouched and the PDF carries both; on a walk-through, rename a work area and add a task, and check its measurements are exactly as recorded
 - [ ] Wave G — iPad (opens 1.2)
 
 ## Requests from device testing

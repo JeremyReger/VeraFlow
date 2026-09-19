@@ -84,10 +84,10 @@ final class ExportController {
             let options: Data.WritingOptions = [.atomic, .completeFileProtection]
             switch kind {
             case .markdown:
-                let text = try await services.exporter.markdown(for: document)
+                let text = await services.exporter.markdown(for: document)
                 try Data(text.utf8).write(to: url, options: options)
             case .plainText:
-                let text = try await services.exporter.plainText(for: document)
+                let text = await services.exporter.plainText(for: document)
                 try Data(text.utf8).write(to: url, options: options)
             case .pdf:
                 try await services.exporter.pdf(for: document).write(to: url, options: options)

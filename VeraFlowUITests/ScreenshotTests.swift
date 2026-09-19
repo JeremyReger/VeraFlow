@@ -65,6 +65,7 @@ final class ScreenshotTests: XCTestCase {
         app.buttons["paywall.dismiss"].tap()
     }
 
+    @MainActor
     private func snap(_ app: XCUIApplication, _ name: String) {
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = name

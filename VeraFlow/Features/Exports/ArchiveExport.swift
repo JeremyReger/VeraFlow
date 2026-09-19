@@ -8,7 +8,10 @@ import UIKit
 @Observable
 @MainActor
 final class ArchiveExportController {
+    /// What the picker shows: the package itself, or its zip when iOS doesn't know the package type.
     var exportURL: URL?
+    /// The package folder in `tmp/Exports/`, removed with the zip (if any) when the picker closes.
+    private var packageURL: URL?
     var errorMessage: String?
     private(set) var isWorking = false
     private(set) var progress: Double = 0
@@ -35,18 +38,24 @@ final class ArchiveExportController {
             try await actions.exportArchive(recordings, to: destination) { fraction in
                 Task { @MainActor [weak self] in self?.progress = fraction }
             }
-            exportURL = destination
+            packageURL = destination
+            // The export picker refuses plain directories; a package it knows is fine, and a
+            // package it doesn't know goes as a zip (Files unpacks it with a tap).
+            exportURL = try await Task.detached(priority: .userInitiated) {
+                try LibraryArchive.exportItem(for: destination)
+            }.value
         } catch {
             errorMessage = "Couldn't build the archive: \(error.localizedDescription)"
         }
     }
 
-    /// The picker closed: the temporary package is removed whether or not it was saved.
+    /// The picker closed: the temporary package (and zip) are removed whether or not it was saved.
     func finish() {
-        if let exportURL {
-            try? FileManager.default.removeItem(at: exportURL)
+        for url in [exportURL, packageURL].compactMap({ $0 }) {
+            try? FileManager.default.removeItem(at: url)
         }
         exportURL = nil
+        packageURL = nil
     }
 }
 

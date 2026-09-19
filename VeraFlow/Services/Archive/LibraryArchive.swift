@@ -37,6 +37,42 @@ enum LibraryArchive {
         url.pathExtension.lowercased() == pathExtension
     }
 
+    /// True when iOS treats a `.veraflowarchive` folder as one document (the exported type
+    /// declaration reached the installed app). When it doesn't, the folder is just a folder to
+    /// the system picker, which refuses directories, so exports fall back to a zip.
+    static var isPackageTypeRecognized: Bool {
+        guard let byExtension = UTType(filenameExtension: pathExtension) else { return false }
+        return byExtension.conforms(to: .package) && byExtension.identifier == typeIdentifier
+    }
+
+    /// The URL to hand to a document picker for an export. A recognised package goes as is, but
+    /// without the trailing slash a directory URL carries (UIKit reads that as "a folder", which
+    /// the export picker rejects). Otherwise the package is zipped next to itself with
+    /// `NSFileCoordinator`'s upload option (the system's own zip; no dependency) and the zip goes.
+    static func exportItem(for packageURL: URL, recognized: Bool = isPackageTypeRecognized) throws -> URL {
+        let plain = URL(filePath: packageURL.path(percentEncoded: false), directoryHint: .notDirectory)
+        if recognized { return plain }
+        return try zip(plain)
+    }
+
+    /// `<package>.zip` next to the package; replaced if it exists.
+    static func zip(_ packageURL: URL) throws -> URL {
+        let zipURL = packageURL.deletingPathExtension().appendingPathExtension(pathExtension + ".zip")
+        try? FileManager.default.removeItem(at: zipURL)
+        var coordinatorError: NSError?
+        var copyError: Error?
+        NSFileCoordinator().coordinate(readingItemAt: packageURL, options: .forUploading, error: &coordinatorError) { temporaryZip in
+            do {
+                try FileManager.default.copyItem(at: temporaryZip, to: zipURL)
+            } catch {
+                copyError = error
+            }
+        }
+        if let coordinatorError { throw ArchiveError.unreadable("zip: \(coordinatorError.localizedDescription)") }
+        if let copyError { throw ArchiveError.unreadable("zip: \(copyError.localizedDescription)") }
+        return zipURL
+    }
+
     private static var encoder: JSONEncoder {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601

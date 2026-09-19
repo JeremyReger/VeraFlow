@@ -33,6 +33,7 @@ struct DiagnosticsView: View {
                 LabeledContent("Prompt version", value: "v\(Prompts.version)")
                 LabeledContent("Speaker models from", value: ModelDownload.diarizationModelSourceDescription)
                 LabeledContent("Speech engine choice", value: EngineSelectingTranscriptionService.choice().displayName)
+                LabeledContent("Archive package type", value: LibraryArchive.isPackageTypeRecognized ? "Recognized" : "Not recognized (exports as zip)")
             }
             Section("Storage") {
                 LabeledContent("Recordings", value: "\(recordings.count)")

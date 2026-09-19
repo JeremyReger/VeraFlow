@@ -65,4 +65,31 @@ struct PersistenceTests {
         #expect(title.hasPrefix("Meeting · "))
         #expect(title.count > "Meeting · ".count)
     }
+
+    @Test("v1.1 fields default in place: manual marks, not trashed, audio available, sample source round-trips")
+    func v11Fields() throws {
+        let container = try ModelContainerFactory.makeInMemory()
+        let context = container.mainContext
+        let recording = Recording(title: "Sample", source: .sample, stage: .ready)
+        recording.bookmarks = [
+            Bookmark(time: 1, note: "Decision"),
+            Bookmark(time: 2, note: Bookmark.interruptedNote, kind: .interrupted),
+            Bookmark(time: 3, note: Bookmark.interruptedNote),   // a pre-1.1 interrupted mark
+        ]
+        context.insert(recording)
+        try context.save()
+
+        let loaded = try #require(try context.fetch(FetchDescriptor<Recording>()).first)
+        #expect(loaded.source == .sample)
+        #expect(!loaded.isTrashed)
+        #expect(loaded.audioAvailable)
+        let marks = loaded.bookmarks.sorted { $0.time < $1.time }
+        #expect(marks.map(\.kind) == [.manual, .interrupted, .manual])
+        #expect(marks.map(\.isUserMark) == [true, false, false])
+
+        loaded.deletedAt = .now
+        loaded.audioAvailable = false
+        try context.save()
+        #expect(loaded.isTrashed)
+    }
 }

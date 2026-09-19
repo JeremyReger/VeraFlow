@@ -36,6 +36,11 @@ enum AppPreferences {
     static let appLockKey = "privacy.appLock"
     static let diagnosticsUnlockedKey = "diagnostics.unlocked"
     static let defaultTemplateKey = "recording.defaultTemplate"
+    // v1.1
+    static let transcriptionLocaleKey = "recording.transcriptionLocale"
+    static let skipSilenceKey = "playback.skipSilence"
+    static let notifySummaryReadyKey = "notifications.summaryReady"
+    static let includeInBackupKey = "storage.includeInBackup"
 
     static func onboardingCompleted(in defaults: UserDefaults = .standard) -> Bool {
         defaults.bool(forKey: onboardingCompletedKey)
@@ -88,5 +93,52 @@ enum AppPreferences {
 
     static func setDefaultTemplate(_ template: TemplateID, in defaults: UserDefaults = .standard) {
         defaults.set(template.rawValue, forKey: defaultTemplateKey)
+    }
+
+    // MARK: v1.1
+
+    /// BCP-47 identifier of the language new recordings are transcribed in; `nil` follows the
+    /// iPhone's language (plan item 8).
+    static func transcriptionLocale(in defaults: UserDefaults = .standard) -> Locale? {
+        guard let identifier = defaults.string(forKey: transcriptionLocaleKey), !identifier.isEmpty else { return nil }
+        return Locale(identifier: identifier)
+    }
+
+    static func setTranscriptionLocale(_ locale: Locale?, in defaults: UserDefaults = .standard) {
+        defaults.set(locale?.identifier(.bcp47), forKey: transcriptionLocaleKey)
+    }
+
+    /// The locale a new recording is transcribed in: the chosen one, else the device's.
+    static func effectiveTranscriptionLocale(in defaults: UserDefaults = .standard, current: Locale = .current) -> Locale {
+        transcriptionLocale(in: defaults) ?? current
+    }
+
+    /// Playback jumps over pauses (plan item 9). Off by default.
+    static func skipsSilence(in defaults: UserDefaults = .standard) -> Bool {
+        defaults.bool(forKey: skipSilenceKey)
+    }
+
+    static func setSkipsSilence(_ value: Bool, in defaults: UserDefaults = .standard) {
+        defaults.set(value, forKey: skipSilenceKey)
+    }
+
+    /// "Notify when a summary is ready" (plan item 6). On by default; notifications are
+    /// provisional (quiet) until the user promotes them.
+    static func notifiesWhenSummaryReady(in defaults: UserDefaults = .standard) -> Bool {
+        defaults.object(forKey: notifySummaryReadyKey) as? Bool ?? true
+    }
+
+    static func setNotifiesWhenSummaryReady(_ value: Bool, in defaults: UserDefaults = .standard) {
+        defaults.set(value, forKey: notifySummaryReadyKey)
+    }
+
+    /// "Include recordings in iPhone backup" (SPEC §6.2, plan item 5). Off by default: nothing
+    /// leaves the phone unless the user says so.
+    static func includesRecordingsInBackup(in defaults: UserDefaults = .standard) -> Bool {
+        defaults.bool(forKey: includeInBackupKey)
+    }
+
+    static func setIncludesRecordingsInBackup(_ value: Bool, in defaults: UserDefaults = .standard) {
+        defaults.set(value, forKey: includeInBackupKey)
     }
 }

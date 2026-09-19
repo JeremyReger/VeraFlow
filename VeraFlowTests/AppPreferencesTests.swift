@@ -52,4 +52,32 @@ struct AppPreferencesTests {
         defaults.set("not-a-template", forKey: AppPreferences.defaultTemplateKey)
         #expect(AppPreferences.defaultTemplate(in: defaults) == .general)
     }
+
+    @Test("v1.1 preferences: language follows the device, skip silence off, notifications on, backup off")
+    func v11Defaults() throws {
+        let suite = "AppPreferencesTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        #expect(AppPreferences.transcriptionLocale(in: defaults) == nil)
+        let device = Locale(identifier: "en_US")
+        #expect(AppPreferences.effectiveTranscriptionLocale(in: defaults, current: device).identifier(.bcp47) == "en-US")
+        AppPreferences.setTranscriptionLocale(Locale(identifier: "es_ES"), in: defaults)
+        #expect(AppPreferences.transcriptionLocale(in: defaults)?.identifier(.bcp47) == "es-ES")
+        #expect(AppPreferences.effectiveTranscriptionLocale(in: defaults, current: device).identifier(.bcp47) == "es-ES")
+        AppPreferences.setTranscriptionLocale(nil, in: defaults)
+        #expect(AppPreferences.transcriptionLocale(in: defaults) == nil)
+
+        #expect(!AppPreferences.skipsSilence(in: defaults))
+        AppPreferences.setSkipsSilence(true, in: defaults)
+        #expect(AppPreferences.skipsSilence(in: defaults))
+
+        #expect(AppPreferences.notifiesWhenSummaryReady(in: defaults))
+        AppPreferences.setNotifiesWhenSummaryReady(false, in: defaults)
+        #expect(!AppPreferences.notifiesWhenSummaryReady(in: defaults))
+
+        #expect(!AppPreferences.includesRecordingsInBackup(in: defaults))
+        AppPreferences.setIncludesRecordingsInBackup(true, in: defaults)
+        #expect(AppPreferences.includesRecordingsInBackup(in: defaults))
+    }
 }

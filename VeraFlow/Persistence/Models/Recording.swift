@@ -22,6 +22,11 @@ final class Recording {
     var transcriptionEngine: TranscriptionEngine?
     /// The stage that was running when `stage` became `.failed`, so Retry knows where to resume.
     var failedStage: PipelineStage?
+    /// v1.1: set when the recording is in Recently Deleted; swept after 30 days (plan item 10).
+    var deletedAt: Date?
+    /// v1.1: false when the audio file is gone (an archive without audio, plan item 5); the
+    /// transcript, labels and summary stay usable, playback is hidden.
+    var audioAvailable: Bool = true
 
     @Relationship(deleteRule: .cascade, inverse: \TranscriptSegment.recording)
     var segments: [TranscriptSegment]
@@ -67,6 +72,9 @@ final class Recording {
         self.bookmarks = []
         self.summaries = []
     }
+
+    /// In Recently Deleted (plan item 10).
+    var isTrashed: Bool { deletedAt != nil }
 
     /// Segments in transcript order.
     var orderedSegments: [TranscriptSegment] {

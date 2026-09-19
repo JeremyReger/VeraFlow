@@ -208,9 +208,17 @@ actor LiveSummarizationService: SummarizationService {
         let counter = await tokenCounter(calibratedOn: TranscriptChunker.text(for: input.lines))
 
         var rateLimitWaits = 0
+        var forceChunking = false
         for attempt in 0...Self.maxOverflowRetries {
             do {
-                return try await run(input, inputTokens: inputTokens, tokenCount: counter, progress: progress)
+                return try await run(
+                    input,
+                    inputTokens: inputTokens,
+                    outputTokens: budget.outputReserve,
+                    tokenCount: counter,
+                    forceChunking: forceChunking,
+                    progress: progress
+                )
             } catch is CancellationError {
                 throw SummarizationError.cancelled
             } catch let error as SummarizationError {
@@ -229,14 +237,19 @@ actor LiveSummarizationService: SummarizationService {
                     Self.log.notice("model rate limited; retrying in \(delay.description, privacy: .public)")
                     try await Task.sleep(for: delay)
                 case .contextSizeExceeded where attempt < Self.maxOverflowRetries:
-                    // Only the chunk size shrinks (SPEC §11.2); the reserve stays.
+                    // Only the chunk size shrinks (SPEC §11.2); the reserve stays. A transcript
+                    // that already fits one call never reads the chunk size, so the retry would
+                    // repeat the call that just failed: force the map-reduce path as well, which
+                    // asks for short notes per chunk instead of a whole summary in one answer.
                     inputTokens = ContextBudget.shrunk(inputTokens)
-                    Self.log.notice("context overflow; retrying with \(inputTokens, privacy: .public)-token chunks")
+                    forceChunking = true
+                    Self.log.notice("context overflow; retrying chunked at \(inputTokens, privacy: .public) tokens")
                 case .timeout where attempt < Self.maxOverflowRetries:
                     // A request that ran out of time (seen on device after 110 s) gets smaller,
                     // faster calls before giving up for now.
                     inputTokens = ContextBudget.shrunk(inputTokens)
-                    Self.log.notice("model timed out; retrying with \(inputTokens, privacy: .public)-token chunks")
+                    forceChunking = true
+                    Self.log.notice("model timed out; retrying chunked at \(inputTokens, privacy: .public) tokens")
                 case .timeout:
                     throw SummarizationError.timedOut
                 case .contextSizeExceeded:
@@ -257,7 +270,7 @@ actor LiveSummarizationService: SummarizationService {
             let response = try await session.respond(
                 to: Prompt { Self.render(summary) },
                 generating: FollowUpEmailGenerable.self,
-                options: Self.options
+                options: Self.options(outputTokens: outputReserve)
             )
             return FollowUpEmail(subject: response.content.subject, body: response.content.body)
         } catch is CancellationError {
@@ -271,18 +284,36 @@ actor LiveSummarizationService: SummarizationService {
 
     // MARK: Map-reduce
 
-    private static let options = GenerationOptions(sampling: nil, temperature: 0.25, maximumResponseTokens: nil)
+    /// The context budget subtracts an output reserve so the answer has room, but nothing made
+    /// the model honour it: `maximumResponseTokens: nil` let one call keep generating until the
+    /// prompt plus the output overran the window and the model threw `exceededContextWindowSize`.
+    /// A short recording is the likeliest to hit that — with little to say the model pads the
+    /// arrays — and shrinking the chunk size in response did nothing, because the transcript was
+    /// never what filled the window. The reserve is the cap now, so a runaway answer stops at the
+    /// budget instead of taking the whole summary down with it.
+    private static func options(outputTokens: Int) -> GenerationOptions {
+        GenerationOptions(sampling: nil, temperature: 0.25, maximumResponseTokens: outputTokens)
+    }
+
+    /// The reserve for the calls that don't build a whole context budget. `contextSize` reads 0
+    /// while the system rate-limits metadata lookups, so fall back rather than cap at nothing.
+    private var outputReserve: Int {
+        let size = model.contextSize
+        return ContextBudget.defaultOutputReserve(for: size < 1_024 ? Self.fallbackContextSize : size)
+    }
 
     private func run(
         _ input: SummarizationInput,
         inputTokens: Int,
+        outputTokens: Int,
         tokenCount: @escaping (String) -> Int,
+        forceChunking: Bool,
         progress: @Sendable @escaping (SummarizationProgress) -> Void
     ) async throws -> SummaryPayload {
         let template = input.template
-        if TranscriptChunker.fitsInOneCall(input.lines, budgetTokens: inputTokens, tokenCount: tokenCount) {
+        if !forceChunking, TranscriptChunker.fitsInOneCall(input.lines, budgetTokens: inputTokens, tokenCount: tokenCount) {
             progress(SummarizationProgress(completedChunks: 0, totalChunks: 1))
-            let payload = try await final(from: TranscriptChunker.text(for: input.lines), template: template, fromTranscript: true, focus: input.focus)
+            let payload = try await final(from: TranscriptChunker.text(for: input.lines), template: template, fromTranscript: true, focus: input.focus, outputTokens: outputTokens)
             progress(SummarizationProgress(completedChunks: 1, totalChunks: 1))
             return payload
         }
@@ -296,7 +327,7 @@ actor LiveSummarizationService: SummarizationService {
         var notes: [String] = []
         for chunk in chunks {
             try Task.checkCancellation()
-            let result = try await mapChunk(chunk.text)
+            let result = try await mapChunk(chunk.text, outputTokens: outputTokens)
             notes.append(Self.render(result))
             completed += 1
             progress(SummarizationProgress(completedChunks: completed, totalChunks: total))
@@ -312,7 +343,7 @@ actor LiveSummarizationService: SummarizationService {
             var reduced: [String] = []
             for group in groups {
                 try Task.checkCancellation()
-                let result = try await mapChunk(group.joined(separator: "\n\n"))
+                let result = try await mapChunk(group.joined(separator: "\n\n"), outputTokens: outputTokens)
                 reduced.append(Self.render(result))
                 completed += 1
                 progress(SummarizationProgress(completedChunks: completed, totalChunks: total))
@@ -322,26 +353,31 @@ actor LiveSummarizationService: SummarizationService {
             combined = notes.joined(separator: "\n\n")
         }
 
-        let payload = try await final(from: combined, template: template, fromTranscript: false, focus: input.focus)
+        let payload = try await final(from: combined, template: template, fromTranscript: false, focus: input.focus, outputTokens: outputTokens)
         completed += 1
         progress(SummarizationProgress(completedChunks: completed, totalChunks: total))
         return payload
     }
 
-    private func mapChunk(_ text: String) async throws -> ChunkNotesGenerable {
+    private func mapChunk(_ text: String, outputTokens: Int) async throws -> ChunkNotesGenerable {
         let session = LanguageModelSession(instructions: Prompts.instructions(Prompts.map))
-        return try await session.respond(to: Prompt { text }, generating: ChunkNotesGenerable.self, options: Self.options).content
+        return try await session.respond(
+            to: Prompt { text },
+            generating: ChunkNotesGenerable.self,
+            options: Self.options(outputTokens: outputTokens)
+        ).content
     }
 
     /// The focus line adds at most ~60 tokens to the instructions; the output reserve absorbs it,
     /// so the per-template budget cache stays valid.
-    private func final(from text: String, template: TemplateID, fromTranscript: Bool, focus: String) async throws -> SummaryPayload {
+    private func final(from text: String, template: TemplateID, fromTranscript: Bool, focus: String, outputTokens: Int) async throws -> SummaryPayload {
         let step = fromTranscript ? Prompts.finalFromTranscript(for: template) : Prompts.final(for: template)
         let session = LanguageModelSession(instructions: Prompts.instructions(step, focus: focus))
         let prompt = Prompt { text }
+        let options = Self.options(outputTokens: outputTokens)
         switch template {
         case .general:
-            let content = try await session.respond(to: prompt, generating: GeneralSummaryGenerable.self, options: Self.options).content
+            let content = try await session.respond(to: prompt, generating: GeneralSummaryGenerable.self, options: options).content
             return .general(GeneralSummary(
                 title: content.title,
                 overview: content.overview,
@@ -352,7 +388,7 @@ actor LiveSummarizationService: SummarizationService {
                 openQuestions: content.openQuestions
             ))
         case .client:
-            let content = try await session.respond(to: prompt, generating: ClientMeetingSummaryGenerable.self, options: Self.options).content
+            let content = try await session.respond(to: prompt, generating: ClientMeetingSummaryGenerable.self, options: options).content
             return .client(ClientMeetingSummary(
                 title: content.title,
                 overview: content.overview,
@@ -365,7 +401,7 @@ actor LiveSummarizationService: SummarizationService {
                 topics: content.topics.map(Self.topic)
             ))
         case .walkthrough:
-            let content = try await session.respond(to: prompt, generating: WalkthroughSummaryGenerable.self, options: Self.options).content
+            let content = try await session.respond(to: prompt, generating: WalkthroughSummaryGenerable.self, options: options).content
             return .walkthrough(WalkthroughSummary(
                 title: content.title,
                 location: content.location,

@@ -73,4 +73,31 @@ struct TranscriptChunkerTests {
         #expect(ContextBudget.shrunk(100) == 200, "never below the floor")
         #expect(ContextBudget(contextSize: 500, instructionsTokens: 400, schemaOverhead: 400).inputTokens == 200)
     }
+
+    /// The reserve is also the cap on the model's answer, so this is what keeps a call inside the
+    /// window: a chunk that fills its whole input budget, plus an answer that runs right to the
+    /// cap, still adds up to the context size. Without the cap the answer had no ceiling, and a
+    /// short recording — where the model pads rather than summarizes — could overrun it.
+    @Test("A full input budget plus an answer at the reserve still fits the context window")
+    func aFullCallFitsTheWindow() {
+        for size in [4_096, 8_192, 16_384] {
+            for instructions in [200, 500] {
+                for schema in [200, 900] {
+                    let budget = ContextBudget(contextSize: size, instructionsTokens: instructions, schemaOverhead: schema)
+                    let whole = instructions + schema + budget.inputTokens + budget.outputReserve
+                    #expect(whole == size, "context \(size) with \(instructions)/\(schema) budgets \(whole) tokens")
+                }
+            }
+        }
+    }
+
+    /// A window too small for the overheads clamps the input to a floor so chunking terminates;
+    /// that is the one case where the parts don't add up, and it means the model can't be trusted
+    /// to be summarizing at all.
+    @Test("A window too small for its own overheads keeps the floor rather than a negative budget")
+    func aWindowTooSmallKeepsTheFloor() {
+        let budget = ContextBudget(contextSize: 500, instructionsTokens: 400, schemaOverhead: 400)
+        #expect(budget.inputTokens == 200)
+        #expect(400 + 400 + budget.inputTokens + budget.outputReserve > 500)
+    }
 }

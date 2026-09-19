@@ -37,11 +37,16 @@ actor LiveQuestionService: QuestionService {
         }
     }
 
+    /// An answer is a few sentences and its citations, so 400 tokens is generous; it is both the
+    /// room kept back from the excerpts and the cap on the reply, so a model that won't stop
+    /// can't overrun the window (the same way the summarizer's reserve works).
+    static let outputReserve = 400
+
     func excerptBudgetTokens() async -> Int {
         var contextSize = model.contextSize
         if contextSize < 1_024 { contextSize = Self.fallbackContextSize }
         let instructions = TranscriptChunker.estimateTokens(Prompts.instructions(Prompts.ask))
-        return ContextBudget(contextSize: contextSize, instructionsTokens: instructions + 60, schemaOverhead: Self.schemaOverheadEstimate, outputReserve: 400).inputTokens
+        return ContextBudget(contextSize: contextSize, instructionsTokens: instructions + 60, schemaOverhead: Self.schemaOverheadEstimate, outputReserve: Self.outputReserve).inputTokens
     }
 
     func answer(question: String, excerpts: [TranscriptLine], context: AskContext?) async throws -> RawAnswer {
@@ -54,7 +59,7 @@ actor LiveQuestionService: QuestionService {
             let content = try await session.respond(
                 to: prompt,
                 generating: GroundedAnswerGenerable.self,
-                options: GenerationOptions(sampling: nil, temperature: 0.2, maximumResponseTokens: nil)
+                options: GenerationOptions(sampling: nil, temperature: 0.2, maximumResponseTokens: Self.outputReserve)
             ).content
             return RawAnswer(answer: content.answer, citations: content.citations, foundInTranscript: content.foundInTranscript)
         } catch is CancellationError {

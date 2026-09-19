@@ -195,6 +195,11 @@ Waves A, B and C were written together in one build on 2026-09-19 while Jeremy w
   - [x] 18 tests in `SummaryEditsTests`
   - [ ] Device: edit a decision on the sample, delete one, add one, reopen the recording, export a PDF and check the edit is in it, then "Use the original wording" and check the model's line comes back; re-run the summary and confirm the new version starts clean
   - [ ] Device, tier two: rename a key-point subject and rewrite one of its points, check the other subjects are untouched and the PDF carries both; on a walk-through, rename a work area and add a task, and check its measurements are exactly as recorded
+- [x] Summaries: the output reserve is enforced (2026-09-19, from Jeremy's Mac run)
+  - [x] A 1:25 recording failed with "The recording was too long to summarize in one pass." The context budget always subtracted an output reserve, but every model call passed `maximumResponseTokens: nil`, so nothing stopped the answer growing until prompt + output overran the window. A short recording is the likeliest to hit it: with little to say the model pads the arrays. The reserve is now the cap on every call (summaries, the follow-up email, and Ask's 400)
+  - [x] The overflow retry does something different now. It only ever shrank the chunk size, which a transcript that fits one call never reads — so the retry repeated the call that had just failed, three times. It now forces the map-reduce path as well, so each call asks for short notes instead of a whole summary. Same for a timeout
+  - [x] `TranscriptChunkerTests`: instructions + schema + input budget + reserve is exactly the context size, so a call that fills its budget and answers to the cap still fits; and the one case where that doesn't hold (a window too small for its own overheads, which keeps an input floor so chunking terminates)
+  - [ ] Device: the recording that failed should summarize on Retry. If it fails again, the log lines that say why are `context N tokens; instructions …; input budget …` and `model call failed (contextSizeExceeded)` — the second one after the cap is in place would mean the prompt, not the answer, is overrunning
 - [ ] Wave G — iPad (opens 1.2)
 
 ## Requests from device testing

@@ -43,7 +43,7 @@ struct TranslationTests {
             areas: [WorkArea(
                 name: "Kitchen",
                 tasks: ["Pour footer"],
-                measurements: [Measurement(item: "North wall", value: "12 ft 4 in", timestamp: 3)],
+                measurements: [VeraFlow.Measurement(item: "North wall", value: "12 ft 4 in", timestamp: 3)],
                 materials: [Material(name: "Rebar", quantity: "20 pieces", notes: "Grade 60")],
                 start: 0
             )],

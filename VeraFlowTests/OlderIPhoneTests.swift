@@ -36,7 +36,7 @@ struct OlderIPhoneTests {
     func unavailableServices() async {
         let summarizer = UnavailableSummarizationService()
         #expect(await summarizer.availability() == .deviceNotEligible)
-        #expect(await !summarizer.supportsLanguage(Locale.Language(identifier: "en")))
+        #expect(await summarizer.supportsLanguage(Locale.Language(identifier: "en")) == false)
         let input = SummarizationInput(recordingTitle: "t", recordedAt: .now, duration: 1, lines: [], template: .general)
         await #expect(throws: SummarizationError.unavailable(.deviceNotEligible)) {
             _ = try await summarizer.summarize(input) { _ in }
@@ -47,7 +47,7 @@ struct OlderIPhoneTests {
             _ = try await questions.answer(question: "q", excerpts: [])
         }
         let preview = UnavailableTranscriptPreview()
-        #expect(await !preview.isAvailable(locale: Locale(identifier: "en-US")))
+        #expect(await preview.isAvailable(locale: Locale(identifier: "en-US")) == false)
     }
 
     @Test("Inline background processing runs the work to completion")

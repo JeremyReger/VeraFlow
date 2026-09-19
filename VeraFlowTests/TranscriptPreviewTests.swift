@@ -118,7 +118,7 @@ struct TranscriptPreviewTests {
         await viewModel.stop()
         #expect(!viewModel.isPreviewOn)
         #expect(await harness.preview.stopCount == 1)
-        #expect(await !harness.recorder.hasPreviewSink)
+        #expect(await harness.recorder.hasPreviewSink == false)
         #expect(viewModel.preview.isEmpty)
     }
 

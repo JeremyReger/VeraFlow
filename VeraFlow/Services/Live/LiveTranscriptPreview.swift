@@ -86,6 +86,7 @@ actor LiveTranscriptPreview: TranscriptPreviewService {
 
 /// Converts tap buffers to the analyzer's format and yields them. Called on the render
 /// thread; the converter is built from the first buffer's format and guarded by a lock.
+@available(iOS 26, *)
 private final class PreviewFeeder: @unchecked Sendable {
     private let targetFormat: AVAudioFormat
     private let continuation: AsyncStream<AnalyzerInput>.Continuation

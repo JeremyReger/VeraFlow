@@ -111,8 +111,9 @@ struct TranslationLanguageSheet: View {
             targets.insert(targets.remove(at: index), at: 0)
         }
         var pending: Set<String> = []
-        for language in targets where await services.translation.availability(from: source, to: language) == .needsDownload {
-            pending.insert(language.minimalIdentifier)
+        for language in targets {
+            let status = await services.translation.availability(from: source, to: language)
+            if status == .needsDownload { pending.insert(language.minimalIdentifier) }
         }
         languages = targets
         needsDownload = pending

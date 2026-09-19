@@ -111,6 +111,13 @@ final class AudioPlayerController {
         updateNowPlaying()
     }
 
+    /// Shows `message` where the player would be, without touching the file (audio removed).
+    func markUnavailable(_ message: String) {
+        stop()
+        errorMessage = message
+        isLoaded = false
+    }
+
     func stop() {
         player?.stop()
         player = nil

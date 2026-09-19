@@ -93,6 +93,34 @@ struct LibraryActionsTests {
         #expect(await harness.pipeline.cancelled == [id])
     }
 
+    @Test("Removing audio deletes only the file, keeps the row and folder, and skips rows that still need it")
+    func removeAudio() throws {
+        let harness = try makeHarness()
+        defer { harness.cleanUp() }
+        let ready = Recording(title: "Done", stage: .ready)
+        let fresh = Recording(title: "Fresh", stage: .recorded)
+        harness.context.insert(ready)
+        harness.context.insert(fresh)
+        try harness.context.save()
+        for recording in [ready, fresh] {
+            try harness.storage.folder(for: recording.id)
+            try Data(repeating: 0, count: 1_000).write(to: harness.storage.audioURL(for: recording.id, fileName: recording.audioFileName))
+        }
+        #expect(harness.storage.audioByteCount(for: ready.id, fileName: ready.audioFileName) == 1_000)
+
+        let freed = try harness.actions.removeAudio(from: [ready, fresh])
+
+        #expect(freed == 1_000)
+        #expect(!ready.hasAudio)
+        #expect(fresh.hasAudio)
+        #expect(!FileManager.default.fileExists(at: harness.storage.audioURL(for: ready.id, fileName: ready.audioFileName)))
+        #expect(FileManager.default.fileExists(at: harness.storage.audioURL(for: fresh.id, fileName: fresh.audioFileName)))
+        #expect(try harness.storage.existingFolderIDs().count == 2, "folders stay")
+        #expect(try harness.context.fetchCount(FetchDescriptor<Recording>()) == 2)
+        // Removing again is a no-op.
+        #expect(try harness.actions.removeAudio(from: [ready]) == 0)
+    }
+
     @Test("Import creates an imported row with the file's duration and queues processing")
     func importAudio() async throws {
         let harness = try makeHarness()

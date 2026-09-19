@@ -238,6 +238,27 @@ struct SettingsView: View {
                     }
                     .accessibilityIdentifier("settings.appLock")
                 VFHairline()
+                NavigationLink {
+                    StorageView()
+                } label: {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Storage").vfText(VFText.rowLabel)
+                            Text("Remove audio, keep transcripts and summaries")
+                                .vfText(VFText.meta, color: VFColor.textTertiary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(VFColor.textTertiary)
+                            .accessibilityHidden(true)
+                    }
+                    .frame(minHeight: 54)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("settings.storage")
+                VFHairline()
                 Button(role: .destructive) {
                     confirmDeleteAll = true
                 } label: {

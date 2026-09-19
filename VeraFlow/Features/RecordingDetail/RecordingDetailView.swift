@@ -117,7 +117,11 @@ struct RecordingDetailView: View {
             if exportController == nil {
                 exportController = ExportController(services: services)
             }
-            player.load(url: services.storage.audioURL(for: recording.id, fileName: recording.audioFileName), title: recording.title)
+            if recording.hasAudio {
+                player.load(url: services.storage.audioURL(for: recording.id, fileName: recording.audioFileName), title: recording.title)
+            } else {
+                player.markUnavailable(Recording.audioRemovedMessage)
+            }
         }
         .onDisappear { player.stop() }
     }

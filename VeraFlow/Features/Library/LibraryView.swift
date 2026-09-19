@@ -459,6 +459,10 @@ struct LibraryCard: View {
                     Text("·").accessibilityHidden(true)
                     Text("Imported")
                 }
+                if model.isAudioRemoved {
+                    Text("·").accessibilityHidden(true)
+                    Text("Audio removed")
+                }
                 if model.speakerCount > 0 {
                     Text("·").accessibilityHidden(true)
                     Text("^[\(model.speakerCount) speaker](inflect: true)")

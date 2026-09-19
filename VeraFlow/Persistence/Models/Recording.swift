@@ -22,6 +22,9 @@ final class Recording {
     var transcriptionEngine: TranscriptionEngine?
     /// The stage that was running when `stage` became `.failed`, so Retry knows where to resume.
     var failedStage: PipelineStage?
+    /// Set when the audio file was removed to free space (Settings → Storage). The transcript,
+    /// speaker labels, summaries and marks stay; playback and re-labeling are no longer possible.
+    var audioRemovedAt: Date?
 
     @Relationship(deleteRule: .cascade, inverse: \TranscriptSegment.recording)
     var segments: [TranscriptSegment]
@@ -67,6 +70,12 @@ final class Recording {
         self.bookmarks = []
         self.summaries = []
     }
+
+    /// False once the audio file was removed to free space.
+    var hasAudio: Bool { audioRemovedAt == nil }
+
+    /// Shown wherever playback or re-labeling would have been offered.
+    static let audioRemovedMessage = "Audio removed to free space. The transcript and summary are kept."
 
     /// Segments in transcript order.
     var orderedSegments: [TranscriptSegment] {

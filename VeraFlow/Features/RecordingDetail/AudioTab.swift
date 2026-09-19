@@ -368,6 +368,7 @@ struct AudioTab: View {
                 }
                 .accessibilityIdentifier("audio.exportTranscript")
 
+                if recording.hasAudio {
                 Button {
                     if ExportGate.isAllowed(.file(.audio), unlocked: isUnlocked) {
                         let document = ExportDocument.make(from: recording, includeTranscript: false)
@@ -382,6 +383,7 @@ struct AudioTab: View {
                 .disabled(player.errorMessage != nil)
                 .accessibilityHint(ExportGate.isAllowed(.file(.audio), unlocked: isUnlocked) ? "" : "Opens the unlock screen")
                 .accessibilityIdentifier("audio.shareAudio")
+                }
             }
             .padding(.top, 4)
         }

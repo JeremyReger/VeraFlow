@@ -45,6 +45,21 @@ struct RecordingStorage: Sendable {
             .appending(path: fileName, directoryHint: .notDirectory)
     }
 
+    /// Size of a recording's audio file in bytes; 0 when there is none.
+    func audioByteCount(for id: UUID, fileName: String) -> Int64 {
+        let url = audioURL(for: id, fileName: fileName)
+        let values = try? url.resourceValues(forKeys: [.fileSizeKey])
+        return Int64(values?.fileSize ?? 0)
+    }
+
+    /// Deletes only the audio file (Settings → Storage); the folder and the row stay so the
+    /// transcript and summary keep working. A missing file is not an error.
+    func removeAudio(for id: UUID, fileName: String) throws {
+        let url = audioURL(for: id, fileName: fileName)
+        guard FileManager.default.fileExists(at: url) else { return }
+        try FileManager.default.removeItem(at: url)
+    }
+
     /// Deletes a recording's folder and everything in it. Missing folders are not an error.
     func deleteFolder(for id: UUID) throws {
         let url = rootDirectory.appending(path: id.uuidString, directoryHint: .isDirectory)

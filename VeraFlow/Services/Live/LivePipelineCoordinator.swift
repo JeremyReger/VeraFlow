@@ -121,6 +121,14 @@ actor LivePipelineCoordinator: PipelineCoordinating {
 
     func retry(recordingID: UUID, from stage: PipelineStage) async {
         guard let recording = try? fetchRecording(recordingID) else { return }
+        if (stage == .transcribing || stage == .diarizing), !recording.hasAudio {
+            // The audio was removed to free space; only the summary can be redone.
+            recording.failedStage = stage
+            recording.failureMessage = Recording.audioRemovedMessage
+            try? context.save()
+            events.emit(.failed(recordingID: recordingID, stage: stage, message: Recording.audioRemovedMessage))
+            return
+        }
         if stage == .diarizing, !recording.summaries.isEmpty {
             relabelOnly.insert(recordingID)
         }

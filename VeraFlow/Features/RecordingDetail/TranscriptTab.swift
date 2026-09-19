@@ -83,11 +83,15 @@ struct TranscriptTab: View {
         default:
             if recording.failedStage == .diarizing, let message = recording.failureMessage {
                 // Non-fatal (SPEC §6.3): the transcript is readable with one speaker.
-                banner(systemImage: "person.2.slash", text: "Speaker labels couldn't be added: \(message)", tint: .orange) {
-                    Button("Retry") {
-                        Task { await services.pipeline.retry(recordingID: recording.id, from: .diarizing) }
+                if recording.hasAudio {
+                    banner(systemImage: "person.2.slash", text: "Speaker labels couldn't be added: \(message)", tint: .orange) {
+                        Button("Retry") {
+                            Task { await services.pipeline.retry(recordingID: recording.id, from: .diarizing) }
+                        }
+                        .accessibilityIdentifier("transcript.retrySpeakers")
                     }
-                    .accessibilityIdentifier("transcript.retrySpeakers")
+                } else {
+                    banner(systemImage: "person.2.slash", text: "Speaker labels couldn't be added: \(message)", tint: .orange)
                 }
             }
         }

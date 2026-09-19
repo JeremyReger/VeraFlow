@@ -51,6 +51,21 @@ struct LibraryActions {
         try services.storage.deleteFolder(for: id)
     }
 
+    /// Settings → Storage: deletes the audio files and keeps everything written from them. Rows
+    /// that still need their audio (no transcript yet, or speaker labeling in progress) are
+    /// skipped. Returns the bytes freed.
+    @discardableResult
+    func removeAudio(from recordings: [Recording]) throws -> Int64 {
+        var freed: Int64 = 0
+        for recording in recordings where recording.hasAudio && StorageItem.canRemoveAudio(stage: recording.stage) {
+            freed += services.storage.audioByteCount(for: recording.id, fileName: recording.audioFileName)
+            try services.storage.removeAudio(for: recording.id, fileName: recording.audioFileName)
+            recording.audioRemovedAt = .now
+        }
+        try context.save()
+        return freed
+    }
+
     /// "Delete all data" (SPEC §14.4): every row, every audio folder (orphans included), and any queued work.
     func deleteAll() async throws {
         let recordings = try context.fetch(FetchDescriptor<Recording>())

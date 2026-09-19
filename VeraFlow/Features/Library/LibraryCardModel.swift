@@ -13,6 +13,8 @@ struct LibraryCardModel: Equatable, Sendable {
     var actionCount: Int
     var isFavorite: Bool
     var isImported: Bool
+    /// The audio was removed to free space; the card says so next to the time.
+    var isAudioRemoved: Bool
     /// The stage name while processing, or the failure text; `nil` when the recording is ready.
     var status: String?
     var isFailed: Bool
@@ -35,6 +37,7 @@ struct LibraryCardModel: Equatable, Sendable {
         actionCount = payload?.actionItems.count ?? 0
         isFavorite = recording.isFavorite
         isImported = recording.source == .imported
+        isAudioRemoved = !recording.hasAudio
         switch recording.stage {
         case .ready where recording.failedStage == nil:
             status = nil

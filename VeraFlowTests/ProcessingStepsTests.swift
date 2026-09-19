@@ -36,7 +36,7 @@ struct ProcessingStepsTests {
         #expect(steps(.ready).map(\.state) == [.done, .done, .done, .done])
         let noSummary = steps(.diarized, canSummarize: false)
         #expect(noSummary[3].state == .skipped)
-        #expect(noSummary[3].detail == "Not available on this iPhone")
+        #expect(noSummary[3].detail == "Not available on \(Platform.thisDevice)")
         #expect(ProcessingSteps.overallFraction(noSummary, activeFraction: 0) == 1)
     }
 

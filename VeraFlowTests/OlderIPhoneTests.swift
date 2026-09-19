@@ -30,7 +30,7 @@ struct OlderIPhoneTests {
         #expect(!capabilities.backgroundProcessingSupported)
         #expect(capabilities.osVersion == "18.6.2")
         #expect(OnboardingView.transcriptionMessage(capabilities).contains("Parakeet"))
-        #expect(OnboardingView.summaryMessage(capabilities.summarization).contains("iOS 26"))
+        #expect(OnboardingView.summaryMessage(capabilities.summarization).contains("\(Platform.osName) 26"))
     }
 
     @Test("The unavailable summarizer and question service report the reason and refuse work")

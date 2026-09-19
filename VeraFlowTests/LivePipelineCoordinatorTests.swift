@@ -179,7 +179,7 @@ struct LivePipelineCoordinatorTests {
 
         let recording = try #require(try harness.fetch(id))
         #expect(recording.failedStage == .summarizing)
-        #expect(recording.failureMessage == "AI summaries need an Apple Intelligence–capable iPhone. Transcripts still work.")
+        #expect(recording.failureMessage == "AI summaries need an Apple Intelligence–capable \(Platform.deviceNoun). Transcripts still work.")
         #expect(recording.summaries.isEmpty)
         #expect(recording.speakers.count == 2, "speaker labels are untouched")
     }

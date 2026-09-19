@@ -154,7 +154,7 @@ struct AskTests {
     @Test("An answer copies as the question, the answer, and the moments it cites; nothing else copies")
     func copyText() {
         let answered = AskExchange(question: "Who signs the permit?", outcome: .answered(text: "Dave does.", citations: [65, 20]))
-        #expect(AskController.copyText(for: answered) == "Who signs the permit?\n\nDave does.\n\nMoments: 1:05, 0:20")
+        #expect(AskController.copyText(for: answered) == "Who signs the permit?\n\nDave does.\n\nMoments: 01:05, 00:20")
         let noCitation = AskExchange(question: "Q", outcome: .answered(text: "A", citations: []))
         #expect(AskController.copyText(for: noCitation) == "Q\n\nA")
         #expect(AskController.copyText(for: AskExchange(question: "Q", outcome: .notFound(closest: []))) == nil)

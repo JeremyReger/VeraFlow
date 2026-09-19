@@ -174,7 +174,7 @@ struct TranscriptPreviewTests {
         thermal.state = .serious
         await viewModel.thermalDidChange()
         #expect(!viewModel.isPreviewOn)
-        #expect(viewModel.previewNotice == "Paused the live words to keep the iPhone cool.")
+        #expect(viewModel.previewNotice == "Paused the live words to keep the \(Platform.deviceNoun) cool.")
         #expect(viewModel.phase == .recording)
 
         thermal.state = .fair

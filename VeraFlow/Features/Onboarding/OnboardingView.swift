@@ -214,7 +214,7 @@ struct OnboardingView: View {
         case .available:
             return "AI summaries and action items are available."
         case .deviceNotEligible:
-            return "Transcripts work on \(Platform.thisDevice); AI summaries need an Apple Intelligence–capable \(Platform.deviceNoun) on \(Platform.isMac ? "macOS" : "iOS") 26 or later."
+            return "Transcripts work on \(Platform.thisDevice); AI summaries need an Apple Intelligence–capable \(Platform.deviceNoun) on \(Platform.osName) 26 or later."
         case .appleIntelligenceNotEnabled:
             return "Turn on Apple Intelligence in Settings to get AI summaries. Transcripts work either way."
         case .modelNotReady:

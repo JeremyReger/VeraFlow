@@ -26,6 +26,8 @@ enum Platform {
     static var yourDevice: String { "your \(deviceNoun)" }
     /// "iPhone Microphone" / "Mac Microphone" for a built-in input with no better name.
     static var builtInMicrophoneName: String { "\(deviceNoun) Microphone" }
+    /// "iOS" / "macOS", for copy that names a system version.
+    static var osName: String { isMac ? "macOS" : "iOS" }
 
     /// Where the microphone permission is changed: the app's page in Settings on iOS, the
     /// Microphone privacy pane in System Settings on the Mac.

@@ -41,6 +41,16 @@ struct TranscriptTab: View {
         filter.matches(filterSegments)
     }
 
+    /// The user's marks in time order (v1.1 plan item 1).
+    private var marks: [Bookmark] {
+        recording.bookmarks.filter(\.isUserMark).sorted { $0.time < $1.time }
+    }
+
+    /// Marks keyed by the position in `visibleSegments` they show before.
+    private var markPlacements: [Int: [Int]] {
+        TranscriptMarkers.placements(markTimes: marks.map(\.time), segmentStarts: visibleSegments.map(\.start))
+    }
+
     private var position: TranscriptPosition? {
         guard !segments.isEmpty else { return nil }
         return TranscriptCursor.position(
@@ -303,7 +313,12 @@ struct TranscriptTab: View {
                             .padding(.vertical, 24)
                             .frame(maxWidth: .infinity)
                     }
-                    ForEach(visibleSegments, id: \.index) { segment in
+                    let placements = markPlacements
+                    let marks = marks
+                    ForEach(Array(visibleSegments.enumerated()), id: \.element.index) { position, segment in
+                        ForEach(placements[position] ?? [], id: \.self) { markIndex in
+                            markerRow(marks[markIndex])
+                        }
                         paragraph(
                             segment,
                             isCurrent: current?.segmentIndex == segment.index,
@@ -311,6 +326,9 @@ struct TranscriptTab: View {
                             isMatch: matched.contains(segment.index)
                         )
                         .id(segment.index)
+                    }
+                    ForEach(placements[visibleSegments.count] ?? [], id: \.self) { markIndex in
+                        markerRow(marks[markIndex])
                     }
                 }
                 .padding(.horizontal, VFSpace.gutterTight)
@@ -448,6 +466,33 @@ struct TranscriptTab: View {
             }
         }
         .accessibilityIdentifier("transcript.paragraph.\(segment.index)")
+    }
+
+    /// Flag, label and time of a mark, between the paragraphs it fell between; tap seeks.
+    private func markerRow(_ mark: Bookmark) -> some View {
+        let label = mark.note?.isEmpty == false ? mark.note! : "Marked moment"
+        return Button {
+            player.seek(to: mark.time)
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "flag.fill")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(WaveformView.bookmarkColor)
+                    .accessibilityHidden(true)
+                Text(label)
+                    .vfText(VFText.speakerLabel, color: VFColor.textSecondary)
+                Text(timestamp(mark.time))
+                    .vfText(VFText.meta, color: VFColor.textTertiary)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, VFSpace.cardPaddingH)
+            .padding(.vertical, 6)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(label), marked at \(SpokenFormat.duration(mark.time))")
+        .accessibilityHint("Seeks playback to this moment")
+        .accessibilityIdentifier("transcript.mark")
     }
 
     private var canChangeSpeaker: Bool {

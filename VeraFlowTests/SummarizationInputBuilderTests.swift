@@ -22,6 +22,25 @@ struct SummarizationInputBuilderTests {
         #expect(SummarizationInput.make(from: unlabeled).lines.first?.speakerDisplayName == "Speaker")
     }
 
+    @Test("The user's marks are woven in by time; interrupted marks are left out")
+    func marksInInput() {
+        let recording = PreviewData.sampleRecording()   // paragraphs start at 0 and about 3.6 s
+        recording.bookmarks = [
+            Bookmark(time: 5, note: "Decision"),
+            Bookmark(time: 1, note: nil),
+            Bookmark(time: 2, note: Bookmark.interruptedNote, kind: .interrupted),
+        ]
+        let lines = SummarizationInput.make(from: recording).lines
+        #expect(lines.filter(\.isMark).map(\.start) == [1, 5])
+        #expect(lines.map(\.isMark) == [false, true, false, true])
+        #expect(lines[1].text == "")
+        #expect(lines[3].text == "Decision")
+        #expect(lines[3].speakerKey == nil)
+
+        let early = SummarizationInput.merge(speech: lines.filter { !$0.isMark }, marks: [.mark(at: 0, label: "Start")])
+        #expect(early.first?.isMark == true, "a mark at the very start comes first")
+    }
+
     @Test("Post-processing a payload resolves owners, due dates, and measurement timestamps")
     func postProcessesPayload() throws {
         let recording = PreviewData.sampleRecording()

@@ -1,11 +1,27 @@
 import Foundation
 
-/// One transcript line handed to the model: `[mm:ss] Speaker N: text` (SPEC §11.3).
+/// One transcript line handed to the model: `[mm:ss] Speaker N: text` (SPEC §11.3), or a moment
+/// the user marked while recording: `[mm:ss] ★ Marked: Decision` (v1.1 plan item 1).
 struct TranscriptLine: Sendable, Equatable {
     var start: TimeInterval
     var speakerKey: String?
     var speakerDisplayName: String
     var text: String
+    /// A user mark rather than speech; `text` is its label (empty for a plain mark).
+    var isMark = false
+
+    init(start: TimeInterval, speakerKey: String?, speakerDisplayName: String, text: String, isMark: Bool = false) {
+        self.start = start
+        self.speakerKey = speakerKey
+        self.speakerDisplayName = speakerDisplayName
+        self.text = text
+        self.isMark = isMark
+    }
+
+    /// A mark line. Marks are merged into the transcript in time order by `SummarizationInput.make`.
+    static func mark(at time: TimeInterval, label: String?) -> TranscriptLine {
+        TranscriptLine(start: time, speakerKey: nil, speakerDisplayName: "", text: label ?? "", isMark: true)
+    }
 }
 
 /// Everything the summarizer needs about a recording.

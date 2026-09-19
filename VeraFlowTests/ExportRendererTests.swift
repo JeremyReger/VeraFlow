@@ -38,6 +38,20 @@ struct ExportRendererTests {
         #expect(ExportRenderer.actionItemsText(for: document) == "☐ Call the county about the permit (Speaker 2, due on Monday) @ 00:04")
     }
 
+    @Test("Marked moments are listed after the summary in every format, and left out when there are none")
+    func markedMoments() {
+        var doc = document
+        #expect(doc.marks == [ExportMark(time: 3.6, label: "Permit question")], "the sample's user mark is carried")
+        let markdown = ExportRenderer.markdown(for: doc)
+        #expect(markdown.contains("## Marked moments\n\n- [00:04] Permit question"))
+        #expect(ExportRenderer.plainText(for: doc).contains("MARKED MOMENTS\n• [00:04] Permit question"))
+        doc.marks = [ExportMark(time: 65, label: ""), ExportMark(time: 10, label: "Quote")]
+        let lines = ExportRenderer.contextSections(doc).first?.lines
+        #expect(lines == ["- [00:10] Quote", "- [01:05] Marked moment"])
+        doc.marks = []
+        #expect(!ExportRenderer.markdown(for: doc).contains("Marked moments"))
+    }
+
     @Test("Walk-through measurements get the audio-check warning and their timestamps")
     func measurements() {
         var doc = document

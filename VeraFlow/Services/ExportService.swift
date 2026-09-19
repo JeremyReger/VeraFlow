@@ -13,6 +13,12 @@ struct ExportSegment: Sendable, Equatable {
     var text: String
 }
 
+/// A moment the user marked while recording (v1.1 plan item 1).
+struct ExportMark: Sendable, Equatable {
+    var time: TimeInterval
+    var label: String
+}
+
 /// Everything an export needs, detached from SwiftData so it can cross actor boundaries.
 struct ExportDocument: Sendable, Equatable {
     var title: String
@@ -22,6 +28,7 @@ struct ExportDocument: Sendable, Equatable {
     var summary: SummaryPayload?
     var segments: [ExportSegment]
     var includeTranscript: Bool
+    var marks: [ExportMark] = []
 
     /// Display name for a speaker key, falling back to the key itself.
     func speakerName(for key: String?) -> String {

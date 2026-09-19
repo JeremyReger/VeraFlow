@@ -17,6 +17,21 @@ struct TranscriptChunkerTests {
         let line = TranscriptLine(start: 754, speakerKey: "S2", speakerDisplayName: "Speaker 2", text: "We need the permit before we pour the footer.")
         #expect(TranscriptChunker.format(line) == "[12:34] Speaker 2: We need the permit before we pour the footer.")
         #expect(TranscriptChunker.estimateTokens("1234567") == 2)
+        #expect(TranscriptChunker.format(.mark(at: 61, label: "Decision")) == "[01:01] ★ Marked: Decision")
+        #expect(TranscriptChunker.format(.mark(at: 61, label: nil)) == "[01:01] ★ Marked")
+        #expect(TranscriptChunker.format(.mark(at: 61, label: "  ")) == "[01:01] ★ Marked")
+    }
+
+    @Test("Mark lines ride inside the chunk that holds their moment and count toward the budget")
+    func marksInChunks() {
+        let speech = lines(4)
+        let merged = SummarizationInput.merge(speech: speech, marks: [.mark(at: 45, label: "Quote")])
+        #expect(merged.map(\.start) == [0, 30, 45, 60, 90])
+        let constant: (String) -> Int = { _ in 10 }
+        let chunks = TranscriptChunker.chunks(lines: merged, budgetTokens: 33, tokenCount: constant)
+        #expect(chunks.map(\.lineRange) == [0..<3, 2..<5])
+        #expect(chunks[0].text.contains("★ Marked: Quote"))
+        #expect(chunks[0].tokenEstimate == 33)
     }
 
     @Test("Chunks never split a line, respect the budget, and overlap by one line")

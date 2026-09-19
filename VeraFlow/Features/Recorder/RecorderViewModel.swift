@@ -35,6 +35,11 @@ final class RecorderViewModel {
     private(set) var levelHistory: [WaveformSample] = []
     private(set) var recording: Recording?
     private(set) var bookmarkCount = 0
+    /// The mark just added, while its label chips are showing (v1.1 plan item 1).
+    private(set) var labelableMark: Bookmark?
+    /// How long the label chips stay after Mark.
+    static let labelWindow: Duration = .seconds(4)
+    private var labelWindowTask: Task<Void, Never>?
     private(set) var inputs: [AudioInputOption] = []
     /// The port currently preferred; `nil` while iOS is choosing. Drives the picker's label.
     private(set) var selectedInputID: String?
@@ -237,6 +242,8 @@ final class RecorderViewModel {
             errorMessage = Self.message(for: error)
         }
         cancelStreams()
+        labelWindowTask?.cancel()
+        labelableMark = nil
         snapshot.status = .idle
         snapshot.level = 0
         phase = .naming
@@ -246,6 +253,29 @@ final class RecorderViewModel {
         guard isActive, let recording else { return }
         let time = await services.recorder.currentTime()
         await insertBookmark(time: time, note: note, into: recording)
+    }
+
+    /// The Mark button: adds the mark and offers the quick labels for a few seconds.
+    func mark() async {
+        guard isActive, let recording else { return }
+        let time = await services.recorder.currentTime()
+        let bookmark = await insertBookmark(time: time, note: nil, into: recording)
+        labelableMark = bookmark
+        labelWindowTask?.cancel()
+        labelWindowTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: Self.labelWindow)
+            guard !Task.isCancelled else { return }
+            self?.labelableMark = nil
+        }
+    }
+
+    /// One of the quick labels for the mark just added; the chips go away after.
+    func labelLastMark(_ label: String) {
+        guard let mark = labelableMark else { return }
+        mark.note = label
+        try? context.save()
+        labelWindowTask?.cancel()
+        labelableMark = nil
     }
 
     /// Answer to the "Resume recording?" prompt after an interruption.
@@ -316,7 +346,7 @@ final class RecorderViewModel {
         case .began:
             phase = .paused
             let time = await services.recorder.currentTime()
-            await insertBookmark(time: time, note: "Interrupted", into: recording)
+            await insertBookmark(time: time, note: Bookmark.interruptedNote, into: recording)
             notice = "Paused by a call or another app."
         case .ended(let shouldResume):
             if shouldResume {
@@ -351,8 +381,9 @@ final class RecorderViewModel {
         }
     }
 
-    private func insertBookmark(time: TimeInterval, note: String?, into recording: Recording) async {
-        let bookmark = Bookmark(time: time, note: note)
+    @discardableResult
+    private func insertBookmark(time: TimeInterval, note: String?, into recording: Recording) async -> Bookmark {
+        let bookmark = Bookmark(time: time, note: note, kind: note == Bookmark.interruptedNote ? .interrupted : .manual)
         context.insert(bookmark)
         bookmark.recording = recording
         do {
@@ -363,6 +394,7 @@ final class RecorderViewModel {
         bookmarkCount = recording.bookmarks.count
         markBookmarkOnWaveform()
         await syncActivity()
+        return bookmark
     }
 
     // MARK: Live Activity

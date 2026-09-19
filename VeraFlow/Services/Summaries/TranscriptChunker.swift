@@ -16,9 +16,16 @@ enum TranscriptChunker {
         Int((Double(text.count) / 3.5).rounded(.up))
     }
 
-    /// `[12:34] Speaker 2: text`
+    /// The prefix of a mark line; the shared rules tell the model what it means.
+    static let markPrefix = "★ Marked"
+
+    /// `[12:34] Speaker 2: text`, or `[12:34] ★ Marked: Decision` for a user mark.
     static func format(_ line: TranscriptLine) -> String {
-        "[\(timestamp(line.start))] \(line.speakerDisplayName): \(line.text)"
+        if line.isMark {
+            let label = line.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            return "[\(timestamp(line.start))] \(markPrefix)" + (label.isEmpty ? "" : ": \(label)")
+        }
+        return "[\(timestamp(line.start))] \(line.speakerDisplayName): \(line.text)"
     }
 
     /// "mm:ss", or "h:mm:ss" from one hour on.

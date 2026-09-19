@@ -183,6 +183,34 @@ struct RecorderViewModelTests {
         #expect(recording.bookmarks.first { $0.time == 45 }?.note == "Decision")
     }
 
+    @Test("Mark offers the quick labels for a few seconds; a label goes on that mark only")
+    func markLabels() async throws {
+        let harness = try makeHarness()
+        defer { harness.cleanUp() }
+        let viewModel = harness.viewModel
+
+        await viewModel.start()
+        await harness.recorder.advance(by: 20)
+        await viewModel.mark()
+        #expect(viewModel.labelableMark != nil)
+        #expect(viewModel.bookmarkCount == 1)
+        viewModel.labelLastMark("Decision")
+        #expect(viewModel.labelableMark == nil, "the chips go away once a label is picked")
+
+        await harness.recorder.advance(by: 5)
+        await viewModel.mark()
+        viewModel.labelLastMark("Quote")
+        viewModel.labelLastMark("Question")   // no mark is labelable any more; ignored
+
+        let recording = try #require(viewModel.recording)
+        let marks = recording.bookmarks.sorted { $0.time < $1.time }
+        #expect(marks.map(\.note) == ["Decision", "Quote"])
+        #expect(marks.allSatisfy { $0.kind == .manual && $0.isUserMark })
+
+        await viewModel.stop()
+        #expect(viewModel.labelableMark == nil)
+    }
+
     @Test("A call pauses, adds an Interrupted bookmark, then offers to resume")
     func interruption() async throws {
         let harness = try makeHarness()

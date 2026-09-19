@@ -18,7 +18,7 @@ enum ExportRenderer {
             out.append("Speakers: " + document.speakers.map(\.displayName).joined(separator: ", "))
             out.append("")
         }
-        for section in summarySections(document) {
+        for section in summarySections(document) + contextSections(document) {
             out.append("## \(section.heading)")
             out.append("")
             out.append(contentsOf: section.lines)
@@ -55,7 +55,7 @@ enum ExportRenderer {
             out.append("Speakers: " + document.speakers.map(\.displayName).joined(separator: ", "))
             out.append("")
         }
-        for section in summarySections(document) {
+        for section in summarySections(document) + contextSections(document) {
             out.append(section.heading.uppercased())
             out.append(contentsOf: section.lines.map { $0.hasPrefix("- ") ? "• " + String($0.dropFirst(2)) : $0 })
             out.append("")
@@ -189,6 +189,19 @@ enum ExportRenderer {
         return sections
     }
 
+    /// Sections that come from the recording rather than the summary: the marked moments (v1.1
+    /// plan item 1). Rendered after the summary sections in every format.
+    static func contextSections(_ document: ExportDocument) -> [Section] {
+        var sections: [Section] = []
+        if !document.marks.isEmpty {
+            let lines = document.marks.sorted { $0.time < $1.time }.map { mark in
+                "- [\(TranscriptChunker.timestamp(mark.time))] " + (mark.label.isEmpty ? "Marked moment" : mark.label)
+            }
+            sections.append(Section(heading: "Marked moments", lines: lines))
+        }
+        return sections
+    }
+
     static func actionItemLine(_ item: ActionItem, document: ExportDocument) -> String {
         var line = item.task
         var details: [String] = []
@@ -223,7 +236,8 @@ extension ExportDocument {
             speakers: recording.speakers.sorted { $0.key < $1.key }.map { ExportSpeaker(key: $0.key, displayName: $0.displayName) },
             summary: record.flatMap { try? $0.payload() },
             segments: recording.orderedSegments.map { ExportSegment(start: $0.start, speakerKey: $0.speakerKey, text: $0.text) },
-            includeTranscript: includeTranscript
+            includeTranscript: includeTranscript,
+            marks: recording.bookmarks.filter(\.isUserMark).sorted { $0.time < $1.time }.map { ExportMark(time: $0.time, label: $0.note ?? "") }
         )
     }
 }

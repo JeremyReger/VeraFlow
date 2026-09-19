@@ -3,7 +3,8 @@ import Foundation
 /// Versioned model instructions (SPEC §11.5). `version` is saved in `SummaryRecord.modelInfo`
 /// so a summary can be traced to the prompt that produced it.
 enum Prompts {
-    static let version = 2
+    /// v3 (2026-09-19): marked moments (★ lines) and topic start times for chapters.
+    static let version = 3
 
     /// Prepended to every template.
     static let sharedRules = """
@@ -13,6 +14,7 @@ enum Prompts {
     Write plainly and concisely. No filler.
     Lines look like: [mm:ss] Speaker N: text. Use those timestamps when citing.
     Refer to people exactly as they are labeled or named in the transcript.
+    A line like [mm:ss] ★ Marked: label is a moment the person recording flagged as important. Give what was said around it extra weight and cite its time; the label, if any, says why it mattered.
     """
 
     /// MAP step over one chunk of a long transcript.

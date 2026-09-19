@@ -2,10 +2,12 @@ import Foundation
 
 extension SummarizationInput {
     /// The transcript as `[mm:ss] Name: text` lines plus the facts the summarizer needs (SPEC §11.3).
-    /// Speaker display names are substituted here so the model sees renamed speakers.
+    /// Speaker display names are substituted here so the model sees renamed speakers. The user's
+    /// marks are woven in as `★ Marked` lines in time order (v1.1 plan item 1), so the chunk that
+    /// holds the moment also holds the mark; interrupted marks are not the user's and are left out.
     static func make(from recording: Recording, template: TemplateID? = nil) -> SummarizationInput {
         let names = Dictionary(recording.speakers.map { ($0.key, $0.displayName) }, uniquingKeysWith: { first, _ in first })
-        let lines = recording.orderedSegments.map { segment in
+        let speech = recording.orderedSegments.map { segment in
             TranscriptLine(
                 start: segment.start,
                 speakerKey: segment.speakerKey,
@@ -13,6 +15,8 @@ extension SummarizationInput {
                 text: segment.text
             )
         }
+        let marks = recording.bookmarks.filter(\.isUserMark).map { TranscriptLine.mark(at: $0.time, label: $0.note) }
+        let lines = merge(speech: speech, marks: marks)
         return SummarizationInput(
             recordingTitle: recording.title,
             recordedAt: recording.createdAt,
@@ -20,6 +24,25 @@ extension SummarizationInput {
             lines: lines,
             template: template ?? recording.templateID
         )
+    }
+}
+
+extension SummarizationInput {
+    /// Speech lines in their order with each mark placed after the last line that starts at or
+    /// before it (a mark at 0:00 comes first). Pure, so it's unit-tested.
+    static func merge(speech: [TranscriptLine], marks: [TranscriptLine]) -> [TranscriptLine] {
+        guard !marks.isEmpty else { return speech }
+        var result: [TranscriptLine] = []
+        var pending = marks.sorted { $0.start < $1.start }
+        for line in speech {
+            while let mark = pending.first, mark.start < line.start {
+                result.append(mark)
+                pending.removeFirst()
+            }
+            result.append(line)
+        }
+        result.append(contentsOf: pending)
+        return result
     }
 }
 

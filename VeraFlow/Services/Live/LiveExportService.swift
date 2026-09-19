@@ -182,7 +182,7 @@ enum PDFComposer {
         if !document.speakers.isEmpty {
             append("Speakers: " + document.speakers.map(\.displayName).joined(separator: ", "), size: 10, color: .darkGray, style: paragraph(spacingAfter: 10))
         }
-        for section in ExportRenderer.summarySections(document) {
+        for section in ExportRenderer.summarySections(document) + ExportRenderer.contextSections(document) {
             append(section.heading, size: 13, weight: .semibold, style: paragraph(spacingBefore: 8, spacingAfter: 3))
             for line in section.lines {
                 append(line.hasPrefix("- ") ? "•  " + String(line.dropFirst(2)) : line, size: 11, style: paragraph(spacingAfter: 2))

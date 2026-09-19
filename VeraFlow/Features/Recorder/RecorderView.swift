@@ -251,6 +251,9 @@ private struct RecorderContent: View {
 
             Spacer()
 
+            MarkLabelChips(viewModel: viewModel)
+                .padding(.bottom, 14)
+
             transport
                 .padding(.bottom, VFSpace.bottomInset)
         }
@@ -260,7 +263,7 @@ private struct RecorderContent: View {
     private var transport: some View {
         HStack(spacing: 28) {
             TransportButton(title: "Mark", diameter: transportSize) {
-                Task { await viewModel.addBookmark() }
+                Task { await viewModel.mark() }
             }
             .accessibilityLabel("Add Bookmark")
             .accessibilityHint("Flags this moment in the recording")
@@ -536,6 +539,29 @@ private struct MicrophoneMenu: View {
             return selected.name
         }
         return viewModel.inputChoice == .automatic ? "Automatic" : "iPhone Microphone"
+    }
+}
+
+/// The quick labels offered for a few seconds after Mark (v1.1 plan item 1). Its own view that
+/// reads only the labelable mark, so the 100 ms timer redraws don't rebuild it under the finger.
+private struct MarkLabelChips: View {
+    let viewModel: RecorderViewModel
+
+    var body: some View {
+        if viewModel.labelableMark != nil {
+            HStack(spacing: 8) {
+                ForEach(Bookmark.quickLabels, id: \.self) { label in
+                    VFChip(label, isSelected: false) {
+                        viewModel.labelLastMark(label)
+                    }
+                    .accessibilityHint("Labels the mark you just added")
+                    .accessibilityIdentifier("recorder.markLabel.\(label)")
+                }
+            }
+            .transition(.opacity)
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Label this mark")
+        }
     }
 }
 

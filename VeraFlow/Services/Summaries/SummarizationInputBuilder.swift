@@ -28,14 +28,14 @@ extension SummarizationInput {
 }
 
 extension SummarizationInput {
-    /// Speech lines in their order with each mark placed after the last line that starts at or
-    /// before it (a mark at 0:00 comes first). Pure, so it's unit-tested.
+    /// Speech lines in their order with each mark placed before the first line that starts at
+    /// or after it (a mark at 0:00 comes first). Pure, so it's unit-tested.
     static func merge(speech: [TranscriptLine], marks: [TranscriptLine]) -> [TranscriptLine] {
         guard !marks.isEmpty else { return speech }
         var result: [TranscriptLine] = []
         var pending = marks.sorted { $0.start < $1.start }
         for line in speech {
-            while let mark = pending.first, mark.start < line.start {
+            while let mark = pending.first, mark.start <= line.start {
                 result.append(mark)
                 pending.removeFirst()
             }

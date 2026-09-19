@@ -12,9 +12,11 @@ struct SummarizationInputBuilderTests {
         #expect(input.template == .walkthrough)
         #expect(input.recordedAt == recording.createdAt)
         #expect(input.duration == 7)
-        #expect(input.lines.map(\.speakerDisplayName) == ["Speaker 1", "Dana"])
-        #expect(input.lines.map(\.speakerKey) == ["S1", "S2"])
-        #expect(input.lines.first?.text.hasPrefix("We need the permit") == true)
+        let speech = input.lines.filter { !$0.isMark }
+        #expect(speech.map(\.speakerDisplayName) == ["Speaker 1", "Dana"])
+        #expect(speech.map(\.speakerKey) == ["S1", "S2"])
+        #expect(speech.first?.text.hasPrefix("We need the permit") == true)
+        #expect(input.lines.filter(\.isMark).map(\.text) == ["Permit question"], "the sample's mark rides along")
         #expect(SummarizationInput.make(from: recording, template: .client).template == .client)
 
         let unlabeled = Recording(title: "x")

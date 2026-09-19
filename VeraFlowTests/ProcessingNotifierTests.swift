@@ -31,6 +31,9 @@ struct ProcessingNotifierTests {
         #expect(failed?.kind == .needsAttention)
         #expect(notifier.decide(.stageChanged(recordingID: id, stage: .ready), appIsActive: false, enabled: true) == nil)
         #expect(notifier.decide(.stageChanged(recordingID: id, stage: .ready), appIsActive: false, enabled: true) == nil, "still nothing: the failed run never became a summary")
+        // Retry: a new summarizing run that finishes is a summary again.
+        #expect(notifier.decide(.stageChanged(recordingID: id, stage: .summarizing), appIsActive: false, enabled: true) == nil)
+        #expect(notifier.decide(.stageChanged(recordingID: id, stage: .ready), appIsActive: false, enabled: true)?.kind == .summaryReady)
 
         var transcription = ProcessingNotifier()
         #expect(transcription.decide(.failed(recordingID: id, stage: .transcribing, message: "x"), appIsActive: false, enabled: true)?.kind == .needsAttention)

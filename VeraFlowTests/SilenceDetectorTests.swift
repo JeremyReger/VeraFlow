@@ -26,11 +26,11 @@ struct SilenceDetectorTests {
     }
 
     @Test("Leading and trailing silence are ranges too")
-    func edges() {
+    func edges() throws {
         let levels: [Float] = Array(repeating: 0.0, count: 20) + Array(repeating: 0.5, count: 10) + Array(repeating: 0.0, count: 20)
         let ranges = SilenceDetector.ranges(levels: levels, bucketDuration: 0.1)
-        #expect(ranges.count == 2)
-        #expect(ranges[0].start == 0.3)
+        try #require(ranges.count == 2)
+        #expect(abs(ranges[0].start - 0.3) < 0.001)
         #expect(abs(ranges[1].end - 4.7) < 0.001)
     }
 

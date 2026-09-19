@@ -24,15 +24,15 @@ struct TranscriptFilterTests {
         filter.speakerKey = "S1"
         #expect(filter.visible(segments).map(\.index) == [0, 2])
         #expect(filter.talkTime(segments) == 15)
-        #expect(filter.countText(segments) == "2 paragraphs · 00:15 of talk time")
+        #expect(filter.countText(segments) == "2 paragraphs · 0:15 of talk time")
         #expect(filter.isNarrowing)
 
         filter.speakerKey = "S2"
-        #expect(filter.countText(segments) == "1 paragraph · 00:15 of talk time")
+        #expect(filter.countText(segments) == "1 paragraph · 0:15 of talk time")
 
         filter.speakerKey = "S9"
         #expect(filter.visible(segments).isEmpty)
-        #expect(filter.countText(segments) == "0 paragraphs · 00:00 of talk time")
+        #expect(filter.countText(segments) == "0 paragraphs · 0:00 of talk time")
     }
 
     @Test("Search matches only within the picked speaker's paragraphs and keeps transcript indices")

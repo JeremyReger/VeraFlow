@@ -22,13 +22,14 @@ enum SilenceDetector {
     static let absoluteFloor: Float = 0.004
 
     /// The level under which a bucket is silent: the 20th percentile (the room) plus a slice of
-    /// the way up to the 80th percentile (the talking). A file with no dynamic range gives no
-    /// threshold, so nothing is skipped.
+    /// the way up to the 95th percentile (the talking; high enough that a recording which is
+    /// mostly pauses still finds its speech). A file with no dynamic range gives no threshold,
+    /// so nothing is skipped.
     static func threshold(for levels: [Float]) -> Float? {
         guard levels.count >= 4 else { return nil }
         let sorted = levels.map { abs($0) }.sorted()
         let floor = sorted[Int(Double(sorted.count - 1) * 0.2)]
-        let speech = sorted[Int(Double(sorted.count - 1) * 0.8)]
+        let speech = sorted[Int(Double(sorted.count - 1) * 0.95)]
         guard speech > floor * 1.5, speech > absoluteFloor else { return nil }
         return max(absoluteFloor, floor + floorFraction * (speech - floor))
     }

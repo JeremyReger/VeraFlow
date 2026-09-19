@@ -49,7 +49,7 @@ struct RecordingActionsControllerTests {
         #expect(controller.errorMessage == nil)
     }
 
-    @Test("Delete still applies when the dialog is dismissed before Delete runs")
+    @Test("Delete still applies when the dialog is dismissed before Delete runs, and it moves the recording to Recently Deleted")
     func deleteSurvivesDismissFirst() async throws {
         let harness = try makeHarness()
         defer { harness.cleanUp() }
@@ -66,8 +66,10 @@ struct RecordingActionsControllerTests {
         await controller.confirmDelete(recording)  // then the action
 
         #expect(deletedID == recording.id)
-        #expect(try harness.context.fetchCount(FetchDescriptor<Recording>()) == 0)
-        #expect(try harness.storage.existingFolderIDs().isEmpty)
+        // v1.1: the row and audio stay for 30 days in Recently Deleted (plan item 10).
+        #expect(try harness.context.fetchCount(FetchDescriptor<Recording>()) == 1)
+        #expect(recording.isTrashed)
+        #expect(try harness.storage.existingFolderIDs() == [recording.id])
     }
 
     @Test("An empty title is refused with a message and the old title stays")

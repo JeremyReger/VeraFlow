@@ -29,7 +29,8 @@ struct ProcessingNotification: Equatable, Sendable {
 /// summary failure as `.failed` followed by `.stageChanged(.ready)`, and that "ready" is not a
 /// summary. Pure and unit-tested.
 struct ProcessingNotifier: Equatable, Sendable {
-    /// Recordings whose last stage failed, so the `.ready` that follows is not announced.
+    /// Recordings whose last run failed, so the `.ready` that follows (and any repeat of it) is
+    /// not announced until a new run starts.
     private var failedIDs: Set<UUID> = []
     /// Recordings already announced as ready, so a relabel or retry doesn't announce twice.
     private var announcedReadyIDs: Set<UUID> = []
@@ -50,12 +51,11 @@ struct ProcessingNotifier: Equatable, Sendable {
         case .stageChanged(let id, let stage):
             switch stage {
             case .ready:
-                if failedIDs.remove(id) != nil { return nil }
-                guard !announcedReadyIDs.contains(id) else { return nil }
+                guard !failedIDs.contains(id), !announcedReadyIDs.contains(id) else { return nil }
                 announcedReadyIDs.insert(id)
                 guard !appIsActive, enabled else { return nil }
                 return (.summaryReady, id)
-            case .recorded, .transcribing:
+            case .recorded, .transcribing, .diarizing, .summarizing:
                 // A fresh run (retry, re-transcribe): it may be announced again when it finishes.
                 announcedReadyIDs.remove(id)
                 failedIDs.remove(id)

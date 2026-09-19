@@ -111,6 +111,8 @@ Rules:
 - Transcript speaker filter; skip silence in playback; Recently Deleted (30 days); a local notification when a summary is ready; a transcription-language picker and "transcribe again in…".
 - Marks carry a label and are weighted and cited by the summary; chapters from the summary's subjects; action items editable by hand.
 - A `.veraflowarchive` package for moving or keeping the whole library or one recording; an "include in iPhone backup" switch (off by default); a bundled sample recording.
+- Wave D: custom templates (a built-in base, hidden sections, a focus line); "Ask this recording" (retrieval in Swift, one model call, every answer cites a moment or says the recording doesn't have it); words while recording (a second `SpeechAnalyzer` with volatile results, no speaker tags, foreground only); on-device translation of the transcript and the summary's prose with Apple's Translation framework.
+- Wave E: an iOS 18 floor. iPhones on iOS 18–25 transcribe with FluidAudio's Parakeet and get speaker labels; summaries, Ask and live words need iOS 26. The bundled-model question is answered in `docs/reviews/2026-09-19-bundled-model.md` (no-go for 1.2).
 
 ### Non-goals (v1)
 - No cloud features, account, sync server, or analytics SDKs.
@@ -161,7 +163,7 @@ Recording detail has 3 tabs:
 |---|---|
 | Language / UI | Swift 6 (strict concurrency), SwiftUI |
 | IDE / SDK | Xcode 27 with the iOS 27 SDK |
-| Minimum iOS | **iOS 26.0** (required for `SpeechAnalyzer`). Use iOS 27 APIs behind `#available(iOS 27, *)` |
+| Minimum iOS | **iOS 18.0** since v1.1 (plan item 16). `SpeechAnalyzer`, Foundation Models, `BGContinuedProcessingTaskRequest` and the live preview are iOS 26 and sit behind `@available(iOS 26, *)`; iOS 18–25 transcribe with Parakeet. Use iOS 27 APIs behind `#available(iOS 27, *)` |
 | Persistence | SwiftData |
 | Audio capture / playback | AVFoundation (`AVAudioEngine` + `AVAudioFile`, `AVAudioPlayer`) |
 | Transcription | Speech framework: `SpeechAnalyzer` + `SpeechTranscriber` (fallback `DictationTranscriber`) |
@@ -257,6 +259,9 @@ enum PipelineStage: String, Codable {
   var originalText: String                    // as transcribed
   var speakerKey: String?                     // "S1", "S2"...
   var wordsData: Data?                        // encoded [TimedWord] for highlight/seek
+  // v1.1
+  var translatedText: String?                 // this paragraph in another language (plan item 14)
+  var translationLanguage: String?            // BCP-47 of that language
 }
 
 @Model final class Speaker {
@@ -339,8 +344,10 @@ let timedWords = try await words
 ### 9.3 Paragraphing (before diarization)
 Build provisional segments from `TimedWord`s: break on a gap > 1.2 s, sentence end + > 25 words, or > 45 s. Diarization later re-splits by speaker.
 
-### 9.4 Alternative engine (benchmark only in v1)
+### 9.4 Alternative engine (benchmark in v1; the engine on iOS 18–25 since v1.1)
 FluidAudio also ships **Parakeet TDT v3** speech-to-text on Core ML. Build a `TranscriptionService` implementation behind a debug flag and compare accuracy and speed against SpeechAnalyzer on the test fixtures (§16, M3). Ship whichever is better. Write down the result in `docs/DECISIONS.md`.
+
+v1.1 (plan item 16): on iPhones running iOS 18–25 Parakeet is the transcription engine (`AppServices.live` picks by `#available(iOS 26, *)`); its models (about 600 MB) download once from the same host as the diarizer, and onboarding says so before the download. Parakeet covers 25 European languages; the language picker lists those on such phones. On iOS 26 Apple's engine stays the default and Parakeet stays behind the debug benchmark screen.
 
 ---
 
@@ -557,6 +564,8 @@ Filename pattern: `YYYY-MM-DD <Title>.<ext>`.
 | v1.1: speaker filter, skip silence, Recently Deleted, notification, language picker, marks, editable action items, archive export/import | Yes | Yes |
 | v1.1: chapters | With the summary | Yes |
 | v1.1 (Wave D): Ask this recording, custom templates, translation | No (Ask: unlimited on the sample recording) | Yes |
+| v1.1 (Wave D): words while recording | Yes (Settings toggle, on by default) | Yes |
+| v1.1 (Wave E): transcripts and speaker labels on iOS 18–25 (Parakeet) | Unlimited | Unlimited |
 
 Keep the free count in the Keychain (survives reinstall) as well as UserDefaults.
 
@@ -576,7 +585,7 @@ Keep the free count in the Keychain (survives reinstall) as well as UserDefaults
 
 ### 14.1 Network policy
 - The app makes **no network requests with user data. Ever.**
-- Allowed network activity: Apple system asset downloads (speech models, via `AssetInventory`); the one-time FluidAudio model download (from the host FluidAudio uses; show the source in Settings → About); StoreKit.
+- Allowed network activity: Apple system asset downloads (speech models, via `AssetInventory`; **Translation language packs**, downloaded by iOS on first use of "Translate to…", v1.1); the one-time FluidAudio model download (from the host FluidAudio uses; show the source in Settings → About; on iOS 18–25 this also covers the Parakeet speech model, v1.1); StoreKit.
 - Better option to evaluate in M4: **bundle the diarization Core ML models in the app** so there's no third-party download at all. Measure the app-size impact.
 - App Privacy label target: **Data Not Collected.**
 - Include `PrivacyInfo.xcprivacy` (privacy manifest) declaring required-reason APIs used (e.g. UserDefaults, file timestamps, disk space).
@@ -617,6 +626,9 @@ Keep the free count in the Keychain (survives reinstall) as well as UserDefaults
 | iOS 27+ | Runtime `contextSize`, `tokenCount(for:)`, usage metrics | iOS 26 estimation path (§11.2) |
 | Background continued processing supported | Processing continues after leaving app | Processing pauses in background; resumes on foreground with a notification prompt |
 | Notifications (v1.1) | Provisional (quiet) "Summary ready" when the app is away; title only | Nothing is posted; Settings → "Notify when a summary is ready" asks for full alerts |
+| iOS 26 or later (v1.1) | Apple Speech, summaries, Ask, live words, continued processing | iOS 18–25: Parakeet transcription + speaker labels; the Summary and Ask tabs say summaries need an Apple Intelligence iPhone on iOS 26; processing runs inline |
+| `SpeechTranscriber` + foreground + thermal state below `.serious` (v1.1) | Words while recording | No live block (dictation fallback, background, hot phone, or the Settings toggle off); the file pass after Stop is unchanged |
+| `LanguageAvailability` supports the pair (v1.1) | "Translate to…" lists the language; iOS downloads the pack | Language not listed |
 
 `CapabilityService` exposes one observable struct the UI reads. Include a hidden **Diagnostics** screen (tap version number 7×) that shows all checks, model info, last pipeline errors, and timing per stage. It's extremely useful for testing and support.
 

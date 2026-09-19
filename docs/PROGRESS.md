@@ -123,7 +123,7 @@ Update this file at the end of every session. Check an item only when its "Done 
 
 ## M10 — v1.1 (plan: `docs/plans/2026-09-19-v1-1.md`)
 
-Waves A, B and C were written together in one build on 2026-09-19 while Jeremy was away, on the existing pattern: tests written, `scripts/test.sh` not yet run (this session had no Xcode). Waves D–G are not started.
+Waves A, B and C were written together in one build on 2026-09-19 while Jeremy was away, on the existing pattern: tests written, `scripts/test.sh` not yet run (this session had no Xcode). Jeremy ran the unit tests green and started device testing; Waves D and E were then written the same way. F (Mac) and G (iPad, opens 1.2) are not started.
 
 - [ ] Wave A — the promises
   - [x] Speaker filter chips on the transcript (`TranscriptFilter`, 4 tests); talk-time rows open the filtered transcript, rename moved to touch-and-hold
@@ -147,7 +147,20 @@ Waves A, B and C were written together in one build on 2026-09-19 while Jeremy w
   - [x] Sample recording path (`SampleRecording`, folder reference, Library and Settings buttons, alpha seeding; 1 test). The archive itself is still to record (`VeraFlow/Resources/SampleRecording/README.md`)
   - [x] `scripts/test.sh --unit-only` green on Jeremy's Mac (2026-09-19)
   - [ ] Device: Export library to iCloud Drive → delete a recording → import the package → it's back and plays; AirDrop a single-recording package to a second iPhone; flip the backup switch and check the folder attribute in Diagnostics; record the sample with a consenting second voice and drop it in
-- [ ] Waves D–G: custom templates, live transcript, Ask, translation (D); older iPhones on Parakeet + bundled-model investigation (E); Mac (F); iPad (G, opens 1.2)
+- [ ] Wave D — the bets (each can be cut on its own)
+  - [x] Custom templates (`CustomTemplate` model, `TemplatesView` / editor, Record-screen picker and focus field, hidden sections in the Summary tab and exports, `FocusLine`; 6 tests). Unlocked-only
+  - [x] Ask this recording (`TranscriptRetriever` BM25 + neighbours, `QuestionService` + `AnswerValidator`, `LiveQuestionService`, `AskController`, Ask tab with suggestions and cited moments; 9 tests). Unlocked-only, sample exempt
+  - [x] Translation (`TranslationService` batching, `SummaryTranslation` prose visitor, `TranslationController` + `TranslationHost` on `translationTask`, "Translate to…" / Show original / Remove, "Include translation" in exports, archives carry it; 9 tests). Unlocked-only
+  - [x] Words while recording (`TranscriptPreviewService` + `PreviewReducer`, `LiveTranscriptPreview`, tap-writer sink in the recorder, `LiveTranscriptBlock`, Settings toggle, background and thermal rules; 7 tests)
+  - [ ] `scripts/test.sh --unit-only` on Jeremy's Mac
+  - [ ] API names to verify in Xcode (comments say "Verify against the SDK"): `LanguageAvailability.supportedLanguages` / `status(from:to:)`, `TranslationSession.translations(from:)`, `TranslationSession.Request(sourceText:clientIdentifier:)`, `translationTask(_:action:)`, `TranslationSession.Configuration.invalidate()`; `SpeechTranscriber` `.volatileResults`, `SpeechAnalyzer.start(inputSequence:)`, `cancelAndFinishNow()`, `SpeechTranscriber.Result.isFinal`
+  - [ ] Device: make a "Site visit" template hiding Open questions with focus "the budget" → record → summary shows the chip, no Open questions section, export matches; Ask the sample "what was decided?" → cited moment plays, ask something not there → "not in this recording" with closest moments; Translate the sample to Spanish → pack download sheet → relaunch keeps it → PDF with both languages; 30-minute recording with the preview on → words within ~10 s, thermal state and battery noted, switch mic mid-recording → preview continues, compare the final transcript's word count with a run done with the preview off
+- [ ] Wave E — older iPhones
+  - [x] iOS 18 floor (`project.yml` 18.0 + weak `FoundationModels`; `@available(iOS 26, *)` on the six iOS 26 files; `PlatformPolicy`, `LegacyCapabilityService`, `UnavailableSummarizationService` / `UnavailableQuestionService` / `UnavailableTranscriptPreview`, `InlineBackgroundProcessing`; Parakeet and the engine selector out of DEBUG; onboarding and Settings copy for the 600 MB download; 4 tests)
+  - [x] Bundled-model investigation: `docs/reviews/2026-09-19-bundled-model.md` (no-go for 1.2)
+  - [ ] Build with the lowered target in Xcode and read the errors: anything else that turns out to be iOS 26-only gets wrapped; confirm `FoundationModels` shows as weak in `otool -L`; confirm FluidAudio 0.15.7's iOS floor (believed iOS 17)
+  - [ ] Device (needs an iPhone on iOS 18; not checked in until then): install, onboarding says Parakeet downloads ~600 MB, record 5 min, full transcript with two speakers, Summary tab says summaries need iOS 26 + Apple Intelligence, no crash or memory warning; time and memory logged in DECISIONS
+- [ ] Wave F — Mac (native target, universal purchase); Wave G — iPad (opens 1.2)
 
 ## Requests from device testing
 
@@ -160,6 +173,6 @@ Waves A, B and C were written together in one build on 2026-09-19 while Jeremy w
 
 - Auto-archive and cleanup (Jeremy, 2026-09-19; parked, "keep it as a thing to think about"): audio is the bulk (about 28 MB per hour at 64 kbps AAC; transcript and summary are kilobytes). Proposed: Settings shows storage used by recordings; "Archive audio older than 30 / 90 / 180 days" removes the audio file and keeps transcript, labels, summary and action items usable, with the card marked "audio archived" and playback hidden. Backup stays the user's move, never the app's: an optional "Move audio to Files" step hands the file to the system picker (iCloud Drive, Google Drive or any file provider) with no network call from VeraFlow, and "Restore audio" picks it back up; recordings stay excluded from device backup. Cleanup already done at launch: tmp exports, photo imports, Inbox. Not started.
 
-- Live transcription while recording (Jeremy, 2026-09-18): start showing words about 10 s into a recording instead of after Stop. `SpeechAnalyzer` accepts streaming input, so the tap's buffers could feed it live and the file pass at the end would still produce the final, timed transcript. Planned after the pipeline is verified on device, because it adds CPU load during recording (the exact thing being debugged).
+- Live transcription while recording (Jeremy, 2026-09-18): start showing words about 10 s into a recording instead of after Stop. `SpeechAnalyzer` accepts streaming input, so the tap's buffers could feed it live and the file pass at the end would still produce the final, timed transcript. Built in v1.1 Wave D (2026-09-19) as the words-while-recording preview; the file pass is unchanged. Device check pending (see M10).
 
 ## Notes / blockers

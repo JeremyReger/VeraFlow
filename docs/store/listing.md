@@ -40,7 +40,7 @@ DETAILS
 • Crash-safe recording: if the phone dies, what you recorded so far is kept
 • Choose your microphone, including Bluetooth headsets
 • Dark mode, Dynamic Type, VoiceOver
-• Requires iOS 26. AI summaries require an iPhone with Apple Intelligence; transcripts and speaker labels work on every iPhone that runs iOS 26.
+• Requires iOS 18. AI summaries require an iPhone with Apple Intelligence on iOS 26 or later; transcripts and speaker labels work on every iPhone from iOS 18 (older iPhones download a speech model once, about 600 MB).
 
 Summaries are AI-generated from your recording. Check important details.
 
@@ -61,6 +61,11 @@ First release.
 • Recently Deleted: 30 days to change your mind
 • Export your whole library, or one recording, as a package you keep wherever you like
 • Optional: include recordings in your iPhone backup
+• Custom templates: start from a built-in one, hide sections, add a focus line
+• Ask this recording: every answer points at a moment you can play, or says it isn't there
+• See words while you record
+• Translate a transcript and its summary on your iPhone
+• Older iPhones: transcripts and speaker labels from iOS 18
 
 ## Support URL
 (Jeremy) — marketing site support page
@@ -72,7 +77,7 @@ First release.
 Data Not Collected. The app makes no network requests with user data; the only network activity is Apple speech-model downloads, a one-time speaker-model download, and StoreKit.
 
 ## Review notes (App Review)
-- VeraFlow works fully offline after two one-time downloads (Apple speech assets for the device language, and speaker-label models, about 60 MB). Both happen on first use with a progress indicator.
+- VeraFlow works fully offline after two one-time downloads (Apple speech assets for the device language, and speaker-label models, about 60 MB). Both happen on first use with a progress indicator. On iOS 18–25 the speech model is FluidAudio's Parakeet (about 600 MB, same host as the speaker models). "Translate to…" uses Apple's Translation framework; iOS downloads the language pack.
 - Free tier: three AI summaries in total, then the paywall offers a one-time unlock (product `veraflow.unlock.lifetime`). Transcripts and speaker labels are never limited.
 - Summaries need Apple Intelligence. On a review device without it, the app still records and transcribes; the Summary tab explains that summaries aren't available on that device, and the paywall says so before purchase. To see a summary without Apple Intelligence, tap "Try a sample recording" on the empty Library (or Settings → About → Add the sample recording): it comes with its transcript, speaker names and a finished summary.
 - Notifications: a local "Summary ready" notification is requested quietly (provisional) the first time a recording is still processing when the app goes to the background. It shows only the recording's name.

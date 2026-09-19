@@ -124,6 +124,8 @@ struct RecordingDetailView: View {
                 exportController = ExportController(services: services)
             }
             player.load(url: services.storage.audioURL(for: recording.id, fileName: recording.audioFileName), title: recording.title)
+            // Opened: the "Summary ready" notification for it has done its job.
+            await services.notifications.clear(recordingID: recording.id)
         }
         .onDisappear { player.stop() }
     }

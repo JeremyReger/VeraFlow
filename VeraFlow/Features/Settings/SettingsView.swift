@@ -15,6 +15,7 @@ struct SettingsView: View {
     @State private var expectedSpeakers = DiarizationPreference.expectedSpeakers()
     @State private var defaultTemplate = AppPreferences.defaultTemplate()
     @State private var consentReminder = AppPreferences.showsConsentReminder()
+    @State private var notifySummaryReady = AppPreferences.notifiesWhenSummaryReady()
     @State private var appLockEnabled = AppPreferences.appLockEnabled()
     @State private var diagnosticsUnlocked = AppPreferences.diagnosticsUnlocked()
     @State private var versionTaps = 0
@@ -165,6 +166,16 @@ struct SettingsView: View {
                         AppPreferences.setShowsConsentReminder(value)
                     }
                     .accessibilityIdentifier("settings.consentReminder")
+                VFHairline()
+                Toggle("Notify when a summary is ready", isOn: $notifySummaryReady)
+                    .toggleStyle(VFToggleRowStyle(detail: "Only the recording's name is shown"))
+                    .onChange(of: notifySummaryReady) { _, value in
+                        AppPreferences.setNotifiesWhenSummaryReady(value)
+                        if value {
+                            Task { _ = await services.notifications.requestAuthorization() }
+                        }
+                    }
+                    .accessibilityIdentifier("settings.notifySummaryReady")
                 VFHairline()
                 VFSettingsRow(title: "Summary template", detail: "For new recordings") {
                     Menu {

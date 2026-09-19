@@ -88,3 +88,45 @@ extension AppStateTests {
         ])
     }
 }
+
+extension AppStateTests {
+    @Test("A summary that finishes while the app is away posts a notification with the title only; a tap opens the recording")
+    func notifications() async throws {
+        // The notifier reads the standard preference, which defaults to on.
+        var services = AppServices.fakes()
+        let pipeline = FakePipelineCoordinator()
+        let notifications = FakeNotificationService()
+        services.pipeline = pipeline
+        services.notifications = notifications
+        let container = try ModelContainerFactory.makeInMemory()
+        let recording = PreviewData.sampleRecording()
+        container.mainContext.insert(recording)
+        try container.mainContext.save()
+
+        let state = AppState(services: services, modelContext: container.mainContext)
+        await state.startup()
+        state.sceneDidChange(isActive: false)
+        await pipeline.emit(.stageChanged(recordingID: recording.id, stage: .ready))
+        for _ in 0..<50 where await notifications.posted.isEmpty {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        let posted = await notifications.posted
+        #expect(posted.count == 1)
+        #expect(posted.first?.kind == .summaryReady)
+        #expect(posted.first?.recordingTitle == "Kitchen remodel walk-through")
+
+        // Foreground: nothing more is posted.
+        state.sceneDidChange(isActive: true)
+        await pipeline.emit(.failed(recordingID: recording.id, stage: .summarizing, message: "x"))
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(await notifications.posted.count == 1)
+
+        await notifications.simulateTap(recording.id)
+        for _ in 0..<50 where state.pendingOpenRecordingID == nil {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        #expect(state.pendingOpenRecordingID == recording.id)
+        state.clearPendingOpen()
+        #expect(state.pendingOpenRecordingID == nil)
+    }
+}

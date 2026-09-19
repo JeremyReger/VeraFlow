@@ -31,6 +31,12 @@ final class AppState {
     /// The last pipeline events with their arrival time, for the Diagnostics screen (SPEC §15).
     private(set) var recentEvents: [PipelineTimeline.Entry] = []
     static let recentEventLimit = 200
+    /// Whether the scene is in the foreground; notifications are posted only when it isn't.
+    private(set) var isSceneActive = true
+    /// A recording to open next (a tapped notification); the Library pushes it and clears this.
+    private(set) var pendingOpenRecordingID: UUID?
+    private var notifier = ProcessingNotifier()
+    private var notificationTapTask: Task<Void, Never>?
 
     private let services: AppServices
     private let modelContext: ModelContext?
@@ -55,6 +61,7 @@ final class AppState {
         await services.pipeline.resumePendingWork()
         didFinishStartup = true
         observeEntitlement()
+        observeNotificationTaps()
     }
 
     /// Feeds `pipelineProgress` from the coordinator's events. The subscription is made before
@@ -70,6 +77,7 @@ final class AppState {
     }
 
     private func apply(_ event: PipelineEvent) {
+        notify(for: event)
         if case .progress = event {
             // Progress ticks are too many to keep; stage changes, downloads, and failures are enough.
         } else {
@@ -99,6 +107,46 @@ final class AppState {
 
     func dismissRecoveryMessage() {
         recoveryMessage = nil
+    }
+
+    // MARK: Notifications (v1.1 plan item 6)
+
+    /// Posts "Summary ready" or "Needs attention" for events that finish while the app is away.
+    private func notify(for event: PipelineEvent) {
+        guard let decision = notifier.decide(event, appIsActive: isSceneActive, enabled: AppPreferences.notifiesWhenSummaryReady()) else { return }
+        let title = recordingTitle(for: decision.recordingID) ?? "Recording"
+        let notification = ProcessingNotification(kind: decision.kind, recordingID: decision.recordingID, recordingTitle: title)
+        Task { await services.notifications.post(notification) }
+    }
+
+    private func recordingTitle(for id: UUID) -> String? {
+        guard let modelContext else { return nil }
+        var descriptor = FetchDescriptor<Recording>(predicate: #Predicate { $0.id == id })
+        descriptor.fetchLimit = 1
+        guard let recording = try? modelContext.fetch(descriptor).first else { return nil }
+        return LibraryCardModel(recording: recording).title
+    }
+
+    private func observeNotificationTaps() {
+        notificationTapTask?.cancel()
+        notificationTapTask = Task { [services] in
+            for await id in await services.notifications.taps() {
+                self.pendingOpenRecordingID = id
+            }
+        }
+    }
+
+    /// The Library took the pending recording and pushed it.
+    func clearPendingOpen() {
+        pendingOpenRecordingID = nil
+    }
+
+    /// Scene phase from the root view. Leaving while something is processing is the moment to
+    /// ask (quietly) for notification delivery.
+    func sceneDidChange(isActive: Bool) {
+        isSceneActive = isActive
+        guard !isActive, didFinishStartup, !pipelineProgress.isEmpty, AppPreferences.notifiesWhenSummaryReady() else { return }
+        Task { await services.notifications.requestProvisionalAuthorization() }
     }
 
     /// Queues a file from `onOpenURL`. Only file URLs are accepted.

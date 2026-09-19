@@ -13,11 +13,13 @@ struct RootView: View {
     @State private var isShielded = false
     /// Settings → Appearance; `nil` scheme follows the system. Applies to the whole scene, sheets included.
     @AppStorage(AppPreferences.appearanceKey) private var appearance: Appearance = .system
+    /// Programmatic pushes (a tapped "Summary ready" notification, v1.1 plan item 6).
+    @State private var path = NavigationPath()
 
     var body: some View {
         Group {
             if isOnboarded {
-                NavigationStack {
+                NavigationStack(path: $path) {
                     LibraryView()
                 }
             } else {
@@ -44,15 +46,24 @@ struct RootView: View {
             switch phase {
             case .inactive:
                 isShielded = lock.isEnabled
+                appState.sceneDidChange(isActive: false)
             case .background:
                 isShielded = false
                 lock.lock()
+                appState.sceneDidChange(isActive: false)
             case .active:
                 isShielded = false
+                appState.sceneDidChange(isActive: true)
                 Task { await appState.didBecomeActive() }
             @unknown default:
                 break
             }
+        }
+        .onChange(of: appState.pendingOpenRecordingID) { _, id in
+            guard let id, isOnboarded else { return }
+            path = NavigationPath()
+            path.append(id)
+            appState.clearPendingOpen()
         }
         .onChange(of: lock.isLocked) { _, locked in
             if locked {

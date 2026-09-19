@@ -124,8 +124,13 @@ enum RecorderPlatform {
         return "\(inputs) -> \(outputs)"
     }
 
-    /// iOS picks the input from the session's preference; nothing to set on the engine.
-    static func applyInput(_ id: String?, to engine: AVAudioEngine) throws {}
+    /// iOS picks the input from the session's preference; nothing to set on the engine, so a
+    /// configuration change here is always the route really moving.
+    @discardableResult
+    static func applyInput(_ id: String?, to engine: AVAudioEngine) throws -> Bool { false }
+
+    /// iOS has no device binding; the session owns the route.
+    static func boundInputDevice(of engine: AVAudioEngine) -> UInt32? { nil }
 
     /// Interruption, media-reset and route-change notifications, parsed into `RecorderSessionEvent`.
     static func observeSession(_ handler: @escaping @Sendable (RecorderSessionEvent) -> Void) -> [any NSObjectProtocol] {
@@ -232,11 +237,18 @@ enum RecorderPlatform {
     }
 
     /// Binds the chosen device to the engine's input unit; `nil` keeps the system default.
-    /// Must run before the input format is read and the tap is installed.
-    static func applyInput(_ id: String?, to engine: AVAudioEngine) throws {
-        guard let id, let deviceID = MacAudioInputs.deviceID(forUID: id) else { return }
+    /// Must run before the input format is read and the tap is installed. Returns whether the
+    /// binding actually changed — setting it posts an `AVAudioEngineConfigurationChange`, so a
+    /// device that is already bound is left alone rather than provoking one (see `CaptureRestart`).
+    @discardableResult
+    static func applyInput(_ id: String?, to engine: AVAudioEngine) throws -> Bool {
+        guard let id, let deviceID = MacAudioInputs.deviceID(forUID: id) else { return false }
         guard let unit = engine.inputNode.audioUnit else {
             throw AudioRecorderError.sessionFailed("The audio engine has no input unit")
+        }
+        guard boundInputDevice(of: engine) != UInt32(deviceID) else {
+            log.info("input device \(id, privacy: .public) is already bound to the engine")
+            return false
         }
         var device = deviceID
         let status = AudioUnitSetProperty(
@@ -251,6 +263,23 @@ enum RecorderPlatform {
             throw AudioRecorderError.sessionFailed("Could not select that microphone (Core Audio error \(status))")
         }
         log.info("input device \(id, privacy: .public) bound to the engine")
+        return true
+    }
+
+    /// The Core Audio device the engine's input unit is bound to right now.
+    static func boundInputDevice(of engine: AVAudioEngine) -> UInt32? {
+        guard let unit = engine.inputNode.audioUnit else { return nil }
+        var device = AudioDeviceID(0)
+        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        let status = AudioUnitGetProperty(
+            unit,
+            kAudioOutputUnitProperty_CurrentDevice,
+            kAudioUnitScope_Global,
+            0,
+            &device,
+            &size
+        )
+        return status == noErr ? UInt32(device) : nil
     }
 
     /// No session events on the Mac; device changes reach the actor as engine configuration changes.

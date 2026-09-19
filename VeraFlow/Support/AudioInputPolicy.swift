@@ -64,3 +64,41 @@ enum AudioInputRouting: Equatable, Sendable {
         return sessionPreferred == wanted ? .unchanged : .prefer(wanted)
     }
 }
+
+/// What the tap is currently running against: the format it was installed with, and on the Mac
+/// the Core Audio device the engine's input unit is bound to.
+struct CaptureState: Equatable, Sendable {
+    var sampleRate: Double
+    var channels: UInt32
+    /// The bound input device. Always nil on iOS, which routes through the audio session instead
+    /// of binding a device to the engine.
+    var deviceID: UInt32?
+
+    init(sampleRate: Double, channels: UInt32, deviceID: UInt32? = nil) {
+        self.sampleRate = sampleRate
+        self.channels = channels
+        self.deviceID = deviceID
+    }
+}
+
+/// Whether an `AVAudioEngineConfigurationChange` is the hardware moving or our own doing.
+///
+/// On the Mac, binding an input device to the engine's input unit posts a configuration change
+/// itself. Answering every one of them by rebuilding the engine binds the device again, which
+/// posts another: the engine restarts forever and never runs long enough to deliver a buffer,
+/// which is what emptied the first Mac recordings (2026-09-19). Comparing what the tap runs
+/// against with what the engine reports now tells the two apart — a real change always moves the
+/// format or the device.
+enum CaptureRestart: Equatable, Sendable {
+    /// Something moved: discard the engine and re-tap the microphone in its new format.
+    case rebuild
+    /// Nothing moved. Keep the tap; the engine only needs starting again if it stopped.
+    case keepTap
+
+    static func decide(tapped: CaptureState, current: CaptureState) -> CaptureRestart {
+        // Right after a route change the engine reports a format of zero for a moment. That is
+        // not evidence the hardware moved, and a tap can't be installed against it either.
+        guard current.sampleRate > 0, current.channels > 0 else { return .keepTap }
+        return tapped == current ? .keepTap : .rebuild
+    }
+}

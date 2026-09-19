@@ -35,6 +35,9 @@ actor LiveAudioRecorderService: AudioRecorderService {
     /// True while `restartCapture(retrying:)` is mid-retry, so overlapping configuration-change
     /// notifications don't start a second restart.
     private var isRestarting = false
+    /// Format and bound device the current tap was installed against, so a configuration change
+    /// that moved neither is recognised as our own (v1.1 plan item 15; see `CaptureRestart`).
+    private var tappedCapture: CaptureState?
     /// The port UID the user wants (`nil` = let the system choose). Applied after every activation:
     /// iOS ignores `setPreferredInput` on an inactive session.
     private var wantedInputID: String?
@@ -140,6 +143,7 @@ actor LiveAudioRecorderService: AudioRecorderService {
             RecorderPlatform.deactivate()
             throw error
         }
+        tappedCapture = Self.captureState(of: engine, tappedWith: inputFormat)
 
         engine.prepare()
         do {
@@ -386,9 +390,40 @@ actor LiveAudioRecorderService: AudioRecorderService {
 
     /// The engine stops itself when the input hardware changes; re-tap the input in its new format.
     /// While paused nothing happens here: `resume()` always re-taps, so the change is picked up then.
+    /// What the engine reports about its input right now, next to what the tap was built for.
+    private static func captureState(of engine: AVAudioEngine, tappedWith format: AVAudioFormat) -> CaptureState {
+        CaptureState(
+            sampleRate: format.sampleRate,
+            channels: UInt32(format.channelCount),
+            deviceID: RecorderPlatform.boundInputDevice(of: engine)
+        )
+    }
+
+    private static func currentCaptureState(of engine: AVAudioEngine) -> CaptureState {
+        captureState(of: engine, tappedWith: engine.inputNode.outputFormat(forBus: 0))
+    }
+
     private func handleConfigurationChange() async {
         guard status == .recording, !isRestarting, let writer, let recordFormat else { return }
         Self.log.info("configuration change while recording")
+        // Binding an input device posts one of these itself, so rebuilding the engine for every
+        // change binds the device again and posts another. That loop emptied the first Mac
+        // recordings: the engine restarted hundreds of times and never delivered a buffer.
+        // Rebuild only when the format or the device actually moved.
+        if let engine, let tapped = tappedCapture,
+           CaptureRestart.decide(tapped: tapped, current: Self.currentCaptureState(of: engine)) == .keepTap {
+            if engine.isRunning {
+                Self.log.info("configuration change moved nothing; keeping the tap")
+                return
+            }
+            do {
+                try engine.start()
+                Self.log.info("configuration change moved nothing; restarted the same engine")
+                return
+            } catch {
+                Self.log.error("the same engine would not start again: \(error.localizedDescription, privacy: .public); rebuilding")
+            }
+        }
         do {
             try await restartCaptureRetrying(writer: writer, recordFormat: recordFormat)
         } catch {
@@ -475,6 +510,7 @@ actor LiveAudioRecorderService: AudioRecorderService {
             throw InputFormatSettling()
         }
         try Self.installInputTap(on: engine, inputFormat: inputFormat, recordFormat: recordFormat, writer: writer)
+        tappedCapture = Self.captureState(of: engine, tappedWith: inputFormat)
         engine.prepare()
         do {
             try engine.start()

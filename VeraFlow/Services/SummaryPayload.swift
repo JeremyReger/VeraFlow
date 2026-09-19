@@ -49,11 +49,101 @@ struct ActionItem: Codable, Sendable, Equatable, Identifiable {
     }
 }
 
-/// Per-summary UI state: which action items are checked off and which reminders were created (SPEC §7).
+/// The user's version of one action item (v1.1 plan item 2): a full snapshot of the editable
+/// fields, so the model's output in the payload is never touched.
+struct ActionItemOverride: Codable, Sendable, Equatable {
+    var task: String
+    var owner: String
+    var ownerSpeakerKey: String?
+    var dueText: String
+    var dueDate: Date?
+
+    init(task: String, owner: String = "", ownerSpeakerKey: String? = nil, dueText: String = "", dueDate: Date? = nil) {
+        self.task = task
+        self.owner = owner
+        self.ownerSpeakerKey = ownerSpeakerKey
+        self.dueText = dueText
+        self.dueDate = dueDate
+    }
+
+    init(_ item: ActionItem) {
+        self.init(task: item.task, owner: item.owner, ownerSpeakerKey: item.ownerSpeakerKey, dueText: item.dueText, dueDate: item.dueDate)
+    }
+
+    func applied(to item: ActionItem) -> ActionItem {
+        var result = item
+        result.task = task
+        result.owner = owner
+        result.ownerSpeakerKey = ownerSpeakerKey
+        result.dueText = dueText
+        result.dueDate = dueDate
+        return result
+    }
+}
+
+/// Per-summary UI state: which action items are checked off, which reminders were created
+/// (SPEC §7), and the user's edits (v1.1 plan item 2). Older records lack the edit keys.
 struct ActionItemsState: Codable, Sendable, Equatable {
     var completedItemIDs: Set<UUID> = []
     /// Action item ID → EventKit reminder identifier, to avoid duplicate reminders (SPEC §12).
     var reminderIDs: [UUID: String] = [:]
+    /// Edits to the model's items, by item ID.
+    var overrides: [UUID: ActionItemOverride] = [:]
+    /// Items the user added by hand; they have no timestamp.
+    var added: [ActionItem] = []
+    /// Model items the user deleted.
+    var removedItemIDs: Set<UUID> = []
+
+    init(completedItemIDs: Set<UUID> = [], reminderIDs: [UUID: String] = [:], overrides: [UUID: ActionItemOverride] = [:], added: [ActionItem] = [], removedItemIDs: Set<UUID> = []) {
+        self.completedItemIDs = completedItemIDs
+        self.reminderIDs = reminderIDs
+        self.overrides = overrides
+        self.added = added
+        self.removedItemIDs = removedItemIDs
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case completedItemIDs, reminderIDs, overrides, added, removedItemIDs
+    }
+
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        completedItemIDs = try container.decodeIfPresent(Set<UUID>.self, forKey: .completedItemIDs) ?? []
+        reminderIDs = try container.decodeIfPresent([UUID: String].self, forKey: .reminderIDs) ?? [:]
+        overrides = try container.decodeIfPresent([UUID: ActionItemOverride].self, forKey: .overrides) ?? [:]
+        added = try container.decodeIfPresent([ActionItem].self, forKey: .added) ?? []
+        removedItemIDs = try container.decodeIfPresent(Set<UUID>.self, forKey: .removedItemIDs) ?? []
+    }
+
+    var hasEdits: Bool { !overrides.isEmpty || !added.isEmpty || !removedItemIDs.isEmpty }
+
+    /// Records an edit: a model item gets an override, an added item is replaced in place.
+    mutating func save(_ item: ActionItem, isAdded: Bool) {
+        if isAdded || added.contains(where: { $0.id == item.id }) {
+            if let index = added.firstIndex(where: { $0.id == item.id }) {
+                added[index] = item
+            } else {
+                added.append(item)
+            }
+        } else {
+            overrides[item.id] = ActionItemOverride(item)
+        }
+    }
+
+    /// Deletes an item: an added one goes away, a model one is hidden.
+    mutating func remove(_ id: UUID) {
+        if let index = added.firstIndex(where: { $0.id == id }) {
+            added.remove(at: index)
+        } else {
+            removedItemIDs.insert(id)
+            overrides[id] = nil
+        }
+        completedItemIDs.remove(id)
+    }
+
+    func isAdded(_ id: UUID) -> Bool {
+        added.contains { $0.id == id }
+    }
 }
 
 // MARK: - Template 1: General meeting / lecture
@@ -301,6 +391,16 @@ enum SummaryPayload: Codable, Sendable, Equatable {
 
     func encoded() throws -> Data {
         try JSONEncoder().encode(self)
+    }
+
+    /// The action items as the user sees them: the model's items minus the deleted ones, with
+    /// edits applied, then the ones added by hand (v1.1 plan item 2).
+    func resolvedActionItems(applying state: ActionItemsState) -> [ActionItem] {
+        let kept = actionItems.compactMap { item -> ActionItem? in
+            guard !state.removedItemIDs.contains(item.id) else { return nil }
+            return state.overrides[item.id]?.applied(to: item) ?? item
+        }
+        return kept + state.added
     }
 
     // MARK: Chapters (v1.1 plan item 12)

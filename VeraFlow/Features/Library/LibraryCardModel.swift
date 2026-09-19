@@ -18,7 +18,7 @@ struct LibraryCardModel: Equatable, Sendable {
     var isFailed: Bool
 
     init(recording: Recording, locale: Locale = .current) {
-        let payload = try? recording.currentSummary?.payload()
+        let payload = try? recording.currentSummary?.resolvedPayload()
         if recording.hasDefaultTitle, let generated = payload?.title, !generated.isEmpty {
             title = generated
         } else {

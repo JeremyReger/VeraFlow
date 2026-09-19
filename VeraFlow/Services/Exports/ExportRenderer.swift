@@ -237,7 +237,7 @@ extension ExportDocument {
             createdAt: recording.createdAt,
             duration: recording.duration,
             speakers: recording.speakers.sorted { $0.key < $1.key }.map { ExportSpeaker(key: $0.key, displayName: $0.displayName) },
-            summary: record.flatMap { try? $0.payload() },
+            summary: record.flatMap { try? $0.resolvedPayload() },
             segments: recording.orderedSegments.map { ExportSegment(start: $0.start, speakerKey: $0.speakerKey, text: $0.text) },
             includeTranscript: includeTranscript,
             marks: recording.bookmarks.filter(\.isUserMark).sorted { $0.time < $1.time }.map { ExportMark(time: $0.time, label: $0.note ?? "") }

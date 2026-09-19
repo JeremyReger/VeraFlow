@@ -42,4 +42,17 @@ final class SummaryRecord {
         guard !actionItemsState.isEmpty else { return ActionItemsState() }
         return try JSONDecoder().decode(ActionItemsState.self, from: actionItemsState)
     }
+
+    /// The payload with the user's action-item edits applied (v1.1 plan item 2), for exports,
+    /// Reminders and the library card.
+    func resolvedPayload() throws -> SummaryPayload {
+        var payload = try payload()
+        payload.actionItems = payload.resolvedActionItems(applying: try actionItems())
+        return payload
+    }
+
+    /// Persists a changed state.
+    func store(_ state: ActionItemsState) throws {
+        actionItemsState = try JSONEncoder().encode(state)
+    }
 }

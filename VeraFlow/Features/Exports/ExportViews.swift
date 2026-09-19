@@ -75,7 +75,7 @@ struct ExportMenuItems: View {
     }
 
     private var actionItems: [ActionItem] {
-        (try? recording.currentSummary?.payload())?.actionItems ?? []
+        (try? recording.currentSummary?.resolvedPayload())?.actionItems ?? []
     }
 
     private var audioURL: URL {
@@ -260,7 +260,7 @@ struct RemindersSheet: View {
     }
 
     private func load() async {
-        items = (try? record.payload())?.actionItems ?? []
+        items = (try? record.resolvedPayload())?.actionItems ?? []
         alreadySent = (try? record.actionItems())?.reminderIDs ?? [:]
         selectedItemIDs = Set(items.map(\.id)).subtracting(alreadySent.keys)
         do {

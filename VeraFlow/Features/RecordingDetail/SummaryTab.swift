@@ -13,6 +13,14 @@ struct SummaryTab: View {
     @State private var selectedSummaryID: UUID?
     @State private var state = ActionItemsState()
     @State private var showsPaywall = false
+    /// The action item being edited or added (v1.1 plan item 2).
+    @State private var editing: EditingItem?
+
+    private struct EditingItem: Identifiable {
+        var item: ActionItem
+        var isNew: Bool
+        var id: UUID { item.id }
+    }
 
     private var summaries: [SummaryRecord] {
         recording.summaries.sorted { $0.createdAt > $1.createdAt }
@@ -44,6 +52,17 @@ struct SummaryTab: View {
         }
         .sheet(isPresented: $showsPaywall) {
             PaywallView()
+        }
+        .sheet(item: $editing) { editing in
+            if let record = selected {
+                ActionItemEditor(
+                    item: editing.item,
+                    speakers: recording.speakers,
+                    isNew: editing.isNew,
+                    onSave: { item in save(item, isNew: editing.isNew, in: record) },
+                    onDelete: editing.isNew ? nil : { remove(editing.item.id, in: record) }
+                )
+            }
         }
         // Pipeline stage changes and failures are otherwise silent for VoiceOver (A-4).
         .onChange(of: recording.stage) { _, stage in
@@ -202,17 +221,18 @@ struct SummaryTab: View {
             .textCase(nil)
         }
 
+        let items = payload.resolvedActionItems(applying: state)
         switch payload {
         case .general(let summary):
             keyPoints(summary.keyPointGroups)
             stringList("Decisions", summary.decisions)
-            actionItems(summary.actionItems, record: record)
+            actionItems(items, record: record)
             stringList("Open questions", summary.openQuestions)
         case .client(let summary):
             stringList("Client goals", summary.clientGoals)
             stringList("Concerns", summary.concerns)
             stringList("Decisions", summary.decisions)
-            actionItems(summary.actionItems, record: record)
+            actionItems(items, record: record)
             if !summary.nextMeeting.isEmpty {
                 Section {
                     Text(summary.nextMeeting).vfText(VFText.summaryBody)
@@ -235,7 +255,7 @@ struct SummaryTab: View {
             stringList("Customer requests", summary.customerRequests)
             stringList("Issues found", summary.issuesFound)
             stringList("Quote notes", summary.quoteNotes)
-            actionItems(summary.actionItems, record: record)
+            actionItems(items, record: record)
         }
 
         Section {
@@ -382,17 +402,49 @@ struct SummaryTab: View {
 
     // MARK: Action items
 
+    /// The user's version of the list (edits applied), plus "Add action item" (v1.1 plan item 2).
     @ViewBuilder
     private func actionItems(_ items: [ActionItem], record: SummaryRecord) -> some View {
-        if !items.isEmpty {
-            Section {
-                ForEach(items) { item in
-                    actionItemRow(item, record: record)
-                        .listRowSeparatorTint(VFColor.separator)
-                }
-            } header: {
-                VFSectionLabel("Action items")
+        Section {
+            ForEach(items) { item in
+                actionItemRow(item, record: record)
+                    .listRowSeparatorTint(VFColor.separator)
             }
+            Button {
+                editing = EditingItem(item: ActionItem(task: ""), isNew: true)
+            } label: {
+                Label("Add action item", systemImage: "plus.circle")
+                    .vfText(VFText.rowLabel, color: VFColor.accent)
+                    .frame(minHeight: VFMetric.minHit)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("summary.addActionItem")
+        } header: {
+            VFSectionLabel("Action items")
+        } footer: {
+            if state.hasEdits {
+                Text("Edited by you. The original list stays with the summary.")
+                    .vfText(VFText.meta, color: VFColor.textTertiary)
+            }
+        }
+    }
+
+    private func save(_ item: ActionItem, isNew: Bool, in record: SummaryRecord) {
+        state.save(item, isAdded: isNew)
+        persist(in: record)
+    }
+
+    private func remove(_ id: UUID, in record: SummaryRecord) {
+        state.remove(id)
+        persist(in: record)
+    }
+
+    private func persist(in record: SummaryRecord) {
+        do {
+            try record.store(state)
+            try modelContext.save()
+        } catch {
+            AccessibilityNotification.Announcement("Couldn't save the change").post()
         }
     }
 
@@ -434,11 +486,17 @@ struct SummaryTab: View {
             }
         }
         .padding(.vertical, 4)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            editing = EditingItem(item: item, isNew: state.isAdded(item.id))
+        }
         // One element per action item, with the state spoken and both buttons as actions (A-5).
         .accessibilityElement(children: .combine)
         .accessibilityValue(done ? "Done" : "Not done")
+        .accessibilityHint("Opens the editor")
         .accessibilityActions {
             Button(done ? "Mark not done" : "Mark done") { toggle(item, in: record) }
+            Button("Edit") { editing = EditingItem(item: item, isNew: state.isAdded(item.id)) }
             if let timestamp = item.timestamp {
                 Button("Play from \(SpokenFormat.duration(timestamp))") {
                     player.seek(to: timestamp)

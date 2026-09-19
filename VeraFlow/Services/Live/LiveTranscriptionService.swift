@@ -46,7 +46,7 @@ actor LiveTranscriptionService: TranscriptionService {
     }
 
     /// `SpeechTranscriber`'s list when that engine exists, else the dictation set.
-    /// Verify against the SDK: `SpeechTranscriber.supportedLocales` (static, async, `[Locale]`).
+    /// Compiled against the iOS 26.5 SDK on 2026-09-19: `SpeechTranscriber.supportedLocales` (static, async, `[Locale]`).
     func supportedLocales() async -> [Locale] {
         if SpeechTranscriber.isAvailable {
             let locales = await SpeechTranscriber.supportedLocales

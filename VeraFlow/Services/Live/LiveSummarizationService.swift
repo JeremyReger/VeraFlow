@@ -178,7 +178,7 @@ actor LiveSummarizationService: SummarizationService {
     }
 
     /// Compared by language code, never by `Locale.Language` equality (a regional variant must
-    /// still match). Verify against the SDK: `SystemLanguageModel.supportedLanguages: Set<Locale.Language>`.
+    /// still match). Compiled against the iOS 26.5 SDK on 2026-09-19: `SystemLanguageModel.supportedLanguages: Set<Locale.Language>`.
     func supportsLanguage(_ language: Locale.Language) async -> Bool {
         guard let code = language.languageCode?.identifier else { return true }
         let supported = model.supportedLanguages

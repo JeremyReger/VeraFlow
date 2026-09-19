@@ -6,7 +6,7 @@ import UserNotifications
 /// (v1.1 plan item 6). Provisional authorization first: the notification lands quietly in
 /// Notification Center with no prompt, and the user can promote it there or from Settings.
 ///
-/// Verify against the SDK: `UNAuthorizationOptions.provisional`, `UNUserNotificationCenter`
+/// Compiled against the iOS 26.5 SDK on 2026-09-19: `UNAuthorizationOptions.provisional`, `UNUserNotificationCenter`
 /// delegate methods, `UNNotificationInterruptionLevel`.
 final class LiveNotificationService: NSObject, NotificationService, UNUserNotificationCenterDelegate, @unchecked Sendable {
     private static let log = Logger(subsystem: "com.jeremyreger.veraflow", category: "notifications")

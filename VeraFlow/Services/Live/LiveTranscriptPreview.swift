@@ -8,7 +8,7 @@ import Speech
 /// fallback), and only while the app is in the foreground and the phone isn't hot; the view
 /// model enforces those. Nothing is stored; the file pass after Stop makes the real transcript.
 ///
-/// Verify against the SDK: `SpeechTranscriber(locale:transcriptionOptions:reportingOptions:attributeOptions:)`
+/// Compiled against the iOS 26.5 SDK on 2026-09-19: `SpeechTranscriber(locale:transcriptionOptions:reportingOptions:attributeOptions:)`
 /// with `.volatileResults`, `SpeechAnalyzer.start(inputSequence:)`, `cancelAndFinishNow()`,
 /// `SpeechTranscriber.Result.isFinal`, and whether a second analyzer may hold the same locale
 /// while the file pass runs later (it never runs at the same time here).

@@ -31,9 +31,9 @@ enum Platform {
     /// Microphone privacy pane in System Settings on the Mac.
     static var microphoneSettingsURL: URL? {
         #if os(macOS)
-        URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone")
+        return URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone")
         #else
-        URL(string: "app-settings:")
+        return URL(string: "app-settings:")
         #endif
     }
 }

@@ -36,9 +36,9 @@ enum DataProtection {
     /// per-file protection classes; its files live inside the app's sandbox container.
     static var newFileAttributes: [FileAttributeKey: Any] {
         #if os(iOS)
-        [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication]
+        return [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication]
         #else
-        [:]
+        return [:]
         #endif
     }
 

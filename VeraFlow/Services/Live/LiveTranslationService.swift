@@ -5,7 +5,7 @@ import Translation
 /// translator (v1.1 plan item 14). Everything runs on device; the language packs are Apple
 /// asset downloads managed by iOS (SPEC §14.1).
 ///
-/// Verify against the SDK: `LanguageAvailability.supportedLanguages`, `status(from:to:)`,
+/// Compiled against the iOS 26.5 SDK on 2026-09-19: `LanguageAvailability.supportedLanguages`, `status(from:to:)`,
 /// `TranslationSession.translations(from:)`, `TranslationSession.Request(sourceText:clientIdentifier:)`.
 struct LiveTranslationService: TranslationService {
     func targets(from source: Locale.Language) async -> [Locale.Language] {

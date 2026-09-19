@@ -6,7 +6,7 @@ import Translation
 /// `TranslationSession` exists only inside `translationTask`, so this modifier watches the
 /// controller's request and runs it there; iOS shows its own pack-download sheet when needed.
 ///
-/// Verify against the SDK: `translationTask(_:action:)` and `TranslationSession.Configuration(source:target:)`.
+/// Compiled against the iOS 26.5 SDK on 2026-09-19: `translationTask(_:action:)` and `TranslationSession.Configuration(source:target:)`.
 struct TranslationHost: ViewModifier {
     let controller: TranslationController
     let recording: Recording

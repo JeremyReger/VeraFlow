@@ -140,9 +140,9 @@ extension AppServices {
     @MainActor
     static func isAppActive() -> Bool {
         #if os(iOS)
-        UIApplication.shared.applicationState != .background
+        return UIApplication.shared.applicationState != .background
         #else
-        true
+        return true
         #endif
     }
 }

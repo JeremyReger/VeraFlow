@@ -12,6 +12,12 @@ actor LivePurchaseService: PurchaseService {
     private var listeners: [UUID: AsyncStream<Bool>.Continuation] = [:]
     private var updatesTask: Task<Void, Never>?
     private var cachedProduct: Product?
+    /// The entitlement as we last established it. `Transaction.currentEntitlements` can still be
+    /// empty for a moment after a purchase is finished — on Jeremy's Mac the summary gate read
+    /// "unlocked false" four times in a row straight after "unlock purchased", so the summary he
+    /// had just paid for was skipped. A purchase writes the answer here instead of leaving every
+    /// caller to race StoreKit; a refund arrives through `Transaction.updates` and rewrites it.
+    private var cachedUnlocked: Bool?
 
     init(counter: FreeSummaryCounter = FreeSummaryCounter()) {
         self.counter = counter
@@ -20,6 +26,14 @@ actor LivePurchaseService: PurchaseService {
     // MARK: Entitlement
 
     func isUnlocked() async -> Bool {
+        if let cachedUnlocked { return cachedUnlocked }
+        let unlocked = await readEntitlement()
+        cachedUnlocked = unlocked
+        return unlocked
+    }
+
+    /// Asks StoreKit itself. Only the cache's own refresh points call this.
+    private func readEntitlement() async -> Bool {
         for await result in Transaction.currentEntitlements {
             if case .verified(let transaction) = result,
                transaction.productID == ProductID.lifetimeUnlock,
@@ -50,9 +64,17 @@ actor LivePurchaseService: PurchaseService {
                     await transaction.finish()
                     Self.log.info("transaction update for \(transaction.productID, privacy: .public)")
                 }
-                await self.broadcast(await self.isUnlocked())
+                // A refund or a purchase made on another device: ask StoreKit again and keep it.
+                await self.refreshEntitlement()
             }
         }
+    }
+
+    /// Re-reads the entitlement, stores it, and tells the listeners.
+    private func refreshEntitlement() async {
+        let unlocked = await readEntitlement()
+        cachedUnlocked = unlocked
+        broadcast(unlocked)
     }
 
     private func broadcast(_ unlocked: Bool) {
@@ -85,6 +107,9 @@ actor LivePurchaseService: PurchaseService {
             switch verification {
             case .verified(let transaction):
                 await transaction.finish()
+                // Verified and finished: the user is unlocked, whatever `currentEntitlements`
+                // says for the next moment.
+                cachedUnlocked = true
                 broadcast(true)
                 Self.log.info("unlock purchased")
                 return .purchased
@@ -106,7 +131,8 @@ actor LivePurchaseService: PurchaseService {
         } catch {
             throw PurchaseError.storeKitFailed(error.localizedDescription)
         }
-        let unlocked = await isUnlocked()
+        let unlocked = await readEntitlement()
+        cachedUnlocked = unlocked
         broadcast(unlocked)
         return unlocked
     }

@@ -141,6 +141,13 @@ actor LivePipelineCoordinator: PipelineCoordinating {
     }
 
     func retrySummariesBlockedByFreeLimit() async {
+        // Only when the unlock is really in hand. StoreKit can announce a purchase before its
+        // entitlement reads back, and retrying into a gate that still says locked just fails the
+        // recording again and asks to be retried — four rounds of that on Jeremy's Mac.
+        guard await purchases.isUnlocked() else {
+            Self.log.error("asked to retry blocked summaries, but the unlock doesn't read back yet; leaving them")
+            return
+        }
         let blocked = ((try? context.fetch(FetchDescriptor<Recording>())) ?? [])
             .filter { $0.failedStage == .summarizing && $0.failureMessage == SummarizationError.freeLimitMessage && !$0.isTrashed }
             .sorted { $0.createdAt < $1.createdAt }

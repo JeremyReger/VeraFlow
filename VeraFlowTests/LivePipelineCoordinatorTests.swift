@@ -110,6 +110,28 @@ struct LivePipelineCoordinatorTests {
         #expect(await harness.purchases.freeUsed == 3, "unlocked summaries don't count")
     }
 
+    @Test("A purchase whose entitlement hasn't read back yet leaves the blocked summary alone")
+    func blockedSummariesWaitForTheRealEntitlement() async throws {
+        // StoreKit announced the purchase on Jeremy's Mac before `currentEntitlements` had it.
+        // Retrying into a gate that still says locked just fails the recording again and asks to
+        // be retried: four rounds in the log. The retry now checks first.
+        let harness = try makeHarness(unlocked: false, freeSummariesUsed: 3)
+        defer { harness.cleanUp() }
+        let id = try harness.insert(title: "blocked")
+        await harness.coordinator.enqueue(recordingID: id)
+        try await waitUntil { try harness.fetch(id)?.failedStage == .summarizing }
+        let callsBefore = await harness.summarization.inputs.count
+
+        await harness.coordinator.retrySummariesBlockedByFreeLimit()
+        #expect(await harness.summarization.inputs.count == callsBefore, "nothing was tried while still locked")
+        #expect(try harness.fetch(id)?.failureMessage == SummarizationError.freeLimitMessage)
+
+        // Once the entitlement really reads back, the same call finishes what was paid for.
+        await harness.purchases.setUnlocked(true)
+        await harness.coordinator.retrySummariesBlockedByFreeLimit()
+        try await waitUntil { try harness.fetch(id)?.summaries.count == 1 }
+    }
+
     private func waitUntil(timeout: Duration = .seconds(3), _ condition: () throws -> Bool) async rethrows {
         let deadline = ContinuousClock.now + timeout
         while try !condition(), ContinuousClock.now < deadline {

@@ -175,10 +175,16 @@ Waves A, B and C were written together in one build on 2026-09-19 while Jeremy w
   - [ ] Jeremy's Mac, on device: run the `VeraFlow-macOS` scheme: onboarding → allow the microphone → record from the built-in mic and from a USB or Bluetooth mic (switch mid-recording) → import a Teams recording by dragging it onto the window → transcript, speakers, summary → PDF and Markdown through the save panel → Email summary → Reminders → Export library → Settings → restore purchase in the StoreKit sandbox
   - [ ] App Store Connect before the first Mac upload: turn on universal purchase for the existing app record (it can't be turned on later for a separately created Mac app); Mac screenshots; a proper macOS icon (the 1024 iOS mark is reused for now; Apple's Mac template adds the rounded rectangle and margin)
   - [ ] Not done in this pass: ⌘E / ⌘⇧S shortcuts, Mac UI tests, Mac-specific screenshots in `ScreenshotTests`
+- [x] Purchase → summary handover (2026-09-19, from Jeremy's Mac StoreKit run)
+  - [x] The entitlement is cached: a verified, finished purchase counts at once instead of racing `Transaction.currentEntitlements`, which on the Mac still read false four times after "unlock purchased" and skipped the summary he had just paid for
+  - [x] `retrySummariesBlockedByFreeLimit` checks the entitlement before retrying, so a premature announcement can't spin the queue
+  - [ ] Device: with 3 free summaries used, buy the unlock in the StoreKit sandbox and check the blocked summary finishes on the first try, with no repeated "summary skipped" in the log
+
 - [x] Speaker labels: one-voice notice (2026-09-19, from Jeremy's Mac recordings)
   - [x] `SpeakerCountNotice`: labels done, exactly one speaker, over 45 seconds, no expected count set → the transcript offers "Label again" with 2 / 3 / 4 or more, sets the preference and re-runs the labels in one tap. Suppressed once a count is set
   - [x] The diarizer logs the hint it was given and how the speech split between the speakers it found, so a bad run is diagnosable from our own log
-  - [ ] Device: on a recording that came back with one speaker, use the notice to ask for 2 and check the labels change; then check the notice is gone
+  - [x] Confirmed on the Mac (2026-09-19): the hint reaches FluidAudio (`Resolved constraints: numSpeakers=3`; `Speaker count 2 outside bounds [3, 3]; re-clustering to 3`) and turns 1 speaker into 2 on a 47-second broadcast recording. Asking for 3 gives 2 labelled speakers on both test recordings — the third centroid gets one embedding window and doesn't survive reconstruction, which is FluidAudio's call, not ours
+  - [ ] Device: try the notice on a real two-person conversation with the microphone on the table, which is the case it is actually for
 
 - [x] Summary section editing, tier one (2026-09-19, from Jeremy's question about per-section edit buttons)
   - [x] `SummaryEdits` overlay (`SummaryField`, `lines` / `added` / `paragraphs`), stored on `SummaryRecord.summaryEditsJSON`; `payload().applying(edits)` feeds `resolvedPayload()` and `resolvedTranslation(in:)`, so exports, the library card, Reminders and library search all read the user's wording while `payloadJSON` keeps the model's

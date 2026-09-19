@@ -131,21 +131,21 @@ Waves A, B and C were written together in one build on 2026-09-19 while Jeremy w
   - [x] Recently Deleted (`deletedAt`, trash / restore / delete now / empty, `TrashSweeper` at launch, Settings → Storage; 5 tests + 2 pipeline tests)
   - [x] "Summary ready" / "Needs attention" local notifications (`ProcessingNotifier`, 4 tests; `LiveNotificationService` provisional; tap opens the recording; Settings toggle; app-state test)
   - [x] Transcription language picker (`supportedLocales` on every engine, `TranscriptionLanguages`, 2 tests; "Transcribe again in…", 1 test; unsupported summary language parks the row, 1 test)
-  - [ ] `scripts/test.sh` green on Jeremy's Mac
+  - [x] `scripts/test.sh --unit-only` green on Jeremy's Mac (2026-09-19, after one round of fixes: silence threshold, notifier after a failed run, mark placement)
   - [ ] Device: two-speaker recording → chip → count line → play; skip silence on a recording with pauses; delete → Recently Deleted → restore; lock the phone during a summary → notification appears quietly, tap opens it; pick Spanish, download, record, transcript
 - [ ] Wave B — summary quality (prompt v3)
   - [x] Marks: quick labels after Mark (`RecorderViewModel.mark` / `labelLastMark`, 1 test), ★ lines in the summarizer input (`SummarizationInput.merge`, chunker tests), transcript flag rows (`TranscriptMarkers`, 2 tests), "Marked moments" in exports (1 test)
   - [x] Chapters: `start` on topics and areas, `topics` on client summaries, `ChapterPostProcessor` (5 tests), Audio tab list + scrubber ticks, transcript headings, "Chapters" in exports (1 test)
   - [x] Editable action items (`ActionItemsState` overrides/added/removed, `resolvedActionItems`, `ActionItemEditor`; 4 tests; exports, Reminders and the card read the resolved list)
   - [x] `docs/EVALS.md` created with the golden tables and the prompt v3 checks
-  - [ ] `scripts/test.sh` green on Jeremy's Mac
+  - [x] `scripts/test.sh --unit-only` green on Jeremy's Mac (2026-09-19)
   - [ ] Device: record 5 min with three labelled marks → summary cites their times, transcript shows flags; the 25-min recording → chapters within ±30 s (log in EVALS); edit an owner and a due date, add an item, send to Reminders → edited values appear
 - [ ] Wave C — data
   - [x] `.veraflowarchive` package (`RecordingSnapshot`, `LibraryArchive`, `LibraryActions.exportArchive` / `importArchive`, document picker, Files import and "Open in", UTType in `project.yml`; 5 tests)
   - [x] Settings → Storage: recordings on disk, "Include recordings in iPhone backup" (off), Export library…, Recently Deleted
   - [x] "Export recording…" in a recording's menu; `audioAvailable` false shows why playback is missing
   - [x] Sample recording path (`SampleRecording`, folder reference, Library and Settings buttons, alpha seeding; 1 test). The archive itself is still to record (`VeraFlow/Resources/SampleRecording/README.md`)
-  - [ ] `scripts/test.sh` green on Jeremy's Mac
+  - [x] `scripts/test.sh --unit-only` green on Jeremy's Mac (2026-09-19)
   - [ ] Device: Export library to iCloud Drive → delete a recording → import the package → it's back and plays; AirDrop a single-recording package to a second iPhone; flip the backup switch and check the folder attribute in Diagnostics; record the sample with a consenting second voice and drop it in
 - [ ] Waves D–G: custom templates, live transcript, Ask, translation (D); older iPhones on Parakeet + bundled-model investigation (E); Mac (F); iPad (G, opens 1.2)
 

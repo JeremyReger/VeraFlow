@@ -353,7 +353,7 @@ struct SettingsView: View {
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("settings.recentlyDeleted")
             }
-            Text("The exported package holds audio, transcripts and summaries; import it on another iPhone from the Library's Import menu. The backup switch uses Apple's own backup; VeraFlow still sends nothing anywhere. Deleted recordings can be restored for \(Int(TrashPolicy.retention / 86_400)) days.")
+            Text("The exported package holds audio, transcripts and summaries; import it on another iPhone from the Library's Import menu (if it arrives as a zip, tap it in Files to unpack it first). The backup switch uses Apple's own backup; VeraFlow still sends nothing anywhere. Deleted recordings can be restored for \(Int(TrashPolicy.retention / 86_400)) days.")
                 .vfText(VFText.snippet, color: VFColor.textTertiary)
         }
     }

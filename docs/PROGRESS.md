@@ -146,6 +146,7 @@ Waves A, B and C were written together in one build on 2026-09-19 while Jeremy w
   - [x] "Export recording…" in a recording's menu; `audioAvailable` false shows why playback is missing
   - [x] Sample recording path (`SampleRecording`, folder reference, Library and Settings buttons, alpha seeding; 1 test). The archive itself is still to record (`VeraFlow/Resources/SampleRecording/README.md`)
   - [x] `scripts/test.sh --unit-only` green on Jeremy's Mac (2026-09-19)
+  - [ ] Device 2026-09-19: "Export library…" crashed on tap. Fix: the picker now gets the package URL without the trailing slash, and a zip when iOS doesn't know the package type (Diagnostics → "Archive package type" says which). Re-test: Export library → the picker opens → save to iCloud Drive → Files shows one item (or a zip to tap open)
   - [ ] Device: Export library to iCloud Drive → delete a recording → import the package → it's back and plays; AirDrop a single-recording package to a second iPhone; flip the backup switch and check the folder attribute in Diagnostics; record the sample with a consenting second voice and drop it in
 - [ ] Wave D — the bets (each can be cut on its own)
   - [x] Custom templates (`CustomTemplate` model, `TemplatesView` / editor, Record-screen picker and focus field, hidden sections in the Summary tab and exports, `FocusLine`; 6 tests). Unlocked-only

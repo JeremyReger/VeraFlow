@@ -184,4 +184,29 @@ struct ArchiveTests {
         #expect(usage.trashedBytes == 500)
         #expect(usage.totalBytes == 1_500)
     }
+
+    @Test("The picker gets the package without a trailing slash when iOS knows the type, else a zip of it")
+    func exportItem() throws {
+        let harness = try makeHarness()
+        defer { harness.cleanUp() }
+        let recording = try insertSample(harness)
+        let package = harness.scratch.appending(path: "2026-09-19 VeraFlow library.veraflowarchive", directoryHint: .isDirectory)
+        try harness.actions.exportArchiveSync([recording], to: package)
+        #expect(package.path().hasSuffix("/"), "the URL built for writing is a directory URL")
+
+        let asPackage = try LibraryArchive.exportItem(for: package, recognized: true)
+        #expect(!asPackage.path().hasSuffix("/"))
+        #expect(asPackage.lastPathComponent == "2026-09-19 VeraFlow library.veraflowarchive")
+        #expect(FileManager.default.fileExists(at: asPackage))
+
+        let asZip = try LibraryArchive.exportItem(for: package, recognized: false)
+        #expect(asZip.lastPathComponent == "2026-09-19 VeraFlow library.veraflowarchive.zip")
+        let size = try FileManager.default.attributesOfItem(atPath: asZip.path(percentEncoded: false))[.size] as? Int ?? 0
+        #expect(size > 0)
+        // A real zip starts with the PK signature.
+        let head = try Data(contentsOf: asZip).prefix(2)
+        #expect(head == Data([0x50, 0x4B]))
+        // Zipping again replaces the old zip rather than failing on it.
+        _ = try LibraryArchive.exportItem(for: package, recognized: false)
+    }
 }

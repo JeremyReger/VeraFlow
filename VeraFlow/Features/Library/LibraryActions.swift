@@ -163,6 +163,17 @@ struct LibraryActions {
         }.value
     }
 
+    /// Same as `exportArchive`, on the caller's thread; for tests and small exports.
+    func exportArchiveSync(_ recordings: [Recording], to destination: URL) throws {
+        let live = recordings.filter { !$0.isTrashed }
+        let snapshots = live.map { RecordingSnapshot(recording: $0) }
+        var audioURLs: [UUID: URL] = [:]
+        for recording in live where recording.audioAvailable {
+            audioURLs[recording.id] = services.storage.audioURL(for: recording.id, fileName: recording.audioFileName)
+        }
+        try LibraryArchive.write(snapshots, audioURLs: audioURLs, appVersion: AppInfo.versionString, to: destination)
+    }
+
     /// Reads a package and inserts its recordings. Ones already in the Library are skipped unless
     /// `replace` is set. Audio is copied into the recording's folder; a snapshot without audio is
     /// still imported with `audioAvailable` off (its transcript and summary stay usable).

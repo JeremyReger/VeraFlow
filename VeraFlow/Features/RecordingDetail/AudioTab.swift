@@ -10,6 +10,8 @@ struct AudioTab: View {
     let isUnlocked: Bool
     let onLocked: () -> Void
     let onSendToReminders: () -> Void
+    /// A talk-time row opens the transcript filtered to that speaker (v1.1 plan item 3).
+    var onShowSpeaker: (String) -> Void = { _ in }
 
     @Environment(\.services) private var services
     @Environment(\.modelContext) private var modelContext
@@ -211,7 +213,7 @@ struct AudioTab: View {
                     talkTimeRow(share)
                 }
             }
-            Text("Labels can be wrong when people talk over each other. Tap a name to rename it, or use the Speakers menu on the transcript to merge two labels.")
+            Text("Labels can be wrong when people talk over each other. Tap a row to see that person's paragraphs; touch and hold to rename. The Speakers menu on the transcript merges two labels.")
                 .vfText(VFText.snippet, color: VFColor.textTertiary)
         }
     }
@@ -222,7 +224,7 @@ struct AudioTab: View {
         let name = speaker?.displayName ?? SpokenFormat.speakerName(forKey: share.speakerKey)
         let colorIndex = speaker?.colorIndex ?? 0
         Button {
-            if let speaker { speakerController?.beginRename(speaker) }
+            onShowSpeaker(share.speakerKey)
         } label: {
             HStack(spacing: 12) {
                 Circle()
@@ -256,9 +258,19 @@ struct AudioTab: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .disabled(speaker == nil)
+        .contextMenu {
+            if let speaker {
+                Button("Rename…", systemImage: "pencil") { speakerController?.beginRename(speaker) }
+            }
+        }
         .accessibilityLabel("\(name), \(SpokenFormat.duration(share.seconds)), \(Int((share.fraction * 100).rounded())) percent")
-        .accessibilityHint(speaker == nil ? "" : "Renames this speaker")
+        .accessibilityHint("Shows this speaker's paragraphs in the transcript")
+        .accessibilityActions {
+            if let speaker {
+                Button("Rename \(speaker.displayName)") { speakerController?.beginRename(speaker) }
+            }
+        }
+        .accessibilityIdentifier("audio.talkTime.\(share.speakerKey)")
     }
 
     // MARK: Marks

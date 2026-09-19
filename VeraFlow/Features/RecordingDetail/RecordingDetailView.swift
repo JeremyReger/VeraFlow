@@ -31,6 +31,8 @@ struct RecordingDetailView: View {
     @State private var exportController: ExportController?
     @State private var remindersRecord: SummaryRecord?
     @State private var showsPaywall = false
+    /// The transcript's speaker chip (v1.1 plan item 3), kept here so the Audio tab can set it.
+    @State private var speakerFilter: String?
 
     /// Explicit because `@Query` makes the synthesized initializer private. Opens on the Summary
     /// when there is one, otherwise on the Transcript.
@@ -46,7 +48,7 @@ struct RecordingDetailView: View {
             case .summary:
                 SummaryTab(recording: recording, player: player)
             case .transcript:
-                TranscriptTab(recording: recording, player: player)
+                TranscriptTab(recording: recording, player: player, speakerKey: $speakerFilter)
             case .audio:
                 AudioTab(
                     recording: recording,
@@ -54,7 +56,11 @@ struct RecordingDetailView: View {
                     exportController: exportController,
                     isUnlocked: appState?.isUnlocked ?? false,
                     onLocked: { showsPaywall = true },
-                    onSendToReminders: { remindersRecord = recording.currentSummary }
+                    onSendToReminders: { remindersRecord = recording.currentSummary },
+                    onShowSpeaker: { key in
+                        speakerFilter = key
+                        withAnimation(VFMotion.tabSwitch) { tab = .transcript }
+                    }
                 )
             }
         }

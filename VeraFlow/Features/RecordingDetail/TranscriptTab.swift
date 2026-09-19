@@ -2,10 +2,14 @@ import SwiftData
 import SwiftUI
 
 /// Transcript tab (SPEC §4.4): timestamped paragraphs, synced highlight during playback,
-/// tap-to-seek, edit mode, search, and the processing status for this recording.
+/// tap-to-seek, edit mode, search, the speaker filter (v1.1 plan item 3), and the processing
+/// status for this recording.
 struct TranscriptTab: View {
     let recording: Recording
     let player: AudioPlayerController
+    /// The picked speaker chip; owned by the detail screen so the Audio tab's talk-time rows can
+    /// open the transcript already filtered and the choice survives a tab switch.
+    @Binding var speakerKey: String?
     @Environment(\.services) private var services
     @Environment(\.modelContext) private var modelContext
     @Environment(AppState.self) private var appState: AppState?
@@ -19,8 +23,22 @@ struct TranscriptTab: View {
 
     private var segments: [TranscriptSegment] { recording.orderedSegments }
 
+    private var filter: TranscriptFilter {
+        TranscriptFilter(speakerKey: speakerKey, query: query)
+    }
+
+    private var filterSegments: [TranscriptFilterSegment] {
+        segments.map { TranscriptFilterSegment(index: $0.index, speakerKey: $0.speakerKey, start: $0.start, end: $0.end, text: $0.text) }
+    }
+
+    /// Paragraphs listed after the speaker chip is applied.
+    private var visibleSegments: [TranscriptSegment] {
+        guard let speakerKey else { return segments }
+        return segments.filter { $0.speakerKey == speakerKey }
+    }
+
     private var matches: [Int] {
-        TranscriptText.matches(query: query, in: segments.map(\.text))
+        filter.matches(filterSegments)
     }
 
     private var position: TranscriptPosition? {
@@ -38,6 +56,9 @@ struct TranscriptTab: View {
             statusBanner
             if !segments.isEmpty {
                 header
+                if speakers.count > 1 {
+                    speakerChips
+                }
                 paragraphList
             } else {
                 emptyState
@@ -155,7 +176,7 @@ struct TranscriptTab: View {
             }
             .disabled(isEditing)
 
-            if !query.trimmingCharacters(in: .whitespaces).isEmpty {
+            if filter.isSearching {
                 Text(matchCountText)
                     .vfText(VFText.meta, color: VFColor.textTertiary)
             }
@@ -231,8 +252,41 @@ struct TranscriptTab: View {
     }
 
     private var matchCountText: String {
-        let count = matches.count
-        return count == 1 ? "1 match" : "\(count) matches"
+        filter.countText(filterSegments)
+    }
+
+    /// All + one chip per speaker. One chip shows only that person's paragraphs, each still
+    /// playable; the count line reads "12 paragraphs · 4:52 of talk time".
+    private var speakerChips: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    VFChip("All", isSelected: speakerKey == nil) {
+                        speakerKey = nil
+                    }
+                    .accessibilityIdentifier("transcript.speaker.all")
+                    ForEach(speakers, id: \.key) { speaker in
+                        VFChip(speaker.displayName, isSelected: speakerKey == speaker.key) {
+                            speakerKey = speakerKey == speaker.key ? nil : speaker.key
+                        }
+                        .accessibilityHint("Shows only this speaker's paragraphs")
+                        .accessibilityIdentifier("transcript.speaker.\(speaker.key)")
+                    }
+                }
+                .padding(.horizontal, VFSpace.gutterTight)
+            }
+            if speakerKey != nil, !filter.isSearching {
+                Text(matchCountText)
+                    .vfText(VFText.meta, color: VFColor.textTertiary)
+                    .padding(.horizontal, VFSpace.gutterTight)
+                    .accessibilityIdentifier("transcript.speakerCount")
+            }
+        }
+        .padding(.bottom, 6)
+        .onChange(of: speakerKey) { _, _ in
+            let text = matchCountText
+            AccessibilityNotification.Announcement(text.isEmpty ? "All speakers" : text).post()
+        }
     }
 
     // MARK: Paragraphs
@@ -243,7 +297,13 @@ struct TranscriptTab: View {
         return ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: VFSpace.listGap) {
-                    ForEach(segments, id: \.index) { segment in
+                    if visibleSegments.isEmpty {
+                        Text("No paragraphs for this speaker.")
+                            .vfText(VFText.body, color: VFColor.textSecondary)
+                            .padding(.vertical, 24)
+                            .frame(maxWidth: .infinity)
+                    }
+                    ForEach(visibleSegments, id: \.index) { segment in
                         paragraph(
                             segment,
                             isCurrent: current?.segmentIndex == segment.index,
@@ -258,8 +318,10 @@ struct TranscriptTab: View {
             }
             .scrollDismissesKeyboard(.interactively)
             .onChange(of: current?.segmentIndex) { _, index in
-                // Follow the playhead only while playing and not busy searching or editing.
-                guard let index, player.isPlaying, !isEditing, matches.isEmpty else { return }
+                // Follow the playhead only while playing, not busy searching or editing, and
+                // only when the playing paragraph is listed (a filtered speaker may hide it).
+                guard let index, player.isPlaying, !isEditing, matches.isEmpty,
+                      visibleSegments.contains(where: { $0.index == index }) else { return }
                 withAnimation { proxy.scrollTo(index, anchor: .center) }
             }
             .onChange(of: matches.first) { _, first in
@@ -464,7 +526,7 @@ struct TranscriptTab: View {
 
     private func commitEdits() {
         var changed = false
-        for segment in segments {
+        for segment in visibleSegments {
             if let draft = drafts[segment.index] {
                 changed = TranscriptText.commit(draft, to: segment) || changed
             }
@@ -536,7 +598,7 @@ private struct SpeakerAlerts: ViewModifier {
 #Preview {
     let recording = PreviewData.sampleRecording()
     NavigationStack {
-        TranscriptTab(recording: recording, player: AudioPlayerController())
+        TranscriptTab(recording: recording, player: AudioPlayerController(), speakerKey: .constant(nil))
     }
     .modelContainer(PreviewData.container())
     .environment(\.services, .fakes())

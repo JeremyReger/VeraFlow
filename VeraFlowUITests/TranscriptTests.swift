@@ -39,6 +39,15 @@ final class TranscriptTests: XCTestCase {
         search.typeText("county")
         XCTAssertTrue(app.staticTexts["1 match"].waitForExistence(timeout: 5))
 
+        // Speaker chips (v1.1): one chip narrows the list to that speaker and reads the count.
+        app.buttons["Clear search"].firstMatch.tap()
+        let chip = app.buttons["transcript.speaker.S2"]
+        XCTAssertTrue(chip.waitForExistence(timeout: 5), "speaker chips missing")
+        chip.tap()
+        XCTAssertTrue(app.staticTexts["transcript.speakerCount"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["transcript.speakerCount"].label.hasPrefix("1 paragraph"))
+        app.buttons["transcript.speaker.all"].tap()
+
         // Edit mode swaps the paragraphs for text fields and back.
         let edit = app.buttons["transcript.edit"]
         edit.tap()

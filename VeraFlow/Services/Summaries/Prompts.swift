@@ -27,11 +27,11 @@ enum Prompts {
         let combine = "Combine these notes into one summary of the whole recording. Merge duplicates. Keep the most specific version of each action item."
         switch template {
         case .general:
-            return combine + " Group the key points by subject: one topic per distinct subject, in the order it came up, with the points that belong to it. The overview should let someone who missed the meeting understand what it was for, what was covered, what was decided, and what is still open."
+            return combine + " Group the key points by subject: one topic per distinct subject, in the order it came up, with the points that belong to it and the timestamp of the first line about it. The overview should let someone who missed the meeting understand what it was for, what was covered, what was decided, and what is still open."
         case .client:
-            return combine + " This was a meeting between a consultant and a client. Focus on client goals, concerns, commitments made by either side, and next steps."
+            return combine + " This was a meeting between a consultant and a client. Focus on client goals, concerns, commitments made by either side, and next steps. List the subjects discussed in order, each with the timestamp of the first line about it."
         case .walkthrough:
-            return combine + " This was a contractor walking a job site with a customer. Organize work by area/room. Copy measurements exactly as spoken."
+            return combine + " This was a contractor walking a job site with a customer. Organize work by area/room, each with the timestamp of the first line in that area. Copy measurements exactly as spoken."
         }
     }
 

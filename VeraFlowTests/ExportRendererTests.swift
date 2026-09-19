@@ -52,6 +52,19 @@ struct ExportRendererTests {
         #expect(!ExportRenderer.markdown(for: doc).contains("Marked moments"))
     }
 
+    @Test("Chapters are listed after the summary when the payload has two or more placed subjects")
+    func chapters() {
+        var doc = document
+        doc.summary = .general(GeneralSummary(
+            title: "t", overview: "o", keyPoints: ["a", "b"],
+            topics: [KeyPointTopic(title: "Budget", points: ["a"], start: 0), KeyPointTopic(title: "Hiring", points: ["b"], start: 125)],
+            decisions: [], actionItems: [], openQuestions: []
+        ))
+        let markdown = ExportRenderer.markdown(for: doc)
+        #expect(markdown.contains("## Chapters\n\n- [00:00] Budget\n- [02:05] Hiring"))
+        #expect(ExportRenderer.plainText(for: doc).contains("CHAPTERS\n• [00:00] Budget"))
+    }
+
     @Test("Walk-through measurements get the audio-check warning and their timestamps")
     func measurements() {
         var doc = document

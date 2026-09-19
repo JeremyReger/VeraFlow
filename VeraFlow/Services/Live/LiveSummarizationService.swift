@@ -34,6 +34,8 @@ struct KeyPointTopicGenerable {
     var title: String
     @Guide(description: "1–5 key points on this subject, each under 20 words.")
     var points: [String]
+    @Guide(description: "Timestamp mm:ss or h:mm:ss of the first transcript line about this subject. Empty if unsure.")
+    var startTimestamp: String
 }
 
 @Generable(description: "Summary of a general meeting or lecture.")
@@ -64,6 +66,8 @@ struct ClientMeetingSummaryGenerable {
     @Guide(description: "Next meeting or check-in if mentioned, else empty.")
     var nextMeeting: String
     var openQuestions: [String]
+    @Guide(description: "The subjects discussed, in order, each with its key points and the time it came up.")
+    var topics: [KeyPointTopicGenerable]
 }
 
 @Generable(description: "A follow-up email to the client.")
@@ -96,6 +100,8 @@ struct WorkAreaGenerable {
     @Guide(description: "Only measurements explicitly spoken. Never estimate or convert.")
     var measurements: [MeasurementGenerable]
     var materials: [MaterialGenerable]
+    @Guide(description: "Timestamp mm:ss or h:mm:ss of the first transcript line in this area. Empty if unsure.")
+    var startTimestamp: String
 }
 
 @Generable(description: "Summary of a contractor walking a job site with a customer.")
@@ -327,7 +333,7 @@ actor LiveSummarizationService: SummarizationService {
                 title: content.title,
                 overview: content.overview,
                 keyPoints: content.topics.flatMap(\.points),
-                topics: content.topics.map { KeyPointTopic(title: $0.title, points: $0.points) },
+                topics: content.topics.map(Self.topic),
                 decisions: content.decisions,
                 actionItems: content.actionItems.map(Self.actionItem),
                 openQuestions: content.openQuestions
@@ -342,7 +348,8 @@ actor LiveSummarizationService: SummarizationService {
                 decisions: content.decisions,
                 actionItems: content.actionItems.map(Self.actionItem),
                 nextMeeting: content.nextMeeting,
-                openQuestions: content.openQuestions
+                openQuestions: content.openQuestions,
+                topics: content.topics.map(Self.topic)
             ))
         case .walkthrough:
             let content = try await session.respond(to: prompt, generating: WalkthroughSummaryGenerable.self, options: Self.options).content
@@ -355,7 +362,8 @@ actor LiveSummarizationService: SummarizationService {
                         name: area.name,
                         tasks: area.tasks,
                         measurements: area.measurements.map { Measurement(item: $0.item, value: $0.value, timestamp: nil) },
-                        materials: area.materials.map { Material(name: $0.name, quantity: $0.quantity, notes: $0.notes) }
+                        materials: area.materials.map { Material(name: $0.name, quantity: $0.quantity, notes: $0.notes) },
+                        start: ActionItemPostProcessor.parseTimestamp(area.startTimestamp)
                     )
                 },
                 customerRequests: content.customerRequests,
@@ -450,6 +458,10 @@ actor LiveSummarizationService: SummarizationService {
     }
 
     // MARK: Rendering
+
+    static func topic(_ draft: KeyPointTopicGenerable) -> KeyPointTopic {
+        KeyPointTopic(title: draft.title, points: draft.points, start: ActionItemPostProcessor.parseTimestamp(draft.startTimestamp))
+    }
 
     static func actionItem(_ draft: ActionItemDraftGenerable) -> ActionItem {
         ActionItem(

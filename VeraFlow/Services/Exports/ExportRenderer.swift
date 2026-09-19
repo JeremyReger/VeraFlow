@@ -193,6 +193,9 @@ enum ExportRenderer {
     /// plan item 1). Rendered after the summary sections in every format.
     static func contextSections(_ document: ExportDocument) -> [Section] {
         var sections: [Section] = []
+        if let chapters = document.summary?.chapters, !chapters.isEmpty {
+            sections.append(Section(heading: "Chapters", lines: chapters.map { "- [\(TranscriptChunker.timestamp($0.start))] \($0.title)" }))
+        }
         if !document.marks.isEmpty {
             let lines = document.marks.sorted { $0.time < $1.time }.map { mark in
                 "- [\(TranscriptChunker.timestamp(mark.time))] " + (mark.label.isEmpty ? "Marked moment" : mark.label)

@@ -62,6 +62,15 @@ struct ActionItemsState: Codable, Sendable, Equatable {
 struct KeyPointTopic: Codable, Sendable, Equatable {
     var title: String
     var points: [String]
+    /// Where the subject starts, validated by `ChapterPostProcessor` (v1.1 plan item 12);
+    /// absent on older summaries.
+    var start: TimeInterval?
+
+    init(title: String, points: [String], start: TimeInterval? = nil) {
+        self.title = title
+        self.points = points
+        self.start = start
+    }
 }
 
 struct GeneralSummary: Codable, Sendable, Equatable {
@@ -150,6 +159,37 @@ struct ClientMeetingSummary: Codable, Sendable, Equatable {
     /// Next meeting or check-in if mentioned, else empty.
     var nextMeeting: String
     var openQuestions: [String]
+    /// Subjects in the order discussed, for chapters (v1.1 plan item 12). Older summaries have none.
+    var topics: [KeyPointTopic] = []
+
+    init(title: String, overview: String, clientGoals: [String], concerns: [String], decisions: [String], actionItems: [ActionItem], nextMeeting: String, openQuestions: [String], topics: [KeyPointTopic] = []) {
+        self.title = title
+        self.overview = overview
+        self.clientGoals = clientGoals
+        self.concerns = concerns
+        self.decisions = decisions
+        self.actionItems = actionItems
+        self.nextMeeting = nextMeeting
+        self.openQuestions = openQuestions
+        self.topics = topics
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case title, overview, clientGoals, concerns, decisions, actionItems, nextMeeting, openQuestions, topics
+    }
+
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        title = try container.decode(String.self, forKey: .title)
+        overview = try container.decode(String.self, forKey: .overview)
+        clientGoals = try container.decode([String].self, forKey: .clientGoals)
+        concerns = try container.decode([String].self, forKey: .concerns)
+        decisions = try container.decode([String].self, forKey: .decisions)
+        actionItems = try container.decode([ActionItem].self, forKey: .actionItems)
+        nextMeeting = try container.decode(String.self, forKey: .nextMeeting)
+        openQuestions = try container.decode([String].self, forKey: .openQuestions)
+        topics = try container.decodeIfPresent([KeyPointTopic].self, forKey: .topics) ?? []
+    }
 }
 
 /// Generated on demand from a `ClientMeetingSummary` (SPEC §11.4).
@@ -180,6 +220,16 @@ struct WorkArea: Codable, Sendable, Equatable {
     var tasks: [String]
     var measurements: [Measurement]
     var materials: [Material]
+    /// Where the walk reached this area, validated by `ChapterPostProcessor` (v1.1 plan item 12).
+    var start: TimeInterval?
+
+    init(name: String, tasks: [String], measurements: [Measurement], materials: [Material], start: TimeInterval? = nil) {
+        self.name = name
+        self.tasks = tasks
+        self.measurements = measurements
+        self.materials = materials
+        self.start = start
+    }
 }
 
 struct WalkthroughSummary: Codable, Sendable, Equatable {
@@ -251,5 +301,36 @@ enum SummaryPayload: Codable, Sendable, Equatable {
 
     func encoded() throws -> Data {
         try JSONEncoder().encode(self)
+    }
+
+    // MARK: Chapters (v1.1 plan item 12)
+
+    /// (title, start) for every topic or area, validated or not.
+    var chapterSources: [(title: String, start: TimeInterval?)] {
+        switch self {
+        case .general(let summary): summary.topics.map { ($0.title, $0.start) }
+        case .client(let summary): summary.topics.map { ($0.title, $0.start) }
+        case .walkthrough(let summary): summary.areas.map { ($0.name, $0.start) }
+        }
+    }
+
+    /// Navigable chapters; empty unless at least two subjects were placed.
+    var chapters: [Chapter] {
+        ChapterPostProcessor.chapters(titles: chapterSources.map(\.title), starts: chapterSources.map(\.start))
+    }
+
+    /// Writes validated starts back into the topics or areas.
+    mutating func setChapterStarts(_ starts: [TimeInterval?]) {
+        switch self {
+        case .general(var summary):
+            for index in summary.topics.indices where index < starts.count { summary.topics[index].start = starts[index] }
+            self = .general(summary)
+        case .client(var summary):
+            for index in summary.topics.indices where index < starts.count { summary.topics[index].start = starts[index] }
+            self = .client(summary)
+        case .walkthrough(var summary):
+            for index in summary.areas.indices where index < starts.count { summary.areas[index].start = starts[index] }
+            self = .walkthrough(summary)
+        }
     }
 }

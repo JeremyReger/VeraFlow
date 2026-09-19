@@ -59,9 +59,16 @@ extension ActionItemPostProcessor.Context {
 
 extension SummaryPayload {
     /// Runs SPEC §11.6 post-processing over every action item (and walk-through measurements'
-    /// timestamps) in the payload.
+    /// timestamps) in the payload, then validates the chapter starts (v1.1 plan item 12).
     func postProcessed(with processor: ActionItemPostProcessor, context: ActionItemPostProcessor.Context) -> SummaryPayload {
         var result = self
+        let sources = chapterSources
+        result.setChapterStarts(ChapterPostProcessor.starts(
+            for: sources.map(\.title),
+            given: sources.map(\.start),
+            duration: context.duration,
+            segments: context.segments
+        ))
         let drafts = actionItems.map {
             ActionItemDraft(
                 task: $0.task,

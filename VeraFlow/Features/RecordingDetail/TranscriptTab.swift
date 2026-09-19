@@ -51,6 +51,15 @@ struct TranscriptTab: View {
         TranscriptMarkers.placements(markTimes: marks.map(\.time), segmentStarts: visibleSegments.map(\.start))
     }
 
+    /// Chapter headings from the current summary (v1.1 plan item 12), keyed the same way.
+    private var chapters: [Chapter] {
+        (try? recording.currentSummary?.payload())?.chapters ?? []
+    }
+
+    private var chapterPlacements: [Int: [Int]] {
+        TranscriptMarkers.placements(markTimes: chapters.map(\.start), segmentStarts: visibleSegments.map(\.start), inclusive: true)
+    }
+
     private var position: TranscriptPosition? {
         guard !segments.isEmpty else { return nil }
         return TranscriptCursor.position(
@@ -315,7 +324,12 @@ struct TranscriptTab: View {
                     }
                     let placements = markPlacements
                     let marks = marks
+                    let chapters = chapters
+                    let chapterPlacements = chapterPlacements
                     ForEach(Array(visibleSegments.enumerated()), id: \.element.index) { position, segment in
+                        ForEach(chapterPlacements[position] ?? [], id: \.self) { chapterIndex in
+                            chapterHeading(chapters[chapterIndex])
+                        }
                         ForEach(placements[position] ?? [], id: \.self) { markIndex in
                             markerRow(marks[markIndex])
                         }
@@ -466,6 +480,18 @@ struct TranscriptTab: View {
             }
         }
         .accessibilityIdentifier("transcript.paragraph.\(segment.index)")
+    }
+
+    /// Small eyebrow heading where a chapter starts.
+    private func chapterHeading(_ chapter: Chapter) -> some View {
+        Text(chapter.title.uppercased())
+            .vfText(VFText.sectionLabel, color: VFColor.textTertiary)
+            .padding(.horizontal, VFSpace.cardPaddingH)
+            .padding(.top, 10)
+            .padding(.bottom, 2)
+            .accessibilityLabel("Chapter: \(chapter.title)")
+            .accessibilityAddTraits(.isHeader)
+            .accessibilityIdentifier("transcript.chapter")
     }
 
     /// Flag, label and time of a mark, between the paragraphs it fell between; tap seeks.

@@ -14,4 +14,11 @@ struct TranscriptMarkersTests {
         #expect(TranscriptMarkers.placements(markTimes: [], segmentStarts: starts).isEmpty)
         #expect(TranscriptMarkers.placements(markTimes: [5], segmentStarts: []) == [0: [0]])
     }
+
+    @Test("Chapter headings use the inclusive rule, so a chapter at a paragraph's start heads that paragraph")
+    func inclusive() {
+        let starts: [TimeInterval] = [0, 10, 25]
+        #expect(TranscriptMarkers.placements(markTimes: [0, 10], segmentStarts: starts, inclusive: true) == [0: [0], 1: [1]])
+        #expect(TranscriptMarkers.placements(markTimes: [0, 10], segmentStarts: starts) == [1: [0], 2: [1]])
+    }
 }

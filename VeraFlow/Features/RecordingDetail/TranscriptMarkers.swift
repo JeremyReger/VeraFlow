@@ -4,13 +4,15 @@ import Foundation
 /// before the first listed paragraph that starts after it, or after the last paragraph.
 enum TranscriptMarkers {
     /// Key: position in `segmentStarts` the marks go before (`segmentStarts.count` = after the
-    /// last one). Value: indices into `markTimes`, in time order.
-    static func placements(markTimes: [TimeInterval], segmentStarts: [TimeInterval]) -> [Int: [Int]] {
+    /// last one). Value: indices into `markTimes`, in time order. A mark goes before the first
+    /// paragraph that starts after it; with `inclusive` (chapter headings) a paragraph starting
+    /// exactly at the time counts too, so a chapter at 0:00 heads the first paragraph.
+    static func placements(markTimes: [TimeInterval], segmentStarts: [TimeInterval], inclusive: Bool = false) -> [Int: [Int]] {
         var result: [Int: [Int]] = [:]
         let ordered = markTimes.indices.sorted { markTimes[$0] < markTimes[$1] }
         for markIndex in ordered {
             let time = markTimes[markIndex]
-            let position = segmentStarts.firstIndex { $0 > time } ?? segmentStarts.count
+            let position = segmentStarts.firstIndex { inclusive ? $0 >= time : $0 > time } ?? segmentStarts.count
             result[position, default: []].append(markIndex)
         }
         return result

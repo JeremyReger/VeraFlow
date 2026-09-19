@@ -25,6 +25,9 @@ struct AudioTab: View {
         ScrollView {
             VStack(alignment: .leading, spacing: VFSpace.sectionGap) {
                 playerSection
+                if !chapters.isEmpty {
+                    chaptersSection
+                }
                 if talkTime.count > 1 {
                     talkTimeSection
                 }
@@ -109,6 +112,16 @@ struct AudioTab: View {
             ZStack(alignment: .leading) {
                 VFWaveform(samples: peaks.count == count ? peaks : Array(repeating: 0.08, count: count), progress: progress, height: 72)
                     .frame(width: width, alignment: .leading)
+                // Chapter ticks (v1.1 plan item 12).
+                if player.duration > 0 {
+                    ForEach(chapters) { chapter in
+                        Rectangle()
+                            .fill(VFColor.textTertiary)
+                            .frame(width: 1, height: 12)
+                            .offset(x: max(0, min(width - 1, width * chapter.start / player.duration)), y: 34)
+                            .accessibilityHidden(true)
+                    }
+                }
                 // Playhead.
                 Rectangle()
                     .fill(VFColor.waveformHead)
@@ -209,6 +222,48 @@ struct AudioTab: View {
         }.value
         if let result, !Task.isCancelled {
             peaks = result
+        }
+    }
+
+    // MARK: Chapters (v1.1 plan item 12)
+
+    private var chapters: [Chapter] {
+        (try? recording.currentSummary?.payload())?.chapters ?? []
+    }
+
+    private var chaptersSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            VFSectionLabel("Chapters")
+            VFSettingsGroup {
+                ForEach(Array(chapters.enumerated()), id: \.element.id) { position, chapter in
+                    if position > 0 { VFHairline() }
+                    Button {
+                        player.seek(to: chapter.start)
+                        player.play()
+                    } label: {
+                        HStack(spacing: 12) {
+                            Text(timeText(chapter.start))
+                                .vfText(VFText.meta, color: VFColor.textSecondary)
+                                .monospacedDigit()
+                                .accessibilityLabel(SpokenFormat.duration(chapter.start))
+                            Text(chapter.title).vfText(VFText.rowLabel)
+                            Spacer()
+                            Image(systemName: "play.fill")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(VFColor.textTertiary)
+                                .accessibilityHidden(true)
+                        }
+                        .frame(minHeight: 50)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!player.isLoaded)
+                    .accessibilityHint("Plays from this chapter")
+                    .accessibilityIdentifier("audio.chapter")
+                }
+            }
+            Text("Chapters come from the summary's subjects; the times are where each one first came up.")
+                .vfText(VFText.snippet, color: VFColor.textTertiary)
         }
     }
 

@@ -4,6 +4,12 @@ import os
 
 // MARK: - Generable drafts (SPEC §11.4)
 // Kept separate from the Codable payload types so SwiftData never depends on FoundationModels.
+//
+// Every array carries a `.maximumCount` guide. A count written only in the description is a
+// suggestion the model is free to ignore, and on Jeremy's 1:58 recording it did: the answer
+// cycled the same six topics nineteen times until it ran out of window and the JSON was cut off
+// mid-string, which came back as a decoding failure. `.maximumCount` is enforced by constrained
+// decoding, so the loop can't start (2026-09-19).
 
 @available(iOS 26, *)
 @Generable(description: "One task someone agreed to do.")
@@ -21,12 +27,13 @@ struct ActionItemDraftGenerable {
 @available(iOS 26, *)
 @Generable(description: "Notes extracted from one part of a transcript.")
 struct ChunkNotesGenerable {
-    @Guide(description: "Key points discussed, max 6, each under 20 words.")
+    @Guide(description: "Key points discussed, each under 20 words.", .maximumCount(6))
     var keyPoints: [String]
-    @Guide(description: "Decisions actually agreed on. Empty if none.")
+    @Guide(description: "Decisions actually agreed on. Empty if none.", .maximumCount(6))
     var decisions: [String]
+    @Guide(description: "Tasks someone agreed to do. Empty if none.", .maximumCount(8))
     var actionItems: [ActionItemDraftGenerable]
-    @Guide(description: "Unresolved questions. Empty if none.")
+    @Guide(description: "Unresolved questions. Empty if none.", .maximumCount(5))
     var openQuestions: [String]
 }
 
@@ -35,7 +42,7 @@ struct ChunkNotesGenerable {
 struct KeyPointTopicGenerable {
     @Guide(description: "The subject, 2–6 words, as the participants would name it.")
     var title: String
-    @Guide(description: "1–5 key points on this subject, each under 20 words.")
+    @Guide(description: "Key points on this subject, each under 20 words.", .maximumCount(5))
     var points: [String]
     @Guide(description: "Timestamp mm:ss or h:mm:ss of the first transcript line about this subject. Empty if unsure.")
     var startTimestamp: String
@@ -48,10 +55,13 @@ struct GeneralSummaryGenerable {
     var title: String
     @Guide(description: "A 5–8 sentence overview for someone who missed it: what the meeting was for, who took part as labeled, the main subjects in the order they came up, what was decided, and what was left open. Only what the transcript says.")
     var overview: String
-    @Guide(description: "Key points grouped by subject, one topic per distinct subject in the order discussed. A recording about one subject gets one topic.")
+    @Guide(description: "Key points grouped by subject, one topic per distinct subject in the order discussed. Never repeat a subject. A recording about one subject gets one topic.", .maximumCount(8))
     var topics: [KeyPointTopicGenerable]
+    @Guide(description: "Decisions actually agreed on. Empty if none.", .maximumCount(8))
     var decisions: [String]
+    @Guide(description: "Tasks someone agreed to do. Empty if none.", .maximumCount(10))
     var actionItems: [ActionItemDraftGenerable]
+    @Guide(description: "Unresolved questions. Empty if none.", .maximumCount(6))
     var openQuestions: [String]
 }
 
@@ -62,16 +72,19 @@ struct ClientMeetingSummaryGenerable {
     var title: String
     @Guide(description: "3–5 sentence overview.")
     var overview: String
-    @Guide(description: "What the client wants to achieve, in their words where possible.")
+    @Guide(description: "What the client wants to achieve, in their words where possible.", .maximumCount(6))
     var clientGoals: [String]
-    @Guide(description: "Concerns, objections, budget or timeline constraints the client raised.")
+    @Guide(description: "Concerns, objections, budget or timeline constraints the client raised.", .maximumCount(6))
     var concerns: [String]
+    @Guide(description: "Decisions actually agreed on. Empty if none.", .maximumCount(8))
     var decisions: [String]
+    @Guide(description: "Tasks someone agreed to do. Empty if none.", .maximumCount(10))
     var actionItems: [ActionItemDraftGenerable]
     @Guide(description: "Next meeting or check-in if mentioned, else empty.")
     var nextMeeting: String
+    @Guide(description: "Unresolved questions. Empty if none.", .maximumCount(6))
     var openQuestions: [String]
-    @Guide(description: "The subjects discussed, in order, each with its key points and the time it came up.")
+    @Guide(description: "The subjects discussed, in order, each with its key points and the time it came up. Never repeat a subject.", .maximumCount(8))
     var topics: [KeyPointTopicGenerable]
 }
 
@@ -104,10 +117,11 @@ struct MaterialGenerable {
 struct WorkAreaGenerable {
     @Guide(description: "Room or area name, e.g. 'Master bath'.")
     var name: String
-    @Guide(description: "Work to be done in this area.")
+    @Guide(description: "Work to be done in this area.", .maximumCount(10))
     var tasks: [String]
-    @Guide(description: "Only measurements explicitly spoken. Never estimate or convert.")
+    @Guide(description: "Only measurements explicitly spoken. Never estimate or convert.", .maximumCount(12))
     var measurements: [MeasurementGenerable]
+    @Guide(description: "Materials mentioned for this area. Empty if none.", .maximumCount(10))
     var materials: [MaterialGenerable]
     @Guide(description: "Timestamp mm:ss or h:mm:ss of the first transcript line in this area. Empty if unsure.")
     var startTimestamp: String
@@ -122,13 +136,15 @@ struct WalkthroughSummaryGenerable {
     var location: String
     @Guide(description: "3–5 sentence overview.")
     var overview: String
+    @Guide(description: "One entry per room or area walked, in the order visited. Never repeat an area.", .maximumCount(10))
     var areas: [WorkAreaGenerable]
-    @Guide(description: "Specific customer requests or preferences (colors, brands, finishes).")
+    @Guide(description: "Specific customer requests or preferences (colors, brands, finishes).", .maximumCount(8))
     var customerRequests: [String]
-    @Guide(description: "Problems found: damage, code, safety, access issues.")
+    @Guide(description: "Problems found: damage, code, safety, access issues.", .maximumCount(8))
     var issuesFound: [String]
-    @Guide(description: "Notes useful for writing the quote: scope, exclusions, permits, timeline.")
+    @Guide(description: "Notes useful for writing the quote: scope, exclusions, permits, timeline.", .maximumCount(8))
     var quoteNotes: [String]
+    @Guide(description: "Tasks someone agreed to do. Empty if none.", .maximumCount(10))
     var actionItems: [ActionItemDraftGenerable]
 }
 
@@ -236,14 +252,19 @@ actor LiveSummarizationService: SummarizationService {
                     rateLimitWaits += 1
                     Self.log.notice("model rate limited; retrying in \(delay.description, privacy: .public)")
                     try await Task.sleep(for: delay)
-                case .contextSizeExceeded where attempt < Self.maxOverflowRetries:
-                    // Only the chunk size shrinks (SPEC §11.2); the reserve stays. A transcript
-                    // that already fits one call never reads the chunk size, so the retry would
-                    // repeat the call that just failed: force the map-reduce path as well, which
-                    // asks for short notes per chunk instead of a whole summary in one answer.
+                case .contextSizeExceeded, .decodingFailure:
+                    // Both are one answer that ran on too long: an overflow throws, and an answer
+                    // cut off mid-JSON comes back as a decoding failure. Only the chunk size
+                    // shrinks (SPEC §11.2); the reserve stays. A transcript that already fits one
+                    // call never reads the chunk size, so the retry would repeat the call that
+                    // just failed: force the map-reduce path as well, which asks for short notes
+                    // per chunk instead of a whole summary in one answer.
+                    guard attempt < Self.maxOverflowRetries else {
+                        throw kind == .decodingFailure ? Self.map(error, kind: kind) : SummarizationError.contextOverflow
+                    }
                     inputTokens = ContextBudget.shrunk(inputTokens)
                     forceChunking = true
-                    Self.log.notice("context overflow; retrying chunked at \(inputTokens, privacy: .public) tokens")
+                    Self.log.notice("answer ran on (\(String(describing: kind), privacy: .public)); retrying chunked at \(inputTokens, privacy: .public) tokens")
                 case .timeout where attempt < Self.maxOverflowRetries:
                     // A request that ran out of time (seen on device after 110 s) gets smaller,
                     // faster calls before giving up for now.
@@ -252,8 +273,6 @@ actor LiveSummarizationService: SummarizationService {
                     Self.log.notice("model timed out; retrying chunked at \(inputTokens, privacy: .public) tokens")
                 case .timeout:
                     throw SummarizationError.timedOut
-                case .contextSizeExceeded:
-                    throw SummarizationError.contextOverflow
                 default:
                     throw Self.map(error, kind: kind)
                 }
@@ -577,6 +596,7 @@ actor LiveSummarizationService: SummarizationService {
         if let error = error as? LanguageModelSession.GenerationError {
             switch error {
             case .exceededContextWindowSize: return .contextSizeExceeded
+            case .decodingFailure: return .decodingFailure
             case .rateLimited: return .rateLimited
             case .refusal: return .refusal
             case .guardrailViolation: return .guardrailViolation
@@ -593,7 +613,7 @@ actor LiveSummarizationService: SummarizationService {
             case .assetsUnavailable:
                 return .unavailable(.modelNotReady)
             case .decodingFailure:
-                return .generationFailed("The model's answer couldn't be read. Try again.")
+                return .generationFailed(SummarizationError.answerCutOffMessage)
             default:
                 break
             }
@@ -601,6 +621,8 @@ actor LiveSummarizationService: SummarizationService {
         switch kind {
         case .contextSizeExceeded:
             return .contextOverflow
+        case .decodingFailure:
+            return .generationFailed(SummarizationError.answerCutOffMessage)
         case .rateLimited:
             return .rateLimited
         case .timeout:

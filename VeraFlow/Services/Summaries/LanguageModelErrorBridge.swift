@@ -10,6 +10,9 @@ import Foundation
 enum LanguageModelErrorBridge {
     enum Kind: Equatable, Sendable {
         case contextSizeExceeded
+        /// The model's answer couldn't be parsed into the type. In practice it ran on and was cut
+        /// off mid-JSON, so the text is incomplete rather than wrong.
+        case decodingFailure
         case rateLimited
         case timeout
         case refusal
@@ -44,6 +47,7 @@ enum LanguageModelErrorBridge {
         let caseName = name.split(separator: ".").last.map(String.init) ?? name
         switch caseName {
         case "contextsizeexceeded": return .contextSizeExceeded
+        case "decodingfailure": return .decodingFailure
         case "ratelimited": return .rateLimited
         case "timeout": return .timeout
         case "refusal": return .refusal

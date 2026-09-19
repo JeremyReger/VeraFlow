@@ -9,6 +9,7 @@ enum FoundationModelsStandIn {
         case timeout(String)
         case contextSizeExceeded(Int)
         case rateLimited
+        case decodingFailure(String)
         case somethingNew
     }
 }
@@ -22,6 +23,9 @@ struct LanguageModelErrorBridgeTests {
     func describing() {
         #expect(LanguageModelErrorBridge.kind(describing: "timeout(FoundationModels.LanguageModelError.Timeout(reason: \"x\"))") == .timeout)
         #expect(LanguageModelErrorBridge.kind(describing: "LanguageModelError.contextSizeExceeded(…)") == .contextSizeExceeded)
+        // The one that took Jeremy's 1:58 recording down: the answer looped until it was cut off
+        // mid-JSON, and an unrecognised case name meant no retry at all (2026-09-19).
+        #expect(LanguageModelErrorBridge.kind(describing: "decodingFailure(FoundationModels.LanguageModelError.Context(debugDescription: \"Failed to convert text\"))") == .decodingFailure)
         #expect(LanguageModelErrorBridge.kind(describing: "rateLimited(FoundationModels.LanguageModelError.RateLimited())") == .rateLimited)
         #expect(LanguageModelErrorBridge.kind(describing: "refusal(…)") == .refusal)
         #expect(LanguageModelErrorBridge.kind(describing: "guardrailViolation(…)") == .guardrailViolation)
@@ -35,6 +39,7 @@ struct LanguageModelErrorBridgeTests {
         #expect(LanguageModelErrorBridge.kind(of: FoundationModelsStandIn.LanguageModelError.timeout("slow")) == .timeout)
         #expect(LanguageModelErrorBridge.kind(of: FoundationModelsStandIn.LanguageModelError.contextSizeExceeded(9)) == .contextSizeExceeded)
         #expect(LanguageModelErrorBridge.kind(of: FoundationModelsStandIn.LanguageModelError.rateLimited) == .rateLimited)
+        #expect(LanguageModelErrorBridge.kind(of: FoundationModelsStandIn.LanguageModelError.decodingFailure("cut off")) == .decodingFailure)
         #expect(LanguageModelErrorBridge.kind(of: FoundationModelsStandIn.LanguageModelError.somethingNew) == .unknown)
         #expect(LanguageModelErrorBridge.kind(of: OtherError.timeout) == nil)
         #expect(LanguageModelErrorBridge.kind(of: CancellationError()) == nil)

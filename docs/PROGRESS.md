@@ -204,6 +204,12 @@ Waves A, B and C were written together in one build on 2026-09-19 while Jeremy w
   - [x] `Recording.expectedSpeakersRaw` holds the count when the user has answered for that recording; Settings is the default for the ones that haven't. The one-voice notice writes to the recording, so answering it for one meeting no longer forces that number on every recording after it — and no longer switches the notice off for all of them
   - [x] Carried through the library archive; the view saves before relabelling, because the pipeline reads the recording through its own `ModelContext`
   - [ ] Device: set Expected voices back to Automatic in Settings, record a two-person conversation with the mic on the table, answer the one-voice notice with 2, then record a voice memo and check the log says `hint automatic` for it
+- [x] Summaries: the model can no longer loop (2026-09-19, from Jeremy's 1:58 Mac recording)
+  - [x] Every array in every `@Generable` type has a `.maximumCount` guide. The counts had only ever been prose in the `@Guide` description, which the model is free to ignore — and did: nineteen topics, the same six cycling, until the answer was cut off mid-JSON. `topics` had no count at all
+  - [x] `decodingFailure` is recognised (it mapped to `.unknown`, so the summarizer threw on the first attempt and spent none of its retries) and now retries with the map-reduce path forced, like a context overflow: `ChunkNotes` is a smaller schema with less room to run on
+  - [x] **The output cap alone would not have fixed this.** Capping at the reserve turns "ran on until the window blew" into "ran on until the cap" — the same truncated JSON. The cap stays as the second line of defence; the bounded schema is the fix
+  - [ ] Device: the 1:58 recording should summarize. If it fails again, the log line to read is `answer ran on (…); retrying chunked at N tokens` — its absence means the retry isn't firing, its presence three times means the chunked path loops too
+  - [ ] Noticed, not fixed: `KeyPointTopic.start` is parsed but never clamped to the recording's duration (the runaway invented 04:10 on a 1:58 recording). `ChapterPostProcessor` clamps the chapter list, so this only affects a topic's own start; worth folding into that clamp rather than widening this change
 - [ ] Wave G — iPad (opens 1.2)
 
 ## Requests from device testing

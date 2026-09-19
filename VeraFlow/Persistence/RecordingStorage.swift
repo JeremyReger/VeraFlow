@@ -31,7 +31,7 @@ struct RecordingStorage: Sendable {
             try fileManager.createDirectory(
                 at: url,
                 withIntermediateDirectories: true,
-                attributes: [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication]
+                attributes: DataProtection.newFileAttributes
             )
         }
         try setExcludedFromBackup(excludeFromBackup, at: url)

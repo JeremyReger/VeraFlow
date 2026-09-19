@@ -113,13 +113,14 @@ Rules:
 - A `.veraflowarchive` package for moving or keeping the whole library or one recording; an "include in iPhone backup" switch (off by default); a bundled sample recording.
 - Wave D: custom templates (a built-in base, hidden sections, a focus line); "Ask this recording" (retrieval in Swift, one model call, every answer cites a moment or says the recording doesn't have it); words while recording (a second `SpeechAnalyzer` with volatile results, no speaker tags, foreground only); on-device translation of the transcript and the summary's prose with Apple's Translation framework.
 - Wave E: an iOS 18 floor. iPhones on iOS 18–25 transcribe with FluidAudio's Parakeet and get speaker labels; summaries, Ask and live words need iOS 26. The bundled-model question is answered in `docs/reviews/2026-09-19-bundled-model.md` (no-go for 1.2).
+- Wave F: a native Mac app (`VeraFlow-macOS`, macOS 26, Apple silicon for summaries). The same SwiftUI screens, view models, services and pipeline; the Library is a sidebar and the recording fills the detail column; the microphone list comes from Core Audio; exports go through the save panel and Mail; drag a file onto the window to import it. No Live Activity, no continued-processing task (the Mac keeps running), no privacy cover on losing focus. One App Store record with universal purchase, so the iPhone unlock covers the Mac. The iPad layout opens 1.2.
 
 ### Non-goals (v1)
 - No cloud features, account, sync server, or analytics SDKs.
 - No Zoom/Teams/Meet bot joining.
 - No healthcare/clinical template; the app must not make HIPAA claims.
 - No live AI summary during recording (live transcript preview is optional/stretch).
-- No Mac, iPad-optimized, or Apple Watch app (iPad can run the iPhone layout).
+- No iPad-optimized or Apple Watch app (iPad can run the iPhone layout). The native Mac app arrived in v1.1 (above).
 - No Android (Phase 2).
 - No Private Cloud Compute or third-party LLM APIs. v1 is strictly on-device (§11.7).
 

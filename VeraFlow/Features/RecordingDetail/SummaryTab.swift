@@ -71,6 +71,7 @@ struct SummaryTab: View {
         }
         .sheet(isPresented: $showsPaywall) {
             PaywallView()
+                .vfSheetSize(width: 520, height: 720)
         }
         .alert("Focus for the summary", isPresented: $isEditingFocus) {
             TextField("e.g. the budget", text: $focusDraft)

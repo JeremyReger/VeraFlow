@@ -1,10 +1,13 @@
-import ActivityKit
 import Foundation
+#if canImport(ActivityKit)
+import ActivityKit
+#endif
 
 /// What the Live Activity shows while recording (Lock Screen banner and Dynamic Island).
 /// Lives in the top-level Shared/ folder because it is compiled into both the app and the
-/// widget extension; keep it to plain data.
-struct RecordingActivityAttributes: ActivityAttributes {
+/// widget extension; keep it to plain data. The Mac has no ActivityKit, so the conformance
+/// is conditional and the recorder's state stays plain `Codable` data there.
+struct RecordingActivityAttributes: Codable, Hashable, Sendable {
     struct ContentState: Codable, Hashable, Sendable {
         /// Wall-clock moment the timer counts up from: "now minus audio recorded so far".
         /// Re-derived from the recorder's frame count on every update, so pauses never drift it.
@@ -28,3 +31,7 @@ struct RecordingActivityAttributes: ActivityAttributes {
     var recordingID: UUID
     var title: String
 }
+
+#if canImport(ActivityKit)
+extension RecordingActivityAttributes: ActivityAttributes {}
+#endif

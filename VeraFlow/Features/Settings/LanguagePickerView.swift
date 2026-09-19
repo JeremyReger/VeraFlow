@@ -58,8 +58,8 @@ struct LanguagePickerView: View {
         }
         .background(VFColor.background.ignoresSafeArea())
         .navigationTitle("Transcription language")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.visible, for: .navigationBar)
+        .toolbarTitleDisplayMode(.inline)
+        .vfNavigationBar(.visible)
         .task {
             supported = await services.transcription.supportedLocales()
             isLoading = false
@@ -97,7 +97,7 @@ struct LanguagePickerView: View {
         switch status {
         case .ready: "Speech model installed"
         case .downloadRequired: "Needs a one-time download from Apple"
-        case .localeUnsupported: "Not supported on this iPhone"
+        case .localeUnsupported: "Not supported on \(Platform.thisDevice)"
         case nil: "Checking…"
         }
     }
@@ -166,7 +166,7 @@ struct RetranscribeSheet: View {
                 }
             }
             .navigationTitle("Transcribe again")
-            .navigationBarTitleDisplayMode(.inline)
+            .toolbarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }

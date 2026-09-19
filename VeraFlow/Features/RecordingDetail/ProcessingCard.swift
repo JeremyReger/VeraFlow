@@ -37,7 +37,7 @@ struct ProcessingCard: View {
                     row(step)
                 }
             }
-            Text("This runs on your iPhone. Transcription keeps going in the background; speaker labels and the summary finish while the app is open.")
+            Text("This runs on \(Platform.yourDevice). Transcription keeps going in the background; speaker labels and the summary finish while the app is open.")
                 .vfText(VFText.reassurance, color: VFColor.textSecondary)
         }
         .padding(VFSpace.cardPaddingH)

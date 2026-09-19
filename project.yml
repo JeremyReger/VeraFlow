@@ -158,6 +158,86 @@ targets:
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
 
+  # Native Mac app (v1.1 plan item 15). The same sources, bundle identifier and product name
+  # as the iPhone app so one App Store record covers both (universal purchase); no widget
+  # extension; its own Info.plist and sandbox entitlements. macOS 26 minimum: SpeechAnalyzer
+  # and the on-device Foundation Models arrive there. Platform splits are `#if os(...)` inside
+  # the shared files (RecorderPlatform, the export presentation, the tokens), never a second
+  # copy of a screen.
+  VeraFlow-macOS:
+    type: application
+    platform: macOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: VeraFlow
+        excludes:
+          - "Resources/Info.plist"
+          - "Resources/SampleRecording"
+      - path: VeraFlow/Resources/SampleRecording
+        type: folder
+      - path: Shared                  # RecordingControlHub and the activity state (ActivityKit parts are #if'd out)
+    dependencies:
+      - package: FluidAudio
+        product: FluidAudio
+    settings:
+      base:
+        PRODUCT_NAME: VeraFlow
+        PRODUCT_MODULE_NAME: VeraFlow
+        PRODUCT_BUNDLE_IDENTIFIER: com.jeremyreger.veraflow
+        MACOSX_DEPLOYMENT_TARGET: "26.0"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        CODE_SIGN_STYLE: Automatic
+        ENABLE_HARDENED_RUNTIME: YES
+        ENABLE_APP_SANDBOX: YES
+        COMBINE_HIDPI_IMAGES: YES
+    entitlements:
+      path: VeraFlow/Resources/VeraFlow-macOS.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.device.audio-input: true            # the microphone
+        com.apple.security.network.client: true                # Apple's speech assets, the FluidAudio models, StoreKit (SPEC §14.1)
+        com.apple.security.files.user-selected.read-write: true  # import / export through the open and save panels
+        com.apple.security.personal-information.calendars: true  # Reminders through EventKit
+    info:
+      path: VeraFlow/Resources/Info-macOS.plist
+      properties:
+        CFBundleDisplayName: $(VF_DISPLAY_NAME)
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
+        LSApplicationCategoryType: public.app-category.productivity
+        # The bundled fonts sit at the top of Contents/Resources; AppKit registers them from here.
+        ATSApplicationFontsPath: "."
+        NSMicrophoneUsageDescription: "VeraFlow uses the microphone to record your meetings. Audio stays on this Mac."
+        NSRemindersFullAccessUsageDescription: "VeraFlow adds the action items you choose to your Reminders lists. Nothing is read back or sent anywhere."
+        ITSAppUsesNonExemptEncryption: false
+        UTExportedTypeDeclarations:
+          - UTTypeIdentifier: com.jeremyreger.veraflow.archive
+            UTTypeDescription: VeraFlow Archive
+            UTTypeConformsTo:
+              - com.apple.package
+            UTTypeTagSpecification:
+              public.filename-extension:
+                - veraflowarchive
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: VeraFlow Archive
+            CFBundleTypeRole: Editor
+            LSHandlerRank: Owner
+            LSItemContentTypes:
+              - com.jeremyreger.veraflow.archive
+          - CFBundleTypeName: Audio
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Alternate
+            LSItemContentTypes:
+              - public.mpeg-4-audio
+              - public.mp3
+              - com.microsoft.waveform-audio
+              - com.apple.coreaudio-format
+              - public.audio
+              - public.mpeg-4
+              - com.apple.quicktime-movie
+
   VeraFlowTests:
     type: bundle.unit-test
     platform: iOS
@@ -168,6 +248,21 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.jeremyreger.veraflow.tests
+        GENERATE_INFOPLIST_FILE: YES
+
+  # The same unit tests against the Mac build (`scripts/test.sh --platform macos`).
+  VeraFlowTests-macOS:
+    type: bundle.unit-test
+    platform: macOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: VeraFlowTests
+    dependencies:
+      - target: VeraFlow-macOS
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.jeremyreger.veraflow.tests
+        MACOSX_DEPLOYMENT_TARGET: "26.0"
         GENERATE_INFOPLIST_FILE: YES
 
   VeraFlowUITests:
@@ -211,3 +306,20 @@ schemes:
       config: Alpha
     archive:
       config: Alpha
+  VeraFlow-macOS:
+    build:
+      targets:
+        VeraFlow-macOS: all
+        VeraFlowTests-macOS: [test]
+    run:
+      config: Debug
+      storeKitConfiguration: VeraFlow.storekit
+    test:
+      config: Debug
+      storeKitConfiguration: VeraFlow.storekit
+      targets:
+        - VeraFlowTests-macOS
+    profile:
+      config: Release
+    archive:
+      config: Release

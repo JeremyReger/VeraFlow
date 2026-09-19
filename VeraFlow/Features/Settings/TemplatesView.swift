@@ -86,8 +86,8 @@ struct TemplatesView: View {
         }
         .background(VFColor.background.ignoresSafeArea())
         .navigationTitle("Templates")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.visible, for: .navigationBar)
+        .toolbarTitleDisplayMode(.inline)
+        .vfNavigationBar(.visible)
         .sheet(item: $editing) { template in
             TemplateEditorView(template: template)
         }
@@ -96,6 +96,7 @@ struct TemplatesView: View {
         }
         .sheet(isPresented: $showsPaywall) {
             PaywallView()
+                .vfSheetSize(width: 520, height: 720)
         }
     }
 
@@ -182,7 +183,7 @@ struct TemplateEditorView: View {
                 }
             }
             .navigationTitle(template == nil ? "New template" : "Edit template")
-            .navigationBarTitleDisplayMode(.inline)
+            .toolbarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }

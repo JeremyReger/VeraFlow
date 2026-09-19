@@ -1,4 +1,3 @@
-import BackgroundTasks
 import Foundation
 import FoundationModels
 import Speech
@@ -34,7 +33,7 @@ actor LiveCapabilityService: CapabilityService {
         let locale = AppPreferences.effectiveTranscriptionLocale()
         let assets = engine == nil ? TranscriptionAssetStatus.localeUnsupported : await transcription.assetStatus(for: locale)
         let hasRuntimeContextSize: Bool
-        if #available(iOS 26.4, *) {
+        if #available(iOS 26.4, macOS 26.4, *) {
             hasRuntimeContextSize = true
         } else {
             hasRuntimeContextSize = false
@@ -51,9 +50,10 @@ actor LiveCapabilityService: CapabilityService {
         )
     }
 
-    /// Continued-processing tasks exist on iOS 26 devices; the Simulator reports them unavailable.
+    /// Continued-processing tasks exist on iOS 26 devices; the Simulator reports them unavailable,
+    /// and the Mac doesn't need them (the app keeps running in the background anyway).
     nonisolated static var backgroundProcessingSupported: Bool {
-        #if targetEnvironment(simulator)
+        #if targetEnvironment(simulator) || os(macOS)
         return false
         #else
         return true

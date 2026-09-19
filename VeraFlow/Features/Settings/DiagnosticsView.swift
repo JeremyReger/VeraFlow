@@ -77,7 +77,7 @@ struct DiagnosticsView: View {
             }
         }
         .navigationTitle("Diagnostics")
-        .navigationBarTitleDisplayMode(.inline)
+        .toolbarTitleDisplayMode(.inline)
         .task {
             modelInfo = await services.summarization.modelInfo()
             storageBytes = Self.folderSize(at: services.storage.rootDirectory)

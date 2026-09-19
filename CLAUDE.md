@@ -18,7 +18,7 @@ Private on-device meeting recorder for iPhone (record → transcribe → speaker
 - No medical, legal, or HIPAA claims in code, copy, or metadata.
 
 ## Tech rules
-- Swift 6 strict concurrency, SwiftUI, SwiftData, iOS 18.0 minimum (v1.1); `SpeechAnalyzer`, Foundation Models, continued-processing tasks and the live preview are iOS 26 and stay behind `@available(iOS 26, *)`; iOS 27 APIs behind `#available(iOS 27, *)`.
+- Swift 6 strict concurrency, SwiftUI, SwiftData, iOS 18.0 minimum (v1.1), macOS 26 for the native Mac target (`VeraFlow-macOS`, same sources; platform edges behind `#if os(...)` in `Platform.swift`, `RecorderPlatform.swift` and the export views, never a second copy of a screen); `SpeechAnalyzer`, Foundation Models, continued-processing tasks and the live preview are iOS 26 and stay behind `@available(iOS 26, *)`; iOS 27 APIs behind `#available(iOS 27, *)`.
 - Only dependency: FluidAudio (pinned). Ask before adding any package.
 - Services behind protocols with fakes for tests and previews. `@Observable` view models; actors for stateful services.
 - **Verify Apple and FluidAudio API signatures against the current SDK/docs before using them.** Don't code from memory; these APIs are new and have changed since WWDC.
@@ -36,3 +36,4 @@ Private on-device meeting recorder for iPhone (record → transcribe → speaker
 ## Commands
 - Test: `scripts/test.sh`
 - Build: `xcodebuild -scheme VeraFlow -destination 'platform=iOS Simulator,name=<available iPhone>' build`
+- Mac: `scripts/test.sh --platform macos`; build with `xcodebuild -scheme VeraFlow-macOS -destination 'platform=macOS' build`

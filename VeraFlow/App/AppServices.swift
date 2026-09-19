@@ -1,6 +1,9 @@
 import Foundation
 import SwiftData
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// Every injectable service, bundled so views and view models get them from the environment (SPEC §6.2).
 struct AppServices: Sendable {
@@ -63,7 +66,11 @@ struct AppServices: Sendable {
         let storage = try RecordingStorage.appDefault()
         var services = fakes(storage: storage)
         services.recorder = LiveAudioRecorderService(capacityProvider: { storage.availableCapacity() })
+        #if os(iOS)
         services.activity = LiveRecordingActivityService()
+        #else
+        services.activity = NoRecordingActivityService()   // no Live Activities on the Mac (plan item 15)
+        #endif
         services.importer = LiveAudioImportService()
         // iOS 26: Apple's engine, with Parakeet behind the debug benchmark screen (SPEC §9.4).
         // iOS 18–25: Parakeet is the engine, and there is no on-device model for summaries, Ask,
@@ -98,7 +105,11 @@ struct AppServices: Sendable {
                 diarization: services.diarization,
                 summarization: services.summarization
             )
+            #if os(iOS)
             services.background = LiveBackgroundProcessing()
+            #else
+            services.background = InlineBackgroundProcessing()   // the Mac keeps running; nothing to hand off
+            #endif
         } else {
             services.summarization = UnavailableSummarizationService()
             services.questions = UnavailableQuestionService()
@@ -117,9 +128,22 @@ struct AppServices: Sendable {
             storage: storage,
             background: services.background,
             speakerHint: { SpeakerCountHint(DiarizationPreference.expectedSpeakers()) },
-            isAppActive: { await MainActor.run { UIApplication.shared.applicationState != .background } }
+            isAppActive: { await Self.isAppActive() }
         )
         return services
+    }
+}
+
+extension AppServices {
+    /// Whether the pipeline may start foreground-only stages. iOS suspends a backgrounded app;
+    /// a Mac app keeps running whether or not its window is in front.
+    @MainActor
+    static func isAppActive() -> Bool {
+        #if os(iOS)
+        UIApplication.shared.applicationState != .background
+        #else
+        true
+        #endif
     }
 }
 

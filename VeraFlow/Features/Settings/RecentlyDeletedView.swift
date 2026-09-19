@@ -57,8 +57,8 @@ struct RecentlyDeletedView: View {
         }
         .background(VFColor.background.ignoresSafeArea())
         .navigationTitle("Recently Deleted")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.visible, for: .navigationBar)
+        .toolbarTitleDisplayMode(.inline)
+        .vfNavigationBar(.visible)
         .confirmationDialog("Delete every recording here for good?", isPresented: $confirmEmpty, titleVisibility: .visible) {
             Button("Delete All", role: .destructive) {
                 Task { await run { try await actions.emptyTrash() } }

@@ -21,6 +21,7 @@ final class RecordingControlHub {
     }
 }
 
+#if os(iOS)
 struct PauseRecordingIntent: LiveActivityIntent {
     static let title: LocalizedStringResource = "Pause Recording"
     static let isDiscoverable = false
@@ -56,3 +57,4 @@ struct AddBookmarkIntent: LiveActivityIntent {
         return .result()
     }
 }
+#endif

@@ -1,6 +1,10 @@
 import Observation
 import SwiftUI
+#if os(iOS)
 import UIKit
+#elseif os(macOS)
+import AppKit
+#endif
 
 /// Builds a `.veraflowarchive` package in `tmp/Exports/` and hands it to the system picker so
 /// the user chooses where it goes (iCloud Drive, a USB drive, any file provider). No network
@@ -59,6 +63,7 @@ final class ArchiveExportController {
     }
 }
 
+#if os(iOS)
 /// `UIDocumentPickerViewController` in export mode: the user picks a folder and the system
 /// copies the package there.
 struct DocumentExportPicker: UIViewControllerRepresentable {
@@ -94,20 +99,41 @@ struct DocumentExportPicker: UIViewControllerRepresentable {
         }
     }
 }
+#elseif os(macOS)
+/// The Mac's "choose a folder" panel; the package is copied into the chosen folder (v1.1 plan
+/// item 15). The panel grants sandbox access to that folder for the copy.
+@MainActor
+enum MacFolderPicker {
+    static func chooseFolder(prompt: String, message: String) async -> URL? {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.prompt = prompt
+        panel.message = message
+        let response = await panel.begin()
+        return response == .OK ? panel.url : nil
+    }
+
+    static func copy(_ item: URL, into folder: URL) throws {
+        let accessing = folder.startAccessingSecurityScopedResource()
+        defer { if accessing { folder.stopAccessingSecurityScopedResource() } }
+        let destination = folder.appending(path: item.lastPathComponent)
+        if FileManager.default.fileExists(at: destination) {
+            try FileManager.default.removeItem(at: destination)
+        }
+        try FileManager.default.copyItem(at: item, to: destination)
+    }
+}
+#endif
 
 /// Presents the picker and the error alert for an `ArchiveExportController`.
 struct ArchiveExportPresentation: ViewModifier {
     @Bindable var controller: ArchiveExportController
 
     func body(content: Content) -> some View {
-        content
-            .sheet(item: Binding(
-                get: { controller.exportURL.map { ShareItem(url: $0) } },
-                set: { if $0 == nil { controller.finish() } }
-            )) { item in
-                DocumentExportPicker(url: item.url) { controller.finish() }
-                    .ignoresSafeArea()
-            }
+        picker(content)
             .alert("Export problem", isPresented: Binding(
                 get: { controller.errorMessage != nil },
                 set: { if !$0 { controller.errorMessage = nil } }
@@ -129,4 +155,34 @@ struct ArchiveExportPresentation: ViewModifier {
                 }
             }
     }
+
+    #if os(iOS)
+    private func picker(_ content: Content) -> some View {
+        content
+            .sheet(item: Binding(
+                get: { controller.exportURL.map { ShareItem(url: $0) } },
+                set: { if $0 == nil { controller.finish() } }
+            )) { item in
+                DocumentExportPicker(url: item.url) { controller.finish() }
+                    .ignoresSafeArea()
+            }
+    }
+    #else
+    private func picker(_ content: Content) -> some View {
+        content
+            .onChange(of: controller.exportURL) { _, url in
+                guard let url else { return }
+                Task { @MainActor in
+                    if let folder = await MacFolderPicker.chooseFolder(prompt: "Export", message: "Choose where to save the VeraFlow archive.") {
+                        do {
+                            try MacFolderPicker.copy(url, into: folder)
+                        } catch {
+                            controller.errorMessage = "Couldn't save the archive: \(error.localizedDescription)"
+                        }
+                    }
+                    controller.finish()
+                }
+            }
+    }
+    #endif
 }

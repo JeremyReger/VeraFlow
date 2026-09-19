@@ -82,7 +82,6 @@ final class RecorderViewModel {
     private let thermalState: @Sendable () -> ProcessInfo.ThermalState
     private var streamTasks: [Task<Void, Never>] = []
     private var previewTask: Task<Void, Never>?
-    private var routeObserver: (any NSObjectProtocol)?
     /// Last port handed to the recorder, so route-change reloads don't re-apply the same one.
     private var appliedInputID: String??
 
@@ -157,25 +156,12 @@ final class RecorderViewModel {
         await applyInputChoice()
     }
 
-    /// Reloads the input list whenever a headset connects or disconnects. Call from the
-    /// screen's `.task`; stops when that task is cancelled.
+    /// Reloads the input list whenever a headset connects or disconnects (a USB microphone on
+    /// the Mac). Call from the screen's `.task`; stops when that task is cancelled.
     func watchInputs() async {
-        let center = NotificationCenter.default
-        let observer = center.addObserver(
-            forName: AVAudioSession.routeChangeNotification,
-            object: nil,
-            queue: nil
-        ) { [weak self] _ in
-            Task { @MainActor [weak self] in await self?.loadInputs() }
-        }
-        routeObserver = observer
-        defer {
-            center.removeObserver(observer)
-            routeObserver = nil
-        }
-        // Hold until the enclosing SwiftUI task is cancelled.
-        while !Task.isCancelled {
-            try? await Task.sleep(for: .seconds(3600))
+        for await _ in RecorderPlatform.inputListChanges() {
+            guard !Task.isCancelled else { return }
+            await loadInputs()
         }
     }
 
@@ -373,7 +359,7 @@ final class RecorderViewModel {
     /// phone cools, if still recording.
     func thermalDidChange() async {
         if Self.isTooHot(thermalState()) {
-            if isPreviewOn { previewNotice = "Paused the live words to keep the iPhone cool." }
+            if isPreviewOn { previewNotice = "Paused the live words to keep the \(Platform.deviceNoun) cool." }
             await stopPreview(clearing: false)
         } else if isActive {
             await startPreviewIfPossible()
@@ -484,7 +470,7 @@ final class RecorderViewModel {
                 notice = "Paused. Tap Resume to keep recording."
             }
         case .routeChanged:
-            notice = "Headset disconnected. Recording continues on the iPhone microphone."
+            notice = "Headset disconnected. Recording continues on the built-in microphone."
         case .lowDiskSpace(let bytes):
             lowDiskBytes = bytes
         case .diskFull(let bytes):

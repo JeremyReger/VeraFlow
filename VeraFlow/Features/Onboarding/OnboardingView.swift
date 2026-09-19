@@ -15,6 +15,7 @@ struct OnboardingView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            #if os(iOS)
             TabView(selection: $page) {
                 whatItDoes.tag(0)
                 privacy.tag(1)
@@ -23,6 +24,30 @@ struct OnboardingView: View {
             }
             .tabViewStyle(.page(indexDisplayMode: .always))
             .indexViewStyle(.page(backgroundDisplayMode: .always))
+            #else
+            // No page-style tabs on the Mac: one page at a time, with the same dots below.
+            Group {
+                switch page {
+                case 0: whatItDoes
+                case 1: privacy
+                case 2: microphone
+                default: capabilities
+                }
+            }
+            .id(page)
+            .transition(.opacity)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            HStack(spacing: 8) {
+                ForEach(0..<pageCount, id: \.self) { index in
+                    Circle()
+                        .fill(index == page ? VFColor.textPrimary : VFColor.borderStrong)
+                        .frame(width: 7, height: 7)
+                }
+            }
+            .padding(.bottom, 12)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Page \(page + 1) of \(pageCount)")
+            #endif
 
             Button(page == pageCount - 1 ? "Get started" : "Continue") {
                 if page < pageCount - 1 {
@@ -55,10 +80,10 @@ struct OnboardingView: View {
     }
 
     private var privacy: some View {
-        OnboardingPage(systemImage: "lock.iphone", title: "Everything stays on your iPhone.") {
+        OnboardingPage(systemImage: Platform.lockedDeviceSymbol, title: "Everything stays on \(Platform.yourDevice).") {
             VStack(alignment: .leading, spacing: 14) {
                 point("No account, no cloud, no subscription", systemImage: "person.crop.circle.badge.xmark")
-                point("Transcripts and summaries are written on this iPhone", systemImage: "cpu")
+                point("Transcripts and summaries are written on \(Platform.thisDevice)", systemImage: "cpu")
                 point("The only downloads are Apple's speech model and the speaker-label model, once", systemImage: "arrow.down.circle")
             }
         }
@@ -67,7 +92,7 @@ struct OnboardingView: View {
     private var microphone: some View {
         OnboardingPage(systemImage: "mic.circle.fill", title: "VeraFlow needs the microphone to record.") {
             VStack(spacing: 16) {
-                Text("Audio is saved only on this iPhone.")
+                Text("Audio is saved only on \(Platform.thisDevice).")
                     .vfText(VFText.body, color: VFColor.textSecondary)
                     .multilineTextAlignment(.center)
                 switch microphoneGranted {
@@ -87,7 +112,7 @@ struct OnboardingView: View {
                     }
                     .accessibilityElement(children: .combine)
                 case false?:
-                    Text("Microphone access was not allowed. You can turn it on later in Settings → Privacy & Security → Microphone.")
+                    Text("Microphone access was not allowed. You can turn it on later in \(Platform.isMac ? "System Settings" : "Settings") → Privacy & Security → Microphone.")
                         .vfText(VFText.snippet, color: VFColor.textSecondary)
                         .multilineTextAlignment(.center)
                 }
@@ -96,14 +121,14 @@ struct OnboardingView: View {
     }
 
     private var capabilities: some View {
-        OnboardingPage(systemImage: "iphone.gen3", title: "What this iPhone can do") {
+        OnboardingPage(systemImage: Platform.deviceSymbol, title: "What \(Platform.thisDevice) can do") {
             VStack(alignment: .leading, spacing: 14) {
                 if let capabilities = appState?.capabilities {
                     CapabilityRow(
                         ok: capabilities.canTranscribe,
                         text: Self.transcriptionMessage(capabilities)
                     )
-                    CapabilityRow(ok: true, text: "Speaker labels are added on this iPhone. The model downloads once, when first needed.")
+                    CapabilityRow(ok: true, text: "Speaker labels are added on \(Platform.thisDevice). The model downloads once, when first needed.")
                     CapabilityRow(
                         ok: capabilities.canSummarize,
                         text: capabilities.canSummarize
@@ -173,13 +198,13 @@ struct OnboardingView: View {
     static func transcriptionMessage(_ capabilities: Capabilities) -> String {
         switch capabilities.transcriptionEngine {
         case .dictationTranscriber:
-            return "Transcripts work, at standard accuracy on this iPhone."
+            return "Transcripts work, at standard accuracy on \(Platform.thisDevice)."
         case .parakeet:
-            return "Transcripts work on this iPhone with the Parakeet speech model, a one-time download of about 600 MB."
+            return "Transcripts work on \(Platform.thisDevice) with the Parakeet speech model, a one-time download of about 600 MB."
         case .speechTranscriber, .fake:
-            return "Transcripts work on this iPhone."
+            return "Transcripts work on \(Platform.thisDevice)."
         case nil:
-            return "Transcription isn't available on this iPhone."
+            return "Transcription isn't available on \(Platform.thisDevice)."
         }
     }
 
@@ -189,7 +214,7 @@ struct OnboardingView: View {
         case .available:
             return "AI summaries and action items are available."
         case .deviceNotEligible:
-            return "Transcripts work on this iPhone; AI summaries need an Apple Intelligence–capable iPhone on iOS 26 or later."
+            return "Transcripts work on \(Platform.thisDevice); AI summaries need an Apple Intelligence–capable \(Platform.deviceNoun) on \(Platform.isMac ? "macOS" : "iOS") 26 or later."
         case .appleIntelligenceNotEnabled:
             return "Turn on Apple Intelligence in Settings to get AI summaries. Transcripts work either way."
         case .modelNotReady:

@@ -1,6 +1,6 @@
 # VeraFlow
 
-Private, on-device meeting recorder for iPhone. Record → transcribe → speaker labels → summary + action items. No servers, no account, no subscription.
+Private, on-device meeting recorder for iPhone and Mac. Record → transcribe → speaker labels → summary + action items. No servers, no account, no subscription.
 
 **Riffle** is the codename for the alpha / demo builds (SPEC §0).
 
@@ -19,6 +19,7 @@ brew install xcodegen          # one time
 xcodegen generate              # builds VeraFlow.xcodeproj from project.yml
 scripts/test.sh                # unit + UI tests on an iPhone simulator
 scripts/test.sh --unit-only    # faster
+scripts/test.sh --platform macos   # the native Mac app's unit tests (VeraFlow-macOS scheme)
 ```
 
 Open `VeraFlow.xcodeproj` in Xcode for device runs. The `VeraFlow-Alpha` scheme builds the "Riffle (alpha)" configuration.

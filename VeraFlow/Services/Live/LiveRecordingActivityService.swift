@@ -1,3 +1,4 @@
+#if canImport(ActivityKit)
 import ActivityKit
 import Foundation
 import os
@@ -65,3 +66,4 @@ actor LiveRecordingActivityService: RecordingActivityService {
         }
     }
 }
+#endif

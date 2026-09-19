@@ -580,7 +580,9 @@ public struct VFPickerRowLabel: View {
 /// "Everything stays on this iPhone." in italic serif with a lock glyph (spec §1, point 4).
 public struct VFReassurance: View {
     private let text: String
-    public init(_ text: String = "Everything stays on this iPhone.") { self.text = text }
+    /// `nil` reads "Everything stays on this iPhone." (or "this Mac"); the default lives in the
+    /// body because a public default argument can't name the internal `Platform`.
+    public init(_ text: String? = nil) { self.text = text ?? "Everything stays on \(Platform.thisDevice)." }
 
     public var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 7) {
@@ -673,7 +675,7 @@ public struct VFField<Trailing: View>: View {
                 .accessibilityHidden(true)
             TextField(placeholder, text: $text)
                 .vfText(VFText.rowLabel)
-                .textInputAutocapitalization(.never)
+                .vfNoAutocapitalization()
                 .autocorrectionDisabled()
                 .accessibilityIdentifier(identifier ?? "")
             trailing

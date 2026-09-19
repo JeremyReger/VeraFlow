@@ -212,7 +212,7 @@ struct TranscriptTab: View {
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .overlay { Capsule().strokeBorder(VFColor.borderStrong, lineWidth: VFMetric.hairline) }
-                    .accessibilityLabel("Standard accuracy: this iPhone uses the standard speech recognizer.")
+                    .accessibilityLabel("Standard accuracy: \(Platform.thisDevice) uses the standard speech recognizer.")
             }
 
             Button(isEditing ? "Done" : "Edit") {

@@ -7,6 +7,7 @@ struct VeraFlowApp: App {
     private let container: ModelContainer
     private let services: AppServices
     @State private var appState: AppState
+    @State private var commands = AppCommands()
 
     /// Launch argument used by UI tests: in-memory store and fake services, so no microphone is needed.
     static let useFakeServicesArgument = "--use-fake-services"
@@ -65,15 +66,31 @@ struct VeraFlowApp: App {
     }
 
     var body: some Scene {
+        #if os(macOS)
+        // One window: a second one would mean a second recorder over the same microphone
+        // (v1.1 plan item 15). The menu bar's commands reach the Library through `AppCommands`.
+        Window("VeraFlow", id: "main") {
+            root
+        }
+        .defaultSize(width: 1080, height: 720)
+        .commands { AppMenuCommands(commands: commands) }
+        .modelContainer(container)
+        #else
         WindowGroup {
-            RootView()
-                .environment(\.services, services)
-                .environment(appState)
-                .task { await appState.startup() }
-                .onOpenURL { url in
-                    appState.enqueueImport(url)
-                }
+            root
         }
         .modelContainer(container)
+        #endif
+    }
+
+    private var root: some View {
+        RootView()
+            .environment(\.services, services)
+            .environment(appState)
+            .environment(commands)
+            .task { await appState.startup() }
+            .onOpenURL { url in
+                appState.enqueueImport(url)
+            }
     }
 }

@@ -9,6 +9,8 @@
 import SwiftUI
 #if canImport(UIKit)
 import UIKit
+#elseif canImport(AppKit)
+import AppKit
 #endif
 
 // MARK: - Color helpers
@@ -33,6 +35,13 @@ public extension Color {
             traits.userInterfaceStyle == .dark
                 ? UIColor(Color(hex: dark))
                 : UIColor(Color(hex: light))
+        })
+        #elseif canImport(AppKit)
+        // The Mac resolves the same pair per appearance (v1.1 plan item 15).
+        self.init(NSColor(name: nil) { appearance in
+            appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+                ? NSColor(Color(hex: dark))
+                : NSColor(Color(hex: light))
         })
         #else
         self.init(hex: light)

@@ -5,9 +5,17 @@ import UniformTypeIdentifiers
 
 /// The list of recordings (SPEC §3): search, sort, favorites, tags, rename, delete, and import.
 struct LibraryView: View {
+    /// Set by the Mac's split view: rows select instead of pushing (v1.1 plan item 15).
+    let selection: Binding<UUID?>?
+
+    init(selection: Binding<UUID?>? = nil) {
+        self.selection = selection
+    }
+
     @Environment(\.services) private var services
     @Environment(\.modelContext) private var modelContext
     @Environment(AppState.self) private var appState
+    @Environment(AppCommands.self) private var commands: AppCommands?
     @Query(sort: \Recording.createdAt, order: .reverse) private var recordings: [Recording]
     @Query(sort: \CustomTemplate.createdAt) private var customTemplates: [CustomTemplate]
 
@@ -53,13 +61,28 @@ struct LibraryView: View {
         .navigationTitle("Library")
         // The design draws its own header (eyebrow, serif title, round buttons); the system bar
         // stays hidden here and comes back on the pushed detail screen.
-        .toolbar(.hidden, for: .navigationBar)
+        .vfNavigationBar(.hidden)
         .background(VFColor.background.ignoresSafeArea())
         .sheet(isPresented: $isShowingRecorder) {
             RecorderView()
+                .vfSheetSize(width: 520, height: 720)
         }
         .sheet(isPresented: $isShowingSettings) {
             SettingsView()
+                .vfSheetSize(width: 560, height: 760)
+        }
+        // Menu bar and keyboard shortcuts on the Mac (v1.1 plan item 15).
+        .onChange(of: commands?.newRecordingRequests) { _, _ in
+            if commands != nil { isShowingRecorder = true }
+        }
+        .onChange(of: commands?.importRequests) { _, _ in
+            if commands != nil { isShowingImporter = true }
+        }
+        .onChange(of: commands?.settingsRequests) { _, _ in
+            if commands != nil { isShowingSettings = true }
+        }
+        .onChange(of: commands?.searchRequests) { _, _ in
+            if commands != nil { withAnimation(VFMotion.tabSwitch) { isSearching = true } }
         }
         .fileImporter(
             isPresented: $isShowingImporter,
@@ -141,73 +164,96 @@ struct LibraryView: View {
     }
 
     private func list(_ controller: RecordingActionsController) -> some View {
-        List {
-            chips
-                .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 10, trailing: 0))
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-            ForEach(LibraryGrouping.sections(visibleRecordings, sort: filter.sort)) { section in
-                Section {
-                    ForEach(section.recordings) { recording in
-                        LibraryCard(recording: recording, progress: appState.pipelineProgress[recording.id])
-                            .overlay {
-                                // Hidden link keeps the card free of the list's disclosure chevron.
-                                NavigationLink(value: recording.id) { EmptyView() }.opacity(0)
-                            }
-                            .listRowInsets(EdgeInsets(top: VFSpace.listGap / 2, leading: VFSpace.gutter, bottom: VFSpace.listGap / 2, trailing: VFSpace.gutter))
-                            .listRowBackground(Color.clear)
-                            .listRowSeparator(.hidden)
-                            .swipeActions(edge: .trailing) {
-                                Button("Delete", systemImage: "trash", role: .destructive) {
-                                    controller.requestDelete(recording)
-                                }
-                            }
-                            .swipeActions(edge: .leading) {
-                                Button(recording.isFavorite ? "Unstar" : "Star",
-                                       systemImage: recording.isFavorite ? "star.slash" : "star") {
-                                    controller.toggleFavorite(recording)
-                                }
-                                .tint(VFColor.accent)
-                            }
-                            .contextMenu {
-                                RecordingMenuItems(recording: recording, controller: controller)
-                            }
-                    }
-                } header: {
-                    if !section.title.isEmpty {
-                        VFSectionLabel(section.title)
-                            .padding(.top, 6)
-                    }
+        listBody(controller)
+            .overlay {
+                if visibleRecordings.isEmpty, filter.isNarrowing {
+                    ContentUnavailableView.search(text: filter.searchText)
+                }
+                if isImporting {
+                    ProgressView("Importing…")
+                        .padding()
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: VFRadius.block))
+                        .onAppear { AccessibilityNotification.Announcement("Importing").post() }
                 }
             }
-            // Room for the pinned Record row.
-            Color.clear
-                .frame(height: VFMetric.primaryPillHeight + VFSpace.bottomInset)
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-        }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
-        .scrollDismissesKeyboard(.interactively)
-        .navigationDestination(for: UUID.self) { id in
-            if let recording = recordings.first(where: { $0.id == id }) {
-                RecordingDetailView(recording: recording)
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                bottomActions
+            }
+    }
+
+    /// A pushing list on the iPhone; a selecting list in the Mac's sidebar.
+    @ViewBuilder
+    private func listBody(_ controller: RecordingActionsController) -> some View {
+        if let selection {
+            List(selection: selection) {
+                rows(controller)
+            }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .scrollDismissesKeyboard(.interactively)
+        } else {
+            List {
+                rows(controller)
+            }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .scrollDismissesKeyboard(.interactively)
+            .navigationDestination(for: UUID.self) { id in
+                if let recording = recordings.first(where: { $0.id == id }) {
+                    RecordingDetailView(recording: recording)
+                }
             }
         }
-        .overlay {
-            if visibleRecordings.isEmpty, filter.isNarrowing {
-                ContentUnavailableView.search(text: filter.searchText)
-            }
-            if isImporting {
-                ProgressView("Importing…")
-                    .padding()
-                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: VFRadius.block))
-                    .onAppear { AccessibilityNotification.Announcement("Importing").post() }
+    }
+
+    @ViewBuilder
+    private func rows(_ controller: RecordingActionsController) -> some View {
+        chips
+            .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 10, trailing: 0))
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+        ForEach(LibraryGrouping.sections(visibleRecordings, sort: filter.sort)) { section in
+            Section {
+                ForEach(section.recordings) { recording in
+                    LibraryCard(recording: recording, progress: appState.pipelineProgress[recording.id])
+                        .tag(recording.id)
+                        .overlay {
+                            // Hidden link keeps the card free of the list's disclosure chevron.
+                            if selection == nil {
+                                NavigationLink(value: recording.id) { EmptyView() }.opacity(0)
+                            }
+                        }
+                        .listRowInsets(EdgeInsets(top: VFSpace.listGap / 2, leading: VFSpace.gutter, bottom: VFSpace.listGap / 2, trailing: VFSpace.gutter))
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .swipeActions(edge: .trailing) {
+                            Button("Delete", systemImage: "trash", role: .destructive) {
+                                controller.requestDelete(recording)
+                            }
+                        }
+                        .swipeActions(edge: .leading) {
+                            Button(recording.isFavorite ? "Unstar" : "Star",
+                                   systemImage: recording.isFavorite ? "star.slash" : "star") {
+                                controller.toggleFavorite(recording)
+                            }
+                            .tint(VFColor.accent)
+                        }
+                        .contextMenu {
+                            RecordingMenuItems(recording: recording, controller: controller)
+                        }
+                }
+            } header: {
+                if !section.title.isEmpty {
+                    VFSectionLabel(section.title)
+                        .padding(.top, 6)
+                }
             }
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            bottomActions
-        }
+        // Room for the pinned Record row.
+        Color.clear
+            .frame(height: VFMetric.primaryPillHeight + VFSpace.bottomInset)
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
     }
 
     /// Eyebrow, serif title, and the round search / settings / more buttons.

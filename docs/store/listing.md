@@ -66,6 +66,7 @@ First release.
 • See words while you record
 • Translate a transcript and its summary on your iPhone
 • Older iPhones: transcripts and speaker labels from iOS 18
+• VeraFlow for Mac: the same app on your Mac, one purchase for both (macOS 26, Apple silicon for summaries)
 
 ## Support URL
 (Jeremy) — marketing site support page

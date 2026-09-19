@@ -200,10 +200,7 @@ struct LibraryActions {
                 let destination = folder.appending(path: snapshot.audioFileName)
                 try? FileManager.default.removeItem(at: destination)
                 try FileManager.default.copyItem(at: audio, to: destination)
-                try? FileManager.default.setAttributes(
-                    [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
-                    ofItemAtPath: destination.path(percentEncoded: false)
-                )
+                DataProtection.protectNewFile(at: destination)
                 recording.audioAvailable = true
             } else {
                 recording.audioAvailable = false

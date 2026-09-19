@@ -125,7 +125,7 @@ struct PaywallView: View {
     private func content(_ model: PaywallModel) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: VFSpace.sectionGap) {
-                Text("One purchase. No subscription. Everything stays on your iPhone.")
+                Text("One purchase. No subscription. Everything stays on \(Platform.yourDevice).")
                     .vfText(VFText.recordingTitle)
                     .padding(.top, 10)
 
@@ -135,7 +135,7 @@ struct PaywallView: View {
                         Image(systemName: "info.circle.fill")
                             .foregroundStyle(VFColor.textTertiary)
                             .accessibilityHidden(true)
-                        Text("AI summaries aren't available on this iPhone. The unlock still gives you every export, Reminders, and email drafts, and summaries if you move to an Apple Intelligence–capable iPhone.")
+                        Text("AI summaries aren't available on \(Platform.thisDevice). The unlock still gives you every export, Reminders, and email drafts, and summaries if you move to an Apple Intelligence–capable \(Platform.deviceNoun).")
                             .vfText(VFText.snippet, color: VFColor.textSecondary)
                     }
                     .padding(VFSpace.cardPaddingH)
@@ -222,7 +222,7 @@ struct PaywallView: View {
         .padding(.vertical, 12)
         // Strikethrough isn't spoken; say it (A-21).
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel([available ? title : "Not available on this iPhone: \(title)", detail].compactMap { $0 }.joined(separator: ". "))
+        .accessibilityLabel([available ? title : "Not available on \(Platform.thisDevice): \(title)", detail].compactMap { $0 }.joined(separator: ". "))
     }
 }
 

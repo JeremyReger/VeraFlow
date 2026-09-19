@@ -1,3 +1,4 @@
+#if os(iOS)
 import BackgroundTasks
 import Foundation
 import os
@@ -151,3 +152,4 @@ final class LiveBackgroundProcessing: BackgroundProcessing, Sendable {
         }
     }
 }
+#endif

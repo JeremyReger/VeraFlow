@@ -5,7 +5,8 @@ import os
 /// Records the microphone to a crash-safe AAC ADTS stream (mono, 44.1 kHz, ~64 kbps) with
 /// `AVAudioEngine` (SPEC §8). ADTS instead of CAF because CAF/AAC needs a packet table that is
 /// only written on close, so a force-quit left an unreadable file (docs/DECISIONS.md).
-/// Handles interruptions, route changes, and disk space.
+/// Handles interruptions, route changes, and disk space. The session and input-device calls
+/// go through `RecorderPlatform` (`AVAudioSession` on iOS, Core Audio on the Mac).
 ///
 /// The graph is just a tap on the input node (no output path); each buffer is converted to the
 /// recording format with `AVAudioConverter` before it is written. Uses the classic
@@ -34,9 +35,15 @@ actor LiveAudioRecorderService: AudioRecorderService {
     /// True while `restartCapture(retrying:)` is mid-retry, so overlapping configuration-change
     /// notifications don't start a second restart.
     private var isRestarting = false
-    /// The port UID the user wants (`nil` = let iOS choose). Applied after every activation:
+    /// The port UID the user wants (`nil` = let the system choose). Applied after every activation:
     /// iOS ignores `setPreferredInput` on an inactive session.
     private var wantedInputID: String?
+    /// The input the current engine was built with (the Mac binds the device to the engine, so
+    /// there is no session preference to read back).
+    private var appliedInputID: String?
+    /// Set when the input changed while paused on a platform where only a rebuilt engine picks
+    /// it up; `resume()` then restarts capture instead of just un-pausing the writer.
+    private var inputChangePending = false
 
     /// Thrown by `restartCapture` when the input node reports no usable format yet (0 Hz or 0
     /// channels), which happens for a moment while a route change settles. Retried, never shown.
@@ -86,14 +93,12 @@ actor LiveAudioRecorderService: AudioRecorderService {
             throw AudioRecorderError.diskFull
         }
 
-        let session = AVAudioSession.sharedInstance()
         do {
-            try Self.configureSession(session)
-            try session.setActive(true)
+            try RecorderPlatform.activate()
         } catch {
             throw AudioRecorderError.sessionFailed(error.localizedDescription)
         }
-        await applyWantedInput(to: session)
+        await applyWantedInput()
 
         guard let recordFormat = AVAudioFormat(
             commonFormat: .pcmFormatFloat32,
@@ -122,10 +127,19 @@ actor LiveAudioRecorderService: AudioRecorderService {
         writer.previewSink = pendingPreviewSink
 
         let engine = AVAudioEngine()
+        do {
+            try RecorderPlatform.applyInput(wantedInputID, to: engine)
+            appliedInputID = wantedInputID
+        } catch {
+            writer.close()
+            RecorderPlatform.deactivate()
+            throw error
+        }
         let inputFormat = engine.inputNode.outputFormat(forBus: 0)
-        Self.log.info("start: input \(inputFormat.sampleRate, privacy: .public) Hz \(inputFormat.channelCount, privacy: .public) ch; route \(session.currentRoute.inputs.map(\.portName).joined(separator: ","), privacy: .public) -> \(session.currentRoute.outputs.map(\.portName).joined(separator: ","), privacy: .public)")
+        Self.log.info("start: input \(inputFormat.sampleRate, privacy: .public) Hz \(inputFormat.channelCount, privacy: .public) ch; route \(RecorderPlatform.routeDescription, privacy: .public)")
         guard inputFormat.sampleRate > 0, inputFormat.channelCount > 0 else {
-            try? session.setActive(false, options: .notifyOthersOnDeactivation)
+            writer.close()
+            RecorderPlatform.deactivate()
             throw AudioRecorderError.sessionFailed("No microphone is available")
         }
 
@@ -133,7 +147,7 @@ actor LiveAudioRecorderService: AudioRecorderService {
             try Self.installInputTap(on: engine, inputFormat: inputFormat, recordFormat: recordFormat, writer: writer)
         } catch {
             writer.close()
-            try? session.setActive(false, options: .notifyOthersOnDeactivation)
+            RecorderPlatform.deactivate()
             throw error
         }
 
@@ -144,7 +158,7 @@ actor LiveAudioRecorderService: AudioRecorderService {
         } catch {
             engine.inputNode.removeTap(onBus: 0)
             writer.close()
-            try? session.setActive(false, options: .notifyOthersOnDeactivation)
+            RecorderPlatform.deactivate()
             throw AudioRecorderError.sessionFailed("Could not start the audio engine: \(error.localizedDescription)")
         }
 
@@ -173,10 +187,11 @@ actor LiveAudioRecorderService: AudioRecorderService {
 
     func resume() async throws {
         guard status == .paused, let writer, let recordFormat else { throw AudioRecorderError.notRecording }
-        if let engine, engine.isRunning, !engineNeedsRebuild {
+        if let engine, engine.isRunning, !engineNeedsRebuild, !inputChangePending {
             writer.isPaused = false
         } else {
-            // The engine stopped (interruption, route change, media reset): rebuild it.
+            // The engine stopped (interruption, route change, media reset), or the Mac's input
+            // changed while paused: rebuild it.
             try await restartCaptureRetrying(writer: writer, recordFormat: recordFormat)
             writer.isPaused = false
         }
@@ -203,7 +218,7 @@ actor LiveAudioRecorderService: AudioRecorderService {
             engine.stop()
         }
         writer.close()
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        RecorderPlatform.deactivate()
 
         let result = RecorderResult(fileURL: fileURL, duration: writer.elapsed)
         tearDown()
@@ -238,69 +253,69 @@ actor LiveAudioRecorderService: AudioRecorderService {
     }
 
     func availableInputs() async -> [AudioInputOption] {
-        let session = AVAudioSession.sharedInstance()
         // Inputs are only listed for record-capable categories. Never re-set the category while
         // capture is running; the session is already configured then.
         if status == .idle {
-            try? Self.configureSession(session)
+            RecorderPlatform.configureForInputListing()
         }
-        return (session.availableInputs ?? []).map { port in
-            AudioInputOption(id: port.uid, name: port.portName, isBuiltIn: port.portType == .builtInMic)
-        }
+        return RecorderPlatform.availableInputs()
     }
 
     /// Remembers the choice. While idle it is only validated; the session is inactive then and
     /// iOS would ignore `setPreferredInput`, so `start()` applies it right after activating.
-    /// While recording it takes effect now; the engine's configuration-change notification then
-    /// re-taps the mic in the new route's format.
+    /// While recording it takes effect now; on iOS the engine's configuration-change notification
+    /// then re-taps the mic in the new route's format, and the Mac rebuilds the engine here.
     func selectInput(id: String?) async throws {
-        let session = AVAudioSession.sharedInstance()
         if status == .idle {
-            try? Self.configureSession(session)
+            RecorderPlatform.configureForInputListing()
         }
         // Never refuse a choice: right after a route change the list can be missing a port for
         // a moment (on device the phone mic vanished briefly after switching to Bluetooth), and
         // `applyWantedInput` waits for it. A port that never returns is simply not applied.
         wantedInputID = id
         guard status != .idle else { return }
-        await applyWantedInput(to: session)
+        await applyWantedInput()
+        guard RecorderPlatform.inputChangeNeedsRestart, appliedInputID != wantedInputID else { return }
+        if status == .recording, !isRestarting, let writer, let recordFormat {
+            try await restartCaptureRetrying(writer: writer, recordFormat: recordFormat)
+        } else if status == .paused {
+            inputChangePending = true
+        }
     }
 
     /// Applies `wantedInputID` to an *active* session and waits briefly for the route to follow,
     /// so the engine built next taps the mic in the right format.
-    private func applyWantedInput(to session: AVAudioSession) async {
-        var available = session.availableInputs ?? []
+    private func applyWantedInput() async {
+        var available = RecorderPlatform.availableInputs().map(\.id)
         var action = AudioInputRouting.action(
             wanted: wantedInputID,
-            available: available.map(\.uid),
-            sessionPreferred: session.preferredInput?.uid
+            available: available,
+            sessionPreferred: RecorderPlatform.preferredInputID(applied: appliedInputID)
         )
         // The input list settles a moment after a route change; wait up to a second for the port.
         var settleAttempts = 0
         while case .unavailable = action, settleAttempts < 10 {
             settleAttempts += 1
             try? await Task.sleep(for: .milliseconds(100))
-            available = session.availableInputs ?? []
+            available = RecorderPlatform.availableInputs().map(\.id)
             action = AudioInputRouting.action(
                 wanted: wantedInputID,
-                available: available.map(\.uid),
-                sessionPreferred: session.preferredInput?.uid
+                available: available,
+                sessionPreferred: RecorderPlatform.preferredInputID(applied: appliedInputID)
             )
         }
         do {
             switch action {
             case .unchanged:
-                Self.log.info("input \(self.wantedInputID ?? "automatic", privacy: .public) already preferred; route \(Self.describeRoute(session), privacy: .public)")
+                Self.log.info("input \(self.wantedInputID ?? "automatic", privacy: .public) already preferred; route \(RecorderPlatform.routeDescription, privacy: .public)")
                 return
             case .unavailable:
-                Self.log.info("input \(self.wantedInputID ?? "-", privacy: .public) not listed after \(settleAttempts, privacy: .public) checks; keeping \(Self.describeRoute(session), privacy: .public)")
+                Self.log.info("input \(self.wantedInputID ?? "-", privacy: .public) not listed after \(settleAttempts, privacy: .public) checks; keeping \(RecorderPlatform.routeDescription, privacy: .public)")
                 return
             case .clear:
-                try session.setPreferredInput(nil)
+                try RecorderPlatform.setPreferredInput(nil)
             case .prefer(let id):
-                if let port = available.first(where: { $0.uid == id }) {
-                    try session.setPreferredInput(port)
-                }
+                try RecorderPlatform.setPreferredInput(id)
             }
         } catch {
             Self.log.error("setPreferredInput failed: \(error.localizedDescription, privacy: .public)")
@@ -308,65 +323,19 @@ actor LiveAudioRecorderService: AudioRecorderService {
         }
         // The route change is asynchronous; give it up to a second before reading the input format.
         if case .prefer(let id) = action {
-            for _ in 0..<10 where !session.currentRoute.inputs.contains(where: { $0.uid == id }) {
-                try? await Task.sleep(for: .milliseconds(100))
-            }
+            await RecorderPlatform.waitForRoute(input: id)
         }
-        Self.log.info("input preference applied (\(String(describing: action), privacy: .public)); route \(Self.describeRoute(session), privacy: .public)")
-    }
-
-    private static func describeRoute(_ session: AVAudioSession) -> String {
-        let inputs = session.currentRoute.inputs.map(\.portName).joined(separator: ",")
-        let outputs = session.currentRoute.outputs.map(\.portName).joined(separator: ",")
-        return "\(inputs) -> \(outputs)"
-    }
-
-    // MARK: Session
-
-    private static func configureSession(_ session: AVAudioSession) throws {
-        try session.setCategory(
-            .playAndRecord,
-            mode: .default,
-            options: [.allowBluetoothHFP, .defaultToSpeaker]
-        )
+        Self.log.info("input preference applied (\(String(describing: action), privacy: .public)); route \(RecorderPlatform.routeDescription, privacy: .public)")
     }
 
     // MARK: Interruptions, route changes, engine restarts (SPEC §8.3)
 
     private func installObservers(for engine: AVAudioEngine) {
         let center = NotificationCenter.default
-        let session = AVAudioSession.sharedInstance()
 
-        observers.append(center.addObserver(
-            forName: AVAudioSession.interruptionNotification,
-            object: session,
-            queue: nil
-        ) { [weak self] notification in
-            guard let rawType = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
-                  let type = AVAudioSession.InterruptionType(rawValue: rawType) else { return }
-            let rawOptions = notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
-            let shouldResume = AVAudioSession.InterruptionOptions(rawValue: rawOptions).contains(.shouldResume)
-            let rawReason = notification.userInfo?[AVAudioSessionInterruptionReasonKey] as? UInt
-            Task { await self?.handleInterruption(type, shouldResume: shouldResume, rawReason: rawReason) }
-        })
-
-        observers.append(center.addObserver(
-            forName: AVAudioSession.mediaServicesWereResetNotification,
-            object: session,
-            queue: nil
-        ) { [weak self] _ in
-            Task { await self?.handleMediaServicesReset() }
-        })
-
-        observers.append(center.addObserver(
-            forName: AVAudioSession.routeChangeNotification,
-            object: session,
-            queue: nil
-        ) { [weak self] notification in
-            guard let rawReason = notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt,
-                  let reason = AVAudioSession.RouteChangeReason(rawValue: rawReason) else { return }
-            Task { await self?.handleRouteChange(reason) }
-        })
+        observers += RecorderPlatform.observeSession { [weak self] event in
+            Task { await self?.handleSessionEvent(event) }
+        }
 
         observers.append(center.addObserver(
             forName: .AVAudioEngineConfigurationChange,
@@ -377,32 +346,23 @@ actor LiveAudioRecorderService: AudioRecorderService {
         })
     }
 
-    private func handleInterruption(_ type: AVAudioSession.InterruptionType, shouldResume: Bool, rawReason: UInt?) {
-        switch type {
-        case .began:
-            Self.log.info("interruption began (reason \(Self.describeInterruptionReason(rawReason), privacy: .public)) at \(self.writer?.elapsed ?? 0, format: .fixed(precision: 1), privacy: .public)s")
+    private func handleSessionEvent(_ event: RecorderSessionEvent) {
+        switch event {
+        case .interruptionBegan(let reason):
+            Self.log.info("interruption began (reason \(reason, privacy: .public)) at \(self.writer?.elapsed ?? 0, format: .fixed(precision: 1), privacy: .public)s")
             guard status == .recording, let engine else { return }
             engine.pause()
             status = .paused
             publishSnapshot()
             emit(.began)
-        case .ended:
+        case .interruptionEnded(let shouldResume):
             Self.log.info("interruption ended; shouldResume \(shouldResume, privacy: .public)")
             guard status == .paused else { return }
             emit(.ended(shouldResume: shouldResume))
-        @unknown default:
-            break
-        }
-    }
-
-    /// Why the system interrupted us, for the device log (SPEC §8.3 troubleshooting).
-    private static func describeInterruptionReason(_ rawReason: UInt?) -> String {
-        guard let rawReason else { return "none" }
-        switch AVAudioSession.InterruptionReason(rawValue: rawReason) {
-        case .default?: return "default (call, alarm, Siri, or another app)"
-        case .builtInMicMuted?: return "built-in mic muted"
-        case .routeDisconnected?: return "route disconnected"
-        default: return "raw \(rawReason)"
+        case .mediaServicesReset:
+            handleMediaServicesReset()
+        case .routeChanged(let oldDeviceUnavailable):
+            handleRouteChange(oldDeviceUnavailable: oldDeviceUnavailable)
         }
     }
 
@@ -419,9 +379,9 @@ actor LiveAudioRecorderService: AudioRecorderService {
         emit(.ended(shouldResume: true))
     }
 
-    private func handleRouteChange(_ reason: AVAudioSession.RouteChangeReason) {
+    private func handleRouteChange(oldDeviceUnavailable: Bool) {
         guard status != .idle else { return }
-        if reason == .oldDeviceUnavailable {
+        if oldDeviceUnavailable {
             emit(.routeChanged)
         }
     }
@@ -472,18 +432,16 @@ actor LiveAudioRecorderService: AudioRecorderService {
     /// file, so the recording is continuous across restarts. After a media-services reset the old
     /// engine is an orphan and is not touched.
     private func restartCapture(writer: TapWriter, recordFormat: AVAudioFormat) throws {
-        let session = AVAudioSession.sharedInstance()
         do {
-            try Self.configureSession(session)
-            try session.setActive(true)
+            try RecorderPlatform.activate()
             if case .prefer(let id) = AudioInputRouting.action(
                 wanted: wantedInputID,
-                available: (session.availableInputs ?? []).map(\.uid),
-                sessionPreferred: session.preferredInput?.uid
-            ), let port = session.availableInputs?.first(where: { $0.uid == id }) {
+                available: RecorderPlatform.availableInputs().map(\.id),
+                sessionPreferred: RecorderPlatform.preferredInputID(applied: appliedInputID)
+            ) {
                 // Re-assert after an interruption or reset; a later route change re-taps via the
                 // configuration-change observer.
-                try session.setPreferredInput(port)
+                try RecorderPlatform.setPreferredInput(id)
             }
         } catch {
             throw AudioRecorderError.sessionFailed(error.localizedDescription)
@@ -494,17 +452,27 @@ actor LiveAudioRecorderService: AudioRecorderService {
             old.stop()
         }
         engineNeedsRebuild = false
+        inputChangePending = false
         let engine = AVAudioEngine()
         self.engine = engine
         removeObservers()
         installObservers(for: engine)
+        // The Mac binds the chosen device to the fresh engine; a device that vanished falls
+        // back to the system default rather than failing the restart.
+        do {
+            try RecorderPlatform.applyInput(wantedInputID, to: engine)
+            appliedInputID = wantedInputID
+        } catch {
+            Self.log.error("could not bind the input device: \(error.localizedDescription, privacy: .public)")
+            appliedInputID = nil
+        }
 
         // The tap must use the node's *output* format (Apple's pattern). The hardware format is
         // logged only: after a Bluetooth switch the session can run at the headset's rate while the
         // hardware already reports the iPhone mic's, and that is fine; the converter handles either.
         let inputFormat = engine.inputNode.outputFormat(forBus: 0)
         let hardwareFormat = engine.inputNode.inputFormat(forBus: 0)
-        Self.log.info("restart: tap \(inputFormat.sampleRate, privacy: .public) Hz \(inputFormat.channelCount, privacy: .public) ch; hardware \(hardwareFormat.sampleRate, privacy: .public) Hz \(hardwareFormat.channelCount, privacy: .public) ch; route \(session.currentRoute.inputs.map(\.portName).joined(separator: ","), privacy: .public)")
+        Self.log.info("restart: tap \(inputFormat.sampleRate, privacy: .public) Hz \(inputFormat.channelCount, privacy: .public) ch; hardware \(hardwareFormat.sampleRate, privacy: .public) Hz \(hardwareFormat.channelCount, privacy: .public) ch; route \(RecorderPlatform.routeDescription, privacy: .public)")
         guard inputFormat.sampleRate > 0, inputFormat.channelCount > 0 else {
             throw InputFormatSettling()
         }
@@ -623,6 +591,8 @@ actor LiveAudioRecorderService: AudioRecorderService {
         removeObservers()
         engine = nil
         engineNeedsRebuild = false
+        inputChangePending = false
+        appliedInputID = nil
         writer = nil
         recordFormat = nil
         fileURL = nil

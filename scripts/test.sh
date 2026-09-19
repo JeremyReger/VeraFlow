@@ -1,15 +1,19 @@
 #!/usr/bin/env bash
-# Runs the VeraFlow unit + UI tests on an available iPhone simulator.
-# Usage: scripts/test.sh [--unit-only | --only <Target[/Class[/test]]>]
+# Runs the VeraFlow unit + UI tests on an available iPhone simulator, or the unit tests
+# against the native Mac build.
+# Usage: scripts/test.sh [--unit-only | --only <Target[/Class[/test]]> | --platform macos]
 #   e.g. scripts/test.sh --only VeraFlowUITests/LibraryManagementTests
+#        scripts/test.sh --platform macos      # VeraFlow-macOS scheme, unit tests on this Mac
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
 UNIT_ONLY=0
 ONLY=""
+PLATFORM="ios"
 if [[ "${1:-}" == "--unit-only" ]]; then UNIT_ONLY=1; fi
 if [[ "${1:-}" == "--only" ]]; then ONLY="${2:?--only needs a test target, class or test}"; fi
+if [[ "${1:-}" == "--platform" ]]; then PLATFORM="${2:?--platform needs ios or macos}"; fi
 
 if ! command -v xcodebuild >/dev/null 2>&1; then
   echo "error: xcodebuild not found. This script needs a Mac with Xcode installed." >&2
@@ -52,6 +56,19 @@ if not chosen:
 print(chosen[0][1]["udid"])
 '
 }
+
+if [[ "$PLATFORM" == "macos" ]]; then
+  # The Mac build (v1.1 plan item 15): the same unit tests, no simulator, no UI tests yet.
+  echo "==> Testing the Mac build on this Mac"
+  set -x
+  xcodebuild test \
+    -project VeraFlow.xcodeproj \
+    -scheme VeraFlow-macOS \
+    -destination "platform=macOS" \
+    -configuration Debug \
+    | { if command -v xcbeautify >/dev/null 2>&1; then xcbeautify; else cat; fi; }
+  exit "${PIPESTATUS[0]}"
+fi
 
 UDID="$(pick_simulator || true)"
 if [[ -z "$UDID" ]]; then

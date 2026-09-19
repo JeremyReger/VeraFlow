@@ -22,11 +22,38 @@ enum DataProtection {
         for url in urls {
             do {
                 try setExcludedFromBackup(true, at: url)
+                #if os(iOS)
                 try FileManager.default.setAttributes([.protectionKey: protection], ofItemAtPath: url.path)
+                #endif
             } catch {
                 log.error("could not protect \(url.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .private)")
             }
         }
+    }
+
+    /// The attributes a new recording file or folder is created with: complete-until-first-unlock
+    /// on iOS so recording keeps working while the phone is locked (SPEC §14.4). The Mac has no
+    /// per-file protection classes; its files live inside the app's sandbox container.
+    static var newFileAttributes: [FileAttributeKey: Any] {
+        #if os(iOS)
+        [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication]
+        #else
+        [:]
+        #endif
+    }
+
+    /// Applies `newFileAttributes` to a file that already exists (an import, an archive copy).
+    static func protectNewFile(at url: URL) {
+        #if os(iOS)
+        try? FileManager.default.setAttributes(newFileAttributes, ofItemAtPath: url.path(percentEncoded: false))
+        #endif
+    }
+
+    /// Exports wait in tmp with complete protection until the share sheet is done (S-5).
+    static func protectExport(at url: URL) {
+        #if os(iOS)
+        try? FileManager.default.setAttributes([.protectionKey: FileProtectionType.complete], ofItemAtPath: url.path(percentEncoded: false))
+        #endif
     }
 
     /// Backup exclusion only (directories whose contents are re-creatable, like the model cache).

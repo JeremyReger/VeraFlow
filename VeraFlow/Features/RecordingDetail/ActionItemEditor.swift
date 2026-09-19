@@ -93,7 +93,7 @@ struct ActionItemEditor: View {
                 }
             }
             .navigationTitle(isNew ? "New action item" : "Edit action item")
-            .navigationBarTitleDisplayMode(.inline)
+            .toolbarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }

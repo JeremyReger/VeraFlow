@@ -1,7 +1,12 @@
-import MessageUI
 import SwiftData
 import SwiftUI
+import UniformTypeIdentifiers
+#if os(iOS)
+import MessageUI
 import UIKit
+#elseif os(macOS)
+import AppKit
+#endif
 
 /// The Share menu on the detail screen (SPEC §4.5): files, copy, email, Reminders.
 struct ExportMenuItems: View {
@@ -98,26 +103,14 @@ struct ExportMenuItems: View {
     }
 }
 
-/// Presents the share sheet, the mail composer, and the export error alert.
+/// Presents the share sheet, the mail composer, and the export error alert. On the Mac the
+/// share sheet is the system save panel and mail goes to the Mail compose service (v1.1 plan
+/// item 15).
 struct ExportPresentation: ViewModifier {
     @Bindable var controller: ExportController
 
     func body(content: Content) -> some View {
-        content
-            .sheet(item: $controller.shareItem, onDismiss: { controller.finishSharing() }) { item in
-                ActivityView(items: [item.url])
-                    .presentationDetents([.medium, .large])
-            }
-            .sheet(item: $controller.mailDraft) { draft in
-                if MFMailComposeViewController.canSendMail() {
-                    MailComposeView(subject: draft.subject, body: draft.body)
-                        .ignoresSafeArea()
-                } else {
-                    // No Mail account: hand the text to the share sheet (SPEC §12 fallback).
-                    ActivityView(items: [draft.subject + "\n\n" + draft.body])
-                        .presentationDetents([.medium, .large])
-                }
-            }
+        platformContent(content)
             .alert("Export problem", isPresented: Binding(
                 get: { controller.errorMessage != nil },
                 set: { if !$0 { controller.errorMessage = nil } }
@@ -127,8 +120,92 @@ struct ExportPresentation: ViewModifier {
                 Text(controller.errorMessage ?? "")
             }
     }
+
+    #if os(iOS)
+    private func platformContent(_ content: Content) -> some View {
+        content
+            .sheet(item: $controller.shareItem, onDismiss: { controller.finishSharing() }) { item in
+                ActivityView(items: [item.url])
+                    .vfSheetDetents([.medium, .large])
+            }
+            .sheet(item: $controller.mailDraft) { draft in
+                if MFMailComposeViewController.canSendMail() {
+                    MailComposeView(subject: draft.subject, body: draft.body)
+                        .ignoresSafeArea()
+                } else {
+                    // No Mail account: hand the text to the share sheet (SPEC §12 fallback).
+                    ActivityView(items: [draft.subject + "\n\n" + draft.body])
+                        .vfSheetDetents([.medium, .large])
+                }
+            }
+    }
+    #else
+    private func platformContent(_ content: Content) -> some View {
+        content
+            .fileExporter(
+                isPresented: Binding(
+                    get: { controller.shareItem != nil },
+                    set: { if !$0 { controller.finishSharing() } }
+                ),
+                document: controller.shareItem.map { ExportedFileDocument(url: $0.url) },
+                contentType: controller.shareItem?.contentType ?? .data,
+                defaultFilename: controller.shareItem?.url.lastPathComponent
+            ) { result in
+                if case .failure(let error) = result {
+                    controller.errorMessage = "Couldn't save the file: \(error.localizedDescription)"
+                }
+                controller.finishSharing()
+            }
+            .onChange(of: controller.mailDraft) { _, draft in
+                guard let draft else { return }
+                if !MacMail.compose(subject: draft.subject, body: draft.body) {
+                    // No Mail account: the text goes to the clipboard and the alert says so.
+                    ExportController.copyToPasteboard(draft.subject + "\n\n" + draft.body)
+                    controller.errorMessage = ExportController.message(for: ExportError.mailUnavailable)
+                }
+                controller.mailDraft = nil
+            }
+    }
+    #endif
 }
 
+#if os(macOS)
+/// A finished export handed to the save panel: the panel copies the temporary file wherever
+/// the user chooses, and `finishSharing` removes the temporary one afterwards.
+struct ExportedFileDocument: FileDocument {
+    static let readableContentTypes: [UTType] = [.data]
+    static let writableContentTypes: [UTType] = [.data, .pdf, .plainText, .mpeg4Audio, UTType("net.daringfireball.markdown") ?? .plainText]
+
+    let url: URL
+
+    init(url: URL) {
+        self.url = url
+    }
+
+    init(configuration: ReadConfiguration) throws {
+        throw CocoaError(.fileReadUnsupportedScheme)
+    }
+
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        try FileWrapper(url: url, options: .immediate)
+    }
+}
+
+/// Mail's compose service, prefilled. Returns false when no mail account can take it.
+@MainActor
+enum MacMail {
+    static func compose(subject: String, body: String) -> Bool {
+        guard let service = NSSharingService(named: .composeEmail), service.canPerform(withItems: [body]) else {
+            return false
+        }
+        service.subject = subject
+        service.perform(withItems: [body])
+        return true
+    }
+}
+#endif
+
+#if os(iOS)
 /// `UIActivityViewController` for files or text.
 struct ActivityView: UIViewControllerRepresentable {
     let items: [Any]
@@ -175,6 +252,7 @@ struct MailComposeView: UIViewControllerRepresentable {
         }
     }
 }
+#endif
 
 /// Pick a Reminders list and the action items to send (SPEC §12). Items already sent are shown
 /// checked and disabled so nothing is duplicated.
@@ -253,7 +331,7 @@ struct RemindersSheet: View {
                 }
             }
             .navigationTitle("Send to Reminders")
-            .navigationBarTitleDisplayMode(.inline)
+            .toolbarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }

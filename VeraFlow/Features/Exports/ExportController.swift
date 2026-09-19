@@ -1,8 +1,12 @@
 import Foundation
 import Observation
 import SwiftUI
-import UIKit
 import UniformTypeIdentifiers
+#if canImport(UIKit)
+import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
 
 /// Which file to produce for the share sheet.
 enum ExportKind: String, CaseIterable, Identifiable, Sendable {
@@ -39,12 +43,28 @@ enum ExportKind: String, CaseIterable, Identifiable, Sendable {
         case .audio: "m4a"
         }
     }
+
+    /// The type the Mac's save panel is told (v1.1 plan item 15); iOS shares the file as is.
+    var contentType: UTType {
+        switch self {
+        case .markdown: UTType("net.daringfireball.markdown") ?? .plainText
+        case .plainText: .plainText
+        case .pdf: .pdf
+        case .audio: .mpeg4Audio
+        }
+    }
 }
 
-/// A file ready for the share sheet.
+/// A file ready for the share sheet (iOS) or the save panel (Mac).
 struct ShareItem: Identifiable, Equatable {
     var url: URL
+    /// What produced it; `nil` for files that aren't one of the exports (an archive package).
+    var kind: ExportKind?
     var id: String { url.path }
+
+    var contentType: UTType {
+        kind?.contentType ?? UTType(filenameExtension: url.pathExtension) ?? .data
+    }
 }
 
 /// An email to compose.
@@ -80,8 +100,13 @@ final class ExportController {
             let url = Self.exportsDirectory().appending(path: name)
             try? FileManager.default.removeItem(at: url)
             // Exports hold the full transcript: complete protection while they wait in tmp, and
-            // they are removed when the share sheet closes (security review S-5).
+            // they are removed when the share sheet closes (security review S-5). The Mac has no
+            // per-file protection classes; its tmp is inside the app's sandbox container.
+            #if os(iOS)
             let options: Data.WritingOptions = [.atomic, .completeFileProtection]
+            #else
+            let options: Data.WritingOptions = [.atomic]
+            #endif
             switch kind {
             case .markdown:
                 let text = await services.exporter.markdown(for: document)
@@ -93,9 +118,9 @@ final class ExportController {
                 try await services.exporter.pdf(for: document).write(to: url, options: options)
             case .audio:
                 try await services.exporter.exportAudio(from: audioURL, to: url)
-                try? FileManager.default.setAttributes([.protectionKey: FileProtectionType.complete], ofItemAtPath: url.path)
+                DataProtection.protectExport(at: url)
             }
-            shareItem = ShareItem(url: url)
+            shareItem = ShareItem(url: url, kind: kind)
         } catch {
             errorMessage = Self.message(for: error)
         }
@@ -120,9 +145,11 @@ final class ExportController {
     /// Stays on this device (no Universal Clipboard) and expires after two minutes (S-4).
     /// iOS refuses pasteboard writes while the app is inactive, which it briefly is while the
     /// menu that triggered the copy is closing ("Pasteboard … is not available at this time"),
-    /// so the write waits for the app to be active again.
+    /// so the write waits for the app to be active again. The Mac's pasteboard has neither
+    /// option: the text is a plain string copy there.
     static func copyToPasteboard(_ text: String) {
         Task { @MainActor in
+            #if os(iOS)
             for _ in 0..<20 where UIApplication.shared.applicationState != .active {
                 try? await Task.sleep(for: .milliseconds(100))
             }
@@ -130,6 +157,11 @@ final class ExportController {
                 [[UTType.utf8PlainText.identifier: text]],
                 options: [.localOnly: true, .expirationDate: Date.now.addingTimeInterval(120)]
             )
+            #else
+            let pasteboard = NSPasteboard.general
+            pasteboard.clearContents()
+            pasteboard.setString(text, forType: .string)
+            #endif
             AccessibilityNotification.Announcement("Copied").post()
         }
     }
@@ -168,7 +200,7 @@ final class ExportController {
             case .remindersFailed(let detail): return "Couldn't create the reminders: \(detail)"
             case .pdfFailed(let detail): return "Couldn't make the PDF: \(detail)"
             case .audioExportFailed(let detail): return "Couldn't export the audio: \(detail)"
-            case .mailUnavailable: return "Mail isn't set up on this iPhone. Use the share sheet instead."
+            case .mailUnavailable: return Platform.isMac ? "Mail isn't set up on this Mac. The email text was copied instead." : "Mail isn't set up on this iPhone. Use the share sheet instead."
             }
         }
         if let error = error as? SummarizationError {

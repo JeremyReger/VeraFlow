@@ -1,7 +1,9 @@
+import SwiftData
 import SwiftUI
 
 /// Top-level navigation: onboarding on first launch (SPEC §4.1), the optional app lock
-/// (SPEC §14.4), then the Library.
+/// (SPEC §14.4), then the Library. On the Mac the Library is a sidebar and the selected
+/// recording fills the detail column (v1.1 plan item 15).
 struct RootView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.scenePhase) private var scenePhase
@@ -15,13 +17,16 @@ struct RootView: View {
     @AppStorage(AppPreferences.appearanceKey) private var appearance: Appearance = .system
     /// Programmatic pushes (a tapped "Summary ready" notification, v1.1 plan item 6).
     @State private var path = NavigationPath()
+    #if os(macOS)
+    /// The sidebar's selected recording.
+    @State private var selection: UUID?
+    @Query private var recordings: [Recording]
+    #endif
 
     var body: some View {
         Group {
             if isOnboarded {
-                NavigationStack(path: $path) {
-                    LibraryView()
-                }
+                library
             } else {
                 OnboardingView {
                     AppPreferences.setOnboardingCompleted(true)
@@ -45,7 +50,9 @@ struct RootView: View {
         .onChange(of: scenePhase) { _, phase in
             switch phase {
             case .inactive:
-                isShielded = lock.isEnabled
+                // The Mac is "inactive" whenever another app is in front; covering the window
+                // then would blank it while it sits beside the other one, so only iOS shields.
+                isShielded = lock.isEnabled && !Platform.isMac
                 appState.sceneDidChange(isActive: false)
             case .background:
                 isShielded = false
@@ -61,8 +68,12 @@ struct RootView: View {
         }
         .onChange(of: appState.pendingOpenRecordingID) { _, id in
             guard let id, isOnboarded else { return }
+            #if os(macOS)
+            selection = id
+            #else
             path = NavigationPath()
             path.append(id)
+            #endif
             appState.clearPendingOpen()
         }
         .onChange(of: lock.isLocked) { _, locked in
@@ -79,6 +90,43 @@ struct RootView: View {
             Text(appState.recoveryMessage ?? "")
         }
     }
+
+    #if os(macOS)
+    private var library: some View {
+        NavigationSplitView {
+            LibraryView(selection: $selection)
+                .navigationSplitViewColumnWidth(min: 340, ideal: 400, max: 560)
+        } detail: {
+            if let selection, let recording = recordings.first(where: { $0.id == selection && !$0.isTrashed }) {
+                NavigationStack {
+                    RecordingDetailView(recording: recording)
+                }
+                .id(selection)
+            } else {
+                ContentUnavailableView(
+                    "Choose a recording",
+                    systemImage: "waveform",
+                    description: Text("Or press ⌘N to start a new one, or drop an audio file here to import it.")
+                )
+                .background(VFColor.background)
+            }
+        }
+        // Files dragged from the Finder import like "Open with" does (sandbox access rides with the drop).
+        .dropDestination(for: URL.self) { urls, _ in
+            let files = urls.filter(\.isFileURL)
+            for url in files {
+                appState.enqueueImport(url)
+            }
+            return !files.isEmpty
+        }
+    }
+    #else
+    private var library: some View {
+        NavigationStack(path: $path) {
+            LibraryView()
+        }
+    }
+    #endif
 }
 
 #Preview {

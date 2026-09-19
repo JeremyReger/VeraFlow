@@ -45,14 +45,14 @@ struct SettingsView: View {
             }
             .background(VFColor.background.ignoresSafeArea())
             // The design draws its own title and Done pill; pushed screens get the bar back.
-            .toolbar(.hidden, for: .navigationBar)
+            .vfNavigationBar(.hidden)
             .confirmationDialog("Delete all recordings, transcripts, and summaries?", isPresented: $confirmDeleteAll, titleVisibility: .visible) {
                 Button("Delete Everything", role: .destructive) {
                     Task { await deleteAll() }
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("This removes every recording and its audio from this iPhone. It can't be undone.")
+                Text("This removes every recording and its audio from \(Platform.thisDevice). It can't be undone.")
             }
             .alert("Delete all data", isPresented: Binding(get: { deleteMessage != nil }, set: { if !$0 { deleteMessage = nil } })) {
                 Button("OK") { deleteMessage = nil }
@@ -96,7 +96,7 @@ struct SettingsView: View {
 
     private var deviceGroup: some View {
         VStack(alignment: .leading, spacing: 10) {
-            VFSectionLabel("This iPhone")
+            VFSectionLabel("This \(Platform.deviceNoun)")
             VFSettingsGroup {
                 if let capabilities = appState?.capabilities {
                     statusRow(
@@ -145,7 +145,7 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 10) {
             VFSectionLabel("Display")
             VFSettingsGroup {
-                VFSettingsRow(title: "Appearance", detail: appearance == .system ? "Follows the iPhone setting" : nil) {
+                VFSettingsRow(title: "Appearance", detail: appearance == .system ? "Follows the \(Platform.deviceNoun) setting" : nil) {
                     Menu {
                         ForEach(Appearance.allCases) { choice in
                             Button {
@@ -277,7 +277,7 @@ struct SettingsView: View {
         if let chosen = AppPreferences.transcriptionLocale() {
             return TranscriptionLanguages.name(for: chosen)
         }
-        return "iPhone language"
+        return "\(Platform.deviceNoun) language"
     }
 
     private func menuValue(_ value: String) -> some View {
@@ -300,14 +300,14 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 10) {
             VFSectionLabel("Storage")
             VFSettingsGroup {
-                VFSettingsRow(title: "Recordings on this iPhone", detail: usage.map { $0.trashedBytes > 0 ? "\(StorageUsage.text($0.trashedBytes)) of it in Recently Deleted" : nil } ?? nil) {
+                VFSettingsRow(title: "Recordings on \(Platform.thisDevice)", detail: usage.map { $0.trashedBytes > 0 ? "\(StorageUsage.text($0.trashedBytes)) of it in Recently Deleted" : nil } ?? nil) {
                     Text(usage.map { StorageUsage.text($0.totalBytes) } ?? "…")
                         .vfText(VFText.meta, color: VFColor.textSecondary)
                 }
                 .accessibilityElement(children: .combine)
                 VFHairline()
-                Toggle("Include recordings in iPhone backup", isOn: $includeInBackup)
-                    .toggleStyle(VFToggleRowStyle(detail: "Off keeps recordings out of iCloud and computer backups"))
+                Toggle("Include recordings in \(Platform.isMac ? "Time Machine" : "iPhone") backup", isOn: $includeInBackup)
+                    .toggleStyle(VFToggleRowStyle(detail: Platform.isMac ? "Off keeps recordings out of Time Machine and other backups" : "Off keeps recordings out of iCloud and computer backups"))
                     .onChange(of: includeInBackup) { _, value in
                         AppPreferences.setIncludesRecordingsInBackup(value)
                         try? services.storage.setExcludedFromBackupForAll(!value)
@@ -353,7 +353,7 @@ struct SettingsView: View {
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("settings.recentlyDeleted")
             }
-            Text("The exported package holds audio, transcripts and summaries; import it on another iPhone from the Library's Import menu (if it arrives as a zip, tap it in Files to unpack it first). The backup switch uses Apple's own backup; VeraFlow still sends nothing anywhere. Deleted recordings can be restored for \(Int(TrashPolicy.retention / 86_400)) days.")
+            Text("The exported package holds audio, transcripts and summaries; import it on another \(Platform.deviceNoun) from the Library's Import menu (if it arrives as a zip, tap it in Files to unpack it first). The backup switch uses Apple's own backup; VeraFlow still sends nothing anywhere. Deleted recordings can be restored for \(Int(TrashPolicy.retention / 86_400)) days.")
                 .vfText(VFText.snippet, color: VFColor.textTertiary)
         }
     }
@@ -365,7 +365,7 @@ struct SettingsView: View {
             VFSectionLabel("Privacy")
             VFSettingsGroup {
                 Toggle("Require Face ID or passcode", isOn: $appLockEnabled)
-                    .toggleStyle(VFToggleRowStyle(detail: AppLock.canAuthenticate ? nil : "Set a passcode on this iPhone first"))
+                    .toggleStyle(VFToggleRowStyle(detail: AppLock.canAuthenticate ? nil : "Set a \(Platform.isMac ? "password" : "passcode") on \(Platform.thisDevice) first"))
                     .disabled(!AppLock.canAuthenticate)
                     .onChange(of: appLockEnabled) { _, value in
                         appLock?.isEnabled = value
@@ -475,7 +475,7 @@ struct SettingsView: View {
     // MARK: Footer
 
     private var footer: some View {
-        VFReassurance("Everything stays on this iPhone. VeraFlow makes no network requests with your recordings; the only downloads are Apple's speech model, the speaker-label model, and App Store purchases.")
+        VFReassurance("Everything stays on \(Platform.thisDevice). VeraFlow makes no network requests with your recordings; the only downloads are Apple's speech model, the speaker-label model, and App Store purchases.")
             .padding(.top, 4)
     }
 

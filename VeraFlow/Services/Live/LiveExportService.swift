@@ -3,7 +3,15 @@ import CoreText
 import EventKit
 import Foundation
 import os
+#if canImport(UIKit)
 import UIKit
+typealias PlatformFont = UIFont
+typealias PlatformColor = UIColor
+#elseif canImport(AppKit)
+import AppKit
+typealias PlatformFont = NSFont
+typealias PlatformColor = NSColor
+#endif
 
 /// Exports (SPEC §12): Markdown / plain text from `ExportRenderer`, a paginated PDF with page
 /// numbers, action items into Reminders through EventKit, and an `.m4a` copy of the audio.
@@ -112,52 +120,63 @@ actor LiveExportService: ExportService {
     }
 }
 
-/// US Letter PDF with a title, the plain-text sections, and "Title · Page n" footers.
+/// US Letter PDF with a title, the plain-text sections, and "Title · Page n" footers. Drawn
+/// with Core Graphics and Core Text directly so the same code runs on iOS and the Mac (v1.1
+/// plan item 15); the PDF context's origin is the bottom-left corner, which is also Core Text's.
 enum PDFComposer {
     static let pageSize = CGSize(width: 612, height: 792)
     static let margin: CGFloat = 54
 
     static func render(_ document: ExportDocument) -> Data {
         let text = attributedText(for: document)
-        let pageRect = CGRect(origin: .zero, size: pageSize)
+        var pageRect = CGRect(origin: .zero, size: pageSize)
+        // Core Text lays the body out in bottom-left coordinates: the content box sits `margin + 16`
+        // above the page bottom, the same inset the top gets.
         let contentRect = pageRect.insetBy(dx: margin, dy: margin + 16)
         let framesetter = CTFramesetterCreateWithAttributedString(text)
         // Title and creator metadata so readers and screen readers know what the file is (A-17).
-        let format = UIGraphicsPDFRendererFormat()
-        format.documentInfo = [
-            kCGPDFContextTitle as String: document.title,
-            kCGPDFContextCreator as String: "VeraFlow",
+        let info: [CFString: Any] = [
+            kCGPDFContextTitle: document.title,
+            kCGPDFContextCreator: "VeraFlow",
         ]
-        let renderer = UIGraphicsPDFRenderer(bounds: pageRect, format: format)
-        let footerAttributes: [NSAttributedString.Key: Any] = [
-            .font: UIFont.systemFont(ofSize: 9),
-            .foregroundColor: UIColor.darkGray,
-        ]
-
-        return renderer.pdfData { context in
-            var location = 0
-            var page = 0
-            repeat {
-                context.beginPage()
-                page += 1
-                let path = CGPath(rect: contentRect, transform: nil)
-                let frame = CTFramesetterCreateFrame(framesetter, CFRange(location: location, length: 0), path, nil)
-                let cg = context.cgContext
-                cg.saveGState()
-                cg.textMatrix = .identity
-                cg.translateBy(x: 0, y: pageRect.height)
-                cg.scaleBy(x: 1, y: -1)
-                CTFrameDraw(frame, cg)
-                cg.restoreGState()
-
-                let footer = "\(document.title) · Page \(page)" as NSString
-                footer.draw(at: CGPoint(x: margin, y: pageRect.height - margin + 4), withAttributes: footerAttributes)
-
-                let visible = CTFrameGetVisibleStringRange(frame)
-                guard visible.length > 0 else { break }
-                location += visible.length
-            } while location < text.length
+        let data = NSMutableData()
+        guard let consumer = CGDataConsumer(data: data as CFMutableData),
+              let context = CGContext(consumer: consumer, mediaBox: &pageRect, info as CFDictionary) else {
+            return Data()
         }
+        let footerAttributes: [NSAttributedString.Key: Any] = [
+            .font: PlatformFont.systemFont(ofSize: 9),
+            .foregroundColor: PlatformColor.darkGray,
+        ]
+
+        var location = 0
+        var page = 0
+        repeat {
+            context.beginPDFPage(nil)
+            page += 1
+            let path = CGPath(rect: contentRect, transform: nil)
+            let frame = CTFramesetterCreateFrame(framesetter, CFRange(location: location, length: 0), path, nil)
+            context.saveGState()
+            context.textMatrix = .identity
+            CTFrameDraw(frame, context)
+            context.restoreGState()
+
+            // "Title · Page n" a few points under the bottom margin.
+            let footer = NSAttributedString(string: "\(document.title) · Page \(page)", attributes: footerAttributes)
+            let line = CTLineCreateWithAttributedString(footer)
+            context.saveGState()
+            context.textMatrix = .identity
+            context.textPosition = CGPoint(x: margin, y: margin - 14)
+            CTLineDraw(line, context)
+            context.restoreGState()
+            context.endPDFPage()
+
+            let visible = CTFrameGetVisibleStringRange(frame)
+            guard visible.length > 0 else { break }
+            location += visible.length
+        } while location < text.length
+        context.closePDF()
+        return data as Data
     }
 
     static func attributedText(for document: ExportDocument) -> NSAttributedString {
@@ -169,9 +188,9 @@ enum PDFComposer {
             style.lineBreakMode = .byWordWrapping
             return style
         }
-        func append(_ string: String, size: CGFloat, weight: UIFont.Weight = .regular, color: UIColor = .black, style: NSParagraphStyle) {
+        func append(_ string: String, size: CGFloat, weight: PlatformFont.Weight = .regular, color: PlatformColor = .black, style: NSParagraphStyle) {
             result.append(NSAttributedString(string: string + "\n", attributes: [
-                .font: UIFont.systemFont(ofSize: size, weight: weight),
+                .font: PlatformFont.systemFont(ofSize: size, weight: weight),
                 .foregroundColor: color,
                 .paragraphStyle: style,
             ]))
@@ -205,13 +224,13 @@ enum PDFComposer {
             for segment in document.segments {
                 let stamp = "[\(TranscriptChunker.timestamp(segment.start))] \(document.speakerName(for: segment.speakerKey)): "
                 let line = NSMutableAttributedString(string: stamp, attributes: [
-                    .font: UIFont.systemFont(ofSize: 10, weight: .semibold),
-                    .foregroundColor: UIColor.darkGray,
+                    .font: PlatformFont.systemFont(ofSize: 10, weight: .semibold),
+                    .foregroundColor: PlatformColor.darkGray,
                     .paragraphStyle: paragraph(spacingAfter: 3),
                 ])
                 line.append(NSAttributedString(string: segment.text + "\n", attributes: [
-                    .font: UIFont.systemFont(ofSize: 10.5),
-                    .foregroundColor: UIColor.black,
+                    .font: PlatformFont.systemFont(ofSize: 10.5),
+                    .foregroundColor: PlatformColor.black,
                     .paragraphStyle: paragraph(spacingAfter: 3),
                 ]))
                 result.append(line)

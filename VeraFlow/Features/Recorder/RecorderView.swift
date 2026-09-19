@@ -1,6 +1,5 @@
 import SwiftData
 import SwiftUI
-import UIKit
 
 /// Recording screen (SPEC §4.2): start, timer, level meter, pause/resume, stop, bookmarks, input
 /// and template pickers. Laid out per the design spec §4 (Record — ready / running / paused).
@@ -184,15 +183,15 @@ private struct RecorderContent: View {
                     .vfText(VFText.cardTitle)
                     .multilineTextAlignment(.center)
                     .accessibilityAddTraits(.isHeader)
-                Text("VeraFlow needs the microphone to record. Audio never leaves this iPhone.")
+                Text("VeraFlow needs the microphone to record. Audio never leaves \(Platform.thisDevice).")
                     .vfText(VFText.body, color: VFColor.textSecondary)
                     .multilineTextAlignment(.center)
             }
             .padding(.horizontal, VFSpace.gutter + 8)
             Spacer()
             VStack(spacing: VFSpace.listGap) {
-                Button("Open Settings") {
-                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                Button(Platform.isMac ? "Open System Settings" : "Open Settings") {
+                    if let url = Platform.microphoneSettingsURL {
                         openURL(url)
                     }
                 }
@@ -561,7 +560,7 @@ private struct MicrophoneMenu: View {
         if let selected = viewModel.inputs.first(where: { $0.id == viewModel.selectedInputID }) {
             return selected.name
         }
-        return viewModel.inputChoice == .automatic ? "Automatic" : "iPhone Microphone"
+        return viewModel.inputChoice == .automatic ? "Automatic" : Platform.builtInMicrophoneName
     }
 }
 

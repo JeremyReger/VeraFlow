@@ -55,7 +55,7 @@ struct TranslationLanguageSheet: View {
                             .frame(maxWidth: .infinity)
                             .padding(.top, 20)
                     } else if languages.isEmpty {
-                        Text("This iPhone can't translate \(TranslationLanguages.name(for: sourceIdentifier)) yet.")
+                        Text("\(Platform.thisDeviceCapitalized) can't translate \(TranslationLanguages.name(for: sourceIdentifier)) yet.")
                             .vfText(VFText.body, color: VFColor.textSecondary)
                             .padding(.top, 20)
                     } else {
@@ -84,7 +84,7 @@ struct TranslationLanguageSheet: View {
                             }
                         }
                     }
-                    Text("Translation runs on this iPhone. A language pack is an Apple download, the same as the speech models; nothing from the recording leaves the phone. Names, dates, and measurements are kept as spoken.")
+                    Text("Translation runs on \(Platform.thisDevice). A language pack is an Apple download, the same as the speech models; nothing from the recording leaves the phone. Names, dates, and measurements are kept as spoken.")
                         .vfText(VFText.snippet, color: VFColor.textTertiary)
                 }
                 .padding(.horizontal, VFSpace.gutter)
@@ -93,7 +93,7 @@ struct TranslationLanguageSheet: View {
             }
             .background(VFColor.background.ignoresSafeArea())
             .navigationTitle("Translate to")
-            .navigationBarTitleDisplayMode(.inline)
+            .toolbarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }

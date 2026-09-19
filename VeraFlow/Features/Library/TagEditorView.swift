@@ -25,7 +25,7 @@ struct TagEditorView: View {
                 Section("Add a tag") {
                     HStack {
                         TextField("Tag", text: $draft)
-                            .textInputAutocapitalization(.never)
+                            .vfNoAutocapitalization()
                             .onSubmit(addDraft)
                             .accessibilityIdentifier("tags.field")
                         Button("Add", action: addDraft)
@@ -55,14 +55,16 @@ struct TagEditorView: View {
                 }
             }
             .navigationTitle("Tags")
-            .navigationBarTitleDisplayMode(.inline)
+            .toolbarTitleDisplayMode(.inline)
             .toolbar {
                 // Swipe-to-delete has a visible alternative for Switch Control and keyboards (A-27).
+                #if os(iOS)
                 if !tags.isEmpty {
                     ToolbarItem(placement: .topBarLeading) {
                         EditButton()
                     }
                 }
+                #endif
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }

@@ -78,7 +78,7 @@ enum ExportRenderer {
 
     /// Under a translated block, in every format.
     static func translationDisclaimer(_ languageName: String) -> String {
-        "Translated to \(languageName) on this iPhone. Names, dates, and measurements are kept as spoken."
+        "Translated to \(languageName) on \(Platform.thisDevice). Names, dates, and measurements are kept as spoken."
     }
 
     static func plainText(for document: ExportDocument) -> String {

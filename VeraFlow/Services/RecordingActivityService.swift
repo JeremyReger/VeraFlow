@@ -11,6 +11,13 @@ protocol RecordingActivityService: Sendable {
     func end() async
 }
 
+/// The Mac has no Live Activities (v1.1 plan item 15): every call is a no-op.
+struct NoRecordingActivityService: RecordingActivityService {
+    func start(recordingID: UUID, title: String, state: RecordingActivityAttributes.ContentState) async {}
+    func update(_ state: RecordingActivityAttributes.ContentState) async {}
+    func end() async {}
+}
+
 /// Records calls so tests can assert what the Lock Screen would have shown.
 actor FakeRecordingActivityService: RecordingActivityService {
     private(set) var startedRecordingID: UUID?

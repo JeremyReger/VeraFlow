@@ -44,10 +44,7 @@ actor LiveAudioImportService: AudioImportService {
             throw AudioImportError.unreadable
         }
 
-        try? FileManager.default.setAttributes(
-            [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
-            ofItemAtPath: destination.path(percentEncoded: false)
-        )
+        DataProtection.protectNewFile(at: destination)
         return ImportedAudio(fileName: fileName, duration: duration)
     }
 

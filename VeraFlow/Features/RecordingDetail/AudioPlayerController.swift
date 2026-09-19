@@ -141,6 +141,7 @@ final class AudioPlayerController {
 
     func play() {
         guard let player else { return }
+        #if os(iOS)
         do {
             let session = AVAudioSession.sharedInstance()
             try session.setCategory(.playback, mode: .default)
@@ -149,6 +150,7 @@ final class AudioPlayerController {
             errorMessage = "Playback couldn't start: \(error.localizedDescription)"
             return
         }
+        #endif
         if player.currentTime >= duration {
             player.currentTime = 0
         }
@@ -275,7 +277,9 @@ final class AudioPlayerController {
             currentTime = player.currentTime >= duration - 0.05 ? duration : player.currentTime
             stopTicker()
             updateNowPlaying()
+            #if os(iOS)
             try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+            #endif
         }
     }
 }

@@ -50,8 +50,8 @@ struct ConsentSheet: View {
             .padding(.bottom, VFSpace.bottomInset)
         }
         .background(VFColor.background.ignoresSafeArea())
-        .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
+        .vfSheetDetents([.medium, .large], dragIndicator: true)
+        .vfSheetSize(width: 480, height: 560)
     }
 }
 

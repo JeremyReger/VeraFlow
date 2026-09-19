@@ -31,7 +31,7 @@ struct TranscriptionBenchmarkView: View {
             } header: {
                 Text("Engine for new transcripts")
             } footer: {
-                Text("Applies to recordings transcribed from now on. Both engines run entirely on this iPhone; Parakeet downloads its model once.")
+                Text("Applies to recordings transcribed from now on. Both engines run entirely on \(Platform.thisDevice); Parakeet downloads its model once.")
             }
 
             Section("Recording") {
@@ -107,7 +107,7 @@ struct TranscriptionBenchmarkView: View {
             }
         }
         .navigationTitle("Transcription benchmark")
-        .navigationBarTitleDisplayMode(.inline)
+        .toolbarTitleDisplayMode(.inline)
     }
 
     private func outcomeRow(_ outcome: TranscriptionBenchmark.Outcome) -> some View {

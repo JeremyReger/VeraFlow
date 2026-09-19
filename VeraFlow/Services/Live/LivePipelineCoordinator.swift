@@ -534,13 +534,13 @@ enum PipelineFailure {
         if let error = error as? TranscriptionError {
             switch error {
             case .unavailable:
-                return "Transcription isn't available on this iPhone."
+                return "Transcription isn't available on \(Platform.thisDevice)."
             case .localeUnsupported(let identifier):
                 return "Transcription doesn't support \(identifier) yet."
             case .assetDownloadFailed(let detail):
                 return "The speech model couldn't be downloaded: \(detail)"
             case .insufficientResources:
-                return "The iPhone was too busy to transcribe. Tap Retry to try again."
+                return "The \(Platform.deviceNoun) was too busy to transcribe. Tap Retry to try again."
             case .analysisFailed(let detail):
                 return "Transcription failed: \(detail)"
             }
@@ -550,7 +550,7 @@ enum PipelineFailure {
             case .unavailable(let availability):
                 switch availability {
                 case .available: return "Summaries aren't available right now."
-                case .deviceNotEligible: return "AI summaries need an Apple Intelligence–capable iPhone. Transcripts still work."
+                case .deviceNotEligible: return "AI summaries need an Apple Intelligence–capable \(Platform.deviceNoun). Transcripts still work."
                 case .appleIntelligenceNotEnabled: return "Turn on Apple Intelligence in Settings to get summaries."
                 case .modelNotReady: return "Apple Intelligence is still downloading. Try again later."
                 case .unknown(let detail): return "Summaries aren't available: \(detail)"

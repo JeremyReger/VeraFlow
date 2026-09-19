@@ -90,8 +90,8 @@ struct RecordingDetailView: View {
             }
         }
         .navigationTitle("")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(VFColor.background, for: .navigationBar)
+        .toolbarTitleDisplayMode(.inline)
+        .vfNavigationBarBackground(VFColor.background)
         .toolbar {
             if let controller {
                 ToolbarItem(placement: .primaryAction) {
@@ -143,9 +143,11 @@ struct RecordingDetailView: View {
         .modifier(OptionalExportPresentation(controller: exportController))
         .sheet(item: $remindersRecord) { record in
             RemindersSheet(recording: recording, record: record)
+                .vfSheetSize(width: 480, height: 560)
         }
         .sheet(isPresented: $showsPaywall) {
             PaywallView()
+                .vfSheetSize(width: 520, height: 720)
         }
         .task {
             if controller == nil {
@@ -160,7 +162,7 @@ struct RecordingDetailView: View {
             if recording.audioAvailable {
                 player.load(url: services.storage.audioURL(for: recording.id, fileName: recording.audioFileName), title: recording.title)
             } else {
-                player.markUnavailable("The audio isn't on this iPhone; it wasn't included when this recording was imported.")
+                player.markUnavailable("The audio isn't on \(Platform.thisDevice); it wasn't included when this recording was imported.")
             }
             // Opened: the "Summary ready" notification for it has done its job.
             await services.notifications.clear(recordingID: recording.id)

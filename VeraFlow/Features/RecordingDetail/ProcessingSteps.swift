@@ -77,7 +77,7 @@ enum ProcessingSteps {
 
         let summary: ProcessingStep
         if !canSummarize {
-            summary = ProcessingStep(id: "summary", title: "Writing the summary", state: .skipped, detail: "Not available on this iPhone")
+            summary = ProcessingStep(id: "summary", title: "Writing the summary", state: .skipped, detail: "Not available on \(Platform.thisDevice)")
         } else if failedStage == .summarizing, stage == .ready || failed {
             summary = ProcessingStep(id: "summary", title: "Writing the summary", state: .failed, detail: failureMessage)
         } else if stage == .summarizing {

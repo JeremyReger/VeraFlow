@@ -402,7 +402,7 @@ actor LiveSummarizationService: SummarizationService {
         let instructions = Prompts.instructions(Prompts.final(for: template))
         var instructionTokens = TranscriptChunker.estimateTokens(instructions)
         var schemaTokens = Self.schemaOverheadEstimate
-        if #available(iOS 26.4, *) {
+        if #available(iOS 26.4, macOS 26.4, *) {
             if let counted = try? await model.tokenCount(for: Instructions { instructions }) {
                 instructionTokens = counted
             }
@@ -436,7 +436,7 @@ actor LiveSummarizationService: SummarizationService {
     private func tokenCounter(calibratedOn sample: String) async -> @Sendable (String) -> Int {
         var ratio = 1.0
         // Skip the calibration request while the model can't even report its size.
-        if #available(iOS 26.4, *), !sample.isEmpty, model.contextSize >= 1_024, let counted = try? await model.tokenCount(for: Prompt { sample }) {
+        if #available(iOS 26.4, macOS 26.4, *), !sample.isEmpty, model.contextSize >= 1_024, let counted = try? await model.tokenCount(for: Prompt { sample }) {
             let estimated = TranscriptChunker.estimateTokens(sample)
             if estimated > 0, counted > 0 {
                 ratio = Double(counted) / Double(estimated)

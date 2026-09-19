@@ -123,7 +123,7 @@ Update this file at the end of every session. Check an item only when its "Done 
 
 ## M10 — v1.1 (plan: `docs/plans/2026-09-19-v1-1.md`)
 
-Waves A, B and C were written together in one build on 2026-09-19 while Jeremy was away, on the existing pattern: tests written, `scripts/test.sh` not yet run (this session had no Xcode). Jeremy ran the unit tests green and started device testing; Waves D and E were then written the same way. F (Mac) and G (iPad, opens 1.2) are not started.
+Waves A, B and C were written together in one build on 2026-09-19 while Jeremy was away, on the existing pattern: tests written, `scripts/test.sh` not yet run (this session had no Xcode). Jeremy ran the unit tests green and started device testing; Waves D, E and then F (Mac) were written the same way. G (iPad) opens 1.2.
 
 - [ ] Wave A — the promises
   - [x] Speaker filter chips on the transcript (`TranscriptFilter`, 4 tests); talk-time rows open the filtered transcript, rename moved to touch-and-hold
@@ -161,7 +161,18 @@ Waves A, B and C were written together in one build on 2026-09-19 while Jeremy w
   - [x] Bundled-model investigation: `docs/reviews/2026-09-19-bundled-model.md` (no-go for 1.2)
   - [ ] Build with the lowered target in Xcode and read the errors: anything else that turns out to be iOS 26-only gets wrapped; confirm `FoundationModels` shows as weak in `otool -L`; confirm FluidAudio 0.15.7's iOS floor (believed iOS 17)
   - [ ] Device (needs an iPhone on iOS 18; not checked in until then): install, onboarding says Parakeet downloads ~600 MB, record 5 min, full transcript with two speakers, Summary tab says summaries need iOS 26 + Apple Intelligence, no crash or memory warning; time and memory logged in DECISIONS
-- [ ] Wave F — Mac (native target, universal purchase); Wave G — iPad (opens 1.2)
+- [ ] Wave F — Mac (native target, universal purchase)
+  - [x] `VeraFlow-macOS` target in `project.yml` (macOS 26, same bundle id and product name, sandbox entitlements: microphone, network client, user-selected files, calendars for Reminders; own Info.plist with `ATSApplicationFontsPath`), `VeraFlowTests-macOS`, the `VeraFlow-macOS` scheme, `scripts/test.sh --platform macos`, a Mac slot in both app-icon sets
+  - [x] Platform seams: `Platform.swift` (device noun in the copy, System Settings link, `vfNavigationBar` / `vfSheetDetents` / `vfSheetSize` / `vfNoAutocapitalization` shims; `toolbarTitleDisplayMode` replaces the iOS-only title mode everywhere), AppKit branch of `Color(light:dark:)`, onboarding pages without the page-style tab view
+  - [x] Recorder: `RecorderPlatform` (iOS session / Mac Core Audio: device list, engine input binding, device-list listener), the actor and `RecorderViewModel.watchInputs` rewired to it; player session calls iOS-only
+  - [x] Services: `RecordingActivityAttributes` without ActivityKit on the Mac, `NoRecordingActivityService`, `InlineBackgroundProcessing`, `LiveCapabilityService.backgroundProcessingSupported` false on the Mac, `#available(iOS 26.4, macOS 26.4, *)` on the token-count calls, `AppServices.isAppActive()` always true on the Mac
+  - [x] Exports: `PDFComposer` on Core Graphics + Core Text (both platforms), `ExportedFileDocument` + `fileExporter` save panel, `MacMail` compose service with a clipboard fallback, `NSPasteboard` copy, `MacFolderPicker` for the archive, `DataProtection.newFileAttributes` / `protectNewFile` / `protectExport`
+  - [x] Layout: `Window` scene + `AppMenuCommands` (⌘N record, ⌘I import, ⌘, settings, ⌘F find), `AppCommands` observed by the Library, `NavigationSplitView` root with `LibraryView(selection:)` (selecting list in the sidebar, pushing list on the iPhone), detail column with a placeholder, `dropDestination` import, Mac sheet sizes for the recorder, Settings, paywall, Reminders and consent
+  - [x] Tests: `MacPlatformTests` (device noun and copy, export content types, commands, no-op activity, restart policy, protection attributes, background support, PDF on both platforms); every existing unit test also runs under `VeraFlowTests-macOS`
+  - [ ] Jeremy's Mac: `git pull`, `scripts/test.sh --unit-only` (the iPhone build must stay green), then `scripts/test.sh --platform macos` and paste the errors; expect a first round of fixes (API names the Mac SDK spells differently, sandbox entitlements Xcode wants added under the Personal Team). Then run the `VeraFlow-macOS` scheme: onboarding → allow the microphone → record from the built-in mic and from a USB or Bluetooth mic (switch mid-recording) → import a Teams recording by dragging it onto the window → transcript, speakers, summary → PDF and Markdown through the save panel → Email summary → Reminders → Export library → Settings → restore purchase in the StoreKit sandbox
+  - [ ] App Store Connect before the first Mac upload: turn on universal purchase for the existing app record (it can't be turned on later for a separately created Mac app); Mac screenshots; a proper macOS icon (the 1024 iOS mark is reused for now; Apple's Mac template adds the rounded rectangle and margin)
+  - [ ] Not done in this pass: ⌘E / ⌘⇧S shortcuts, Mac UI tests, Mac-specific screenshots in `ScreenshotTests`
+- [ ] Wave G — iPad (opens 1.2)
 
 ## Requests from device testing
 

@@ -2,9 +2,17 @@ import AVFAudio
 import Foundation
 import os
 #if os(macOS)
+import AVFoundation   // AVCaptureDevice: the Mac's microphone permission
 import AudioToolbox
 import CoreAudio
 #endif
+
+/// Whether the user has let the app hear the microphone.
+enum MicrophoneAuthorization: Sendable {
+    case granted
+    case denied
+    case undetermined
+}
 
 /// What the system said about the capture session. Only iOS has a session; the Mac never
 /// emits these, and its device changes arrive as `AVAudioEngineConfigurationChange` instead.
@@ -37,6 +45,25 @@ enum RecorderPlatform {
     // MARK: iOS — AVAudioSession
 
     private static var session: AVAudioSession { AVAudioSession.sharedInstance() }
+
+    /// iOS 17's `AVAudioApplication`; it does not exist on the Mac, which asks `AVCaptureDevice`.
+    static var microphoneAuthorization: MicrophoneAuthorization {
+        switch AVAudioApplication.shared.recordPermission {
+        case .granted: return .granted
+        case .denied: return .denied
+        case .undetermined: return .undetermined
+        @unknown default: return .undetermined
+        }
+    }
+
+    /// Shows the system prompt. Only call it while the authorization is `.undetermined`.
+    static func requestMicrophoneAccess() async -> Bool {
+        await withCheckedContinuation { continuation in
+            AVAudioApplication.requestRecordPermission { granted in
+                continuation.resume(returning: granted)
+            }
+        }
+    }
 
     /// Sets the record category and activates the session.
     static func activate() throws {
@@ -166,6 +193,21 @@ enum RecorderPlatform {
     #elseif os(macOS)
 
     // MARK: macOS — Core Audio devices, no session
+
+    /// The Mac has no `AVAudioApplication`; microphone access is a capture-device permission
+    /// (Info.plist `NSMicrophoneUsageDescription` plus the sandbox's audio-input entitlement).
+    static var microphoneAuthorization: MicrophoneAuthorization {
+        switch AVCaptureDevice.authorizationStatus(for: .audio) {
+        case .authorized: return .granted
+        case .denied, .restricted: return .denied
+        case .notDetermined: return .undetermined
+        @unknown default: return .undetermined
+        }
+    }
+
+    static func requestMicrophoneAccess() async -> Bool {
+        await AVCaptureDevice.requestAccess(for: .audio)
+    }
 
     static func activate() throws {}
     static func deactivate() {}

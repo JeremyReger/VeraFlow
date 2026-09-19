@@ -55,7 +55,14 @@ targets:
     sources:
       - path: VeraFlow
         excludes:
+          # XcodeGen writes each target's Info.plist and entitlements from the `info:` and
+          # `entitlements:` blocks below. They sit inside this shared source folder, so every
+          # target that compiles `VeraFlow/` must exclude all of them: an Info.plist copied into
+          # an app bundle as a plain resource keeps its unexpanded $(PRODUCT_BUNDLE_IDENTIFIER),
+          # and the simulator then tries to launch that literal string (2026-09-19).
           - "Resources/Info.plist"
+          - "Resources/Info-macOS.plist"
+          - "Resources/VeraFlow-macOS.entitlements"
           - "Resources/SampleRecording"
       # The bundled sample recording (v1.1 plan item 7): a folder reference copied as-is, so the
       # archive package inside it keeps its layout. See VeraFlow/Resources/SampleRecording/README.md.
@@ -171,7 +178,10 @@ targets:
     sources:
       - path: VeraFlow
         excludes:
+          # The same exclusions as the iPhone target, for the same reason (see above).
           - "Resources/Info.plist"
+          - "Resources/Info-macOS.plist"
+          - "Resources/VeraFlow-macOS.entitlements"
           - "Resources/SampleRecording"
       - path: VeraFlow/Resources/SampleRecording
         type: folder

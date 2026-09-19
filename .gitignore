@@ -9,6 +9,8 @@ VeraFlow.xcodeproj/project.xcworkspace/xcshareddata/*
 VeraFlow.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/*
 !VeraFlow.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
 VeraFlow/Resources/Info.plist
+VeraFlow/Resources/Info-macOS.plist
+VeraFlow/Resources/VeraFlow-macOS.entitlements
 VeraFlowWidgets/Info.plist
 VeraFlow/VeraFlow.entitlements
 

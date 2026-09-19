@@ -64,29 +64,19 @@ actor LiveAudioRecorderService: AudioRecorderService {
     // MARK: AudioRecorderService
 
     func requestPermission() async -> Bool {
-        switch AVAudioApplication.shared.recordPermission {
+        switch RecorderPlatform.microphoneAuthorization {
         case .granted:
             return true
         case .denied:
             return false
         case .undetermined:
-            return await Self.askForRecordPermission()
-        @unknown default:
-            return await Self.askForRecordPermission()
-        }
-    }
-
-    private static func askForRecordPermission() async -> Bool {
-        await withCheckedContinuation { continuation in
-            AVAudioApplication.requestRecordPermission { granted in
-                continuation.resume(returning: granted)
-            }
+            return await RecorderPlatform.requestMicrophoneAccess()
         }
     }
 
     func start(to fileURL: URL) async throws {
         guard status == .idle else { throw AudioRecorderError.alreadyRecording }
-        guard AVAudioApplication.shared.recordPermission == .granted else {
+        guard RecorderPlatform.microphoneAuthorization == .granted else {
             throw AudioRecorderError.permissionDenied
         }
         if DiskSpacePolicy.evaluate(availableBytes: capacityProvider()) == .stop {

@@ -28,6 +28,7 @@ private struct RecorderContent: View {
     @Bindable var viewModel: RecorderViewModel
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
+    @Environment(\.scenePhase) private var scenePhase
     @ScaledMetric(relativeTo: .largeTitle) private var ringSize: CGFloat = 148
     @ScaledMetric(relativeTo: .largeTitle) private var coreSize: CGFloat = 104
     @ScaledMetric(relativeTo: .title) private var transportSize: CGFloat = 62
@@ -60,6 +61,12 @@ private struct RecorderContent: View {
             viewModel.loadTemplates()
             await viewModel.loadInputs()
             await viewModel.watchInputs()
+        }
+        .task {
+            await viewModel.watchThermalState()
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            Task { await viewModel.sceneDidChange(isActive: newPhase == .active) }
         }
         .onChange(of: viewModel.phase) { _, phase in
             if case .saved = phase { dismiss() }
@@ -234,6 +241,12 @@ private struct RecorderContent: View {
                 .frame(height: 4)
                 .padding(.horizontal, VFSpace.gutter * 2.5)
                 .padding(.top, 16)
+
+            if viewModel.isPreviewOn || !viewModel.preview.isEmpty {
+                LiveTranscriptBlock(state: viewModel.preview, isPaused: isPaused)
+                    .padding(.horizontal, VFSpace.gutter)
+                    .padding(.top, 16)
+            }
 
             HStack(spacing: 7) {
                 if viewModel.bookmarkCount > 0 {
@@ -643,5 +656,35 @@ private struct FocusField: View {
             RoundedRectangle(cornerRadius: VFRadius.field, style: .continuous)
                 .strokeBorder(VFColor.border, lineWidth: VFMetric.hairline)
         }
+    }
+}
+
+/// Words while recording (v1.1 plan item 4, design spec §4 Record — running): the previous
+/// line dimmed, the current line full strength. Rough by design; the final transcript comes
+/// after Stop. One VoiceOver element that reads the current line, so nothing is flooded.
+struct LiveTranscriptBlock: View {
+    let state: PreviewState
+    let isPaused: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(state.previousLine.isEmpty ? " " : state.previousLine)
+                .vfText(VFText.snippet, color: VFColor.textTertiary)
+                .lineLimit(1)
+                .truncationMode(.head)
+            Text(state.currentLine.isEmpty ? (isPaused ? "Paused" : "Listening…") : state.currentLine)
+                .vfText(VFText.body, color: state.currentLine.isEmpty ? VFColor.textTertiary : VFColor.textPrimary)
+                .lineLimit(2)
+                .truncationMode(.head)
+                .animation(.easeOut(duration: 0.15), value: state.currentLine)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(minHeight: 64, alignment: .bottomLeading)
+        .opacity(isPaused ? 0.55 : 1)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Live transcript")
+        .accessibilityValue(state.currentLine.isEmpty ? "No words yet" : state.currentLine)
+        .accessibilityAddTraits(.updatesFrequently)
+        .accessibilityIdentifier("recorder.liveTranscript")
     }
 }

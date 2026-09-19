@@ -16,6 +16,7 @@ struct SettingsView: View {
     @State private var defaultTemplate = AppPreferences.defaultTemplate()
     @State private var consentReminder = AppPreferences.showsConsentReminder()
     @State private var notifySummaryReady = AppPreferences.notifiesWhenSummaryReady()
+    @State private var liveTranscript = AppPreferences.showsLiveTranscript()
     @State private var appLockEnabled = AppPreferences.appLockEnabled()
     @State private var diagnosticsUnlocked = AppPreferences.diagnosticsUnlocked()
     @State private var versionTaps = 0
@@ -179,6 +180,13 @@ struct SettingsView: View {
                         AppPreferences.setShowsConsentReminder(value)
                     }
                     .accessibilityIdentifier("settings.consentReminder")
+                VFHairline()
+                Toggle("Show words while recording", isOn: $liveTranscript)
+                    .toggleStyle(VFToggleRowStyle(detail: "Rough live words on the Record screen; the real transcript is made after Stop"))
+                    .onChange(of: liveTranscript) { _, value in
+                        AppPreferences.setShowsLiveTranscript(value)
+                    }
+                    .accessibilityIdentifier("settings.liveTranscript")
                 VFHairline()
                 Toggle("Notify when a summary is ready", isOn: $notifySummaryReady)
                     .toggleStyle(VFToggleRowStyle(detail: "Only the recording's name is shown"))

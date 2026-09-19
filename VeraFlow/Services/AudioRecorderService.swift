@@ -71,6 +71,9 @@ protocol AudioRecorderService: Sendable {
     func availableInputs() async -> [AudioInputOption]
     /// Prefers an input for the next and current recording. `nil` lets the system choose.
     func selectInput(id: String?) async throws
+    /// A second consumer of the captured audio, in the recording format, for the live
+    /// transcript preview (v1.1 plan item 4). Paused audio is not delivered. `nil` removes it.
+    func setPreviewSink(_ sink: AudioBufferSink?) async
 }
 
 /// Scripted recorder for tests and previews. Advances time only when told to.
@@ -86,6 +89,8 @@ actor FakeAudioRecorderService: AudioRecorderService {
 
     private var snapshotContinuations: [UUID: AsyncStream<RecorderSnapshot>.Continuation] = [:]
     private var interruptionContinuations: [UUID: AsyncStream<RecorderInterruption>.Continuation] = [:]
+    /// Whether a preview sink is attached (test control).
+    private(set) var hasPreviewSink = false
 
     init(permissionGranted: Bool = true) {
         self.permissionGranted = permissionGranted
@@ -157,6 +162,10 @@ actor FakeAudioRecorderService: AudioRecorderService {
             throw AudioRecorderError.sessionFailed("Input \(id) is not available")
         }
         selectedInputID = id
+    }
+
+    func setPreviewSink(_ sink: AudioBufferSink?) async {
+        hasPreviewSink = sink != nil
     }
 
     // MARK: Test controls

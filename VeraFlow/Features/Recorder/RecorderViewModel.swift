@@ -61,6 +61,14 @@ final class RecorderViewModel {
     private(set) var notice: String?
     private(set) var errorMessage: String?
     var draftTitle = ""
+    /// Words while recording (v1.1 plan item 4): what the two-line block shows.
+    private(set) var preview = PreviewState()
+    /// True while the preview analyzer is running.
+    private(set) var isPreviewOn = false
+    /// Why the preview isn't running when it could be expected to; shown nowhere yet, logged.
+    private(set) var previewNotice: String?
+    /// Foreground state, told by the screen; the preview stops in the background.
+    private(set) var isSceneActive = true
 
     var isActive: Bool { phase == .recording || phase == .paused }
 
@@ -70,7 +78,10 @@ final class RecorderViewModel {
     private let context: ModelContext
     private let defaults: UserDefaults
     private let now: @Sendable () -> Date
+    /// Injected so tests can pretend the phone is hot.
+    private let thermalState: @Sendable () -> ProcessInfo.ThermalState
     private var streamTasks: [Task<Void, Never>] = []
+    private var previewTask: Task<Void, Never>?
     private var routeObserver: (any NSObjectProtocol)?
     /// Last port handed to the recorder, so route-change reloads don't re-apply the same one.
     private var appliedInputID: String??
@@ -79,12 +90,14 @@ final class RecorderViewModel {
         services: AppServices,
         context: ModelContext,
         defaults: UserDefaults = .standard,
-        now: @escaping @Sendable () -> Date = { .now }
+        now: @escaping @Sendable () -> Date = { .now },
+        thermalState: @escaping @Sendable () -> ProcessInfo.ThermalState = { ProcessInfo.processInfo.thermalState }
     ) {
         self.services = services
         self.context = context
         self.defaults = defaults
         self.now = now
+        self.thermalState = thermalState
         self.inputChoice = AudioInputChoice(stored: defaults.string(forKey: Self.inputChoiceKey))
         self.selectedTemplate = AppPreferences.defaultTemplate(in: defaults)
     }
@@ -227,6 +240,7 @@ final class RecorderViewModel {
         notice = nil
         phase = .recording
         observe(snapshots: snapshots, interruptions: interruptions)
+        await startPreviewIfPossible()
         // Lock Screen / Dynamic Island buttons arrive here while this recording is live.
         RecordingControlHub.shared.handler = { [weak self] action in
             guard let self else { return }
@@ -269,6 +283,7 @@ final class RecorderViewModel {
         isAskingToResume = false
         RecordingControlHub.shared.handler = nil
         await services.activity.end()
+        await stopPreview()
         do {
             let result = try await services.recorder.stop()
             recording.duration = result.duration
@@ -339,6 +354,85 @@ final class RecorderViewModel {
 
     func dismissNotice() {
         notice = nil
+    }
+
+    // MARK: Live transcript preview (v1.1 plan item 4)
+
+    /// The screen reports foreground changes. The preview stops in the background (the
+    /// recording goes on; the file pass makes the real transcript) and comes back on return.
+    func sceneDidChange(isActive: Bool) async {
+        isSceneActive = isActive
+        if !isActive {
+            await stopPreview(clearing: true)
+        } else if phase == .recording || phase == .paused {
+            await startPreviewIfPossible()
+        }
+    }
+
+    /// Thermal pressure: at `.serious` or worse the preview stops; it comes back once the
+    /// phone cools, if still recording.
+    func thermalDidChange() async {
+        if Self.isTooHot(thermalState()) {
+            if isPreviewOn { previewNotice = "Paused the live words to keep the iPhone cool." }
+            await stopPreview(clearing: false)
+        } else if isActive {
+            await startPreviewIfPossible()
+        }
+    }
+
+    /// Reacts to thermal notifications until the enclosing task is cancelled.
+    func watchThermalState() async {
+        let center = NotificationCenter.default
+        let observer = center.addObserver(forName: ProcessInfo.thermalStateDidChangeNotification, object: nil, queue: nil) { [weak self] _ in
+            Task { @MainActor [weak self] in await self?.thermalDidChange() }
+        }
+        defer { center.removeObserver(observer) }
+        while !Task.isCancelled {
+            try? await Task.sleep(for: .seconds(3600))
+        }
+    }
+
+    static func isTooHot(_ state: ProcessInfo.ThermalState) -> Bool {
+        state == .serious || state == .critical
+    }
+
+    /// Whether the preview should run now: the setting, the transcriber (never the dictation
+    /// fallback), the foreground, and the phone's temperature all have to agree.
+    private func startPreviewIfPossible() async {
+        guard !isPreviewOn, isActive, let recording else { return }
+        guard AppPreferences.showsLiveTranscript(in: defaults) else { return }
+        guard isSceneActive, !Self.isTooHot(thermalState()) else { return }
+        let locale = Locale(identifier: recording.localeIdentifier)
+        guard await services.transcriptPreview.isAvailable(locale: locale) else {
+            previewNotice = "Live words need the on-device speech model."
+            return
+        }
+        do {
+            let session = try await services.transcriptPreview.start(locale: locale)
+            await services.recorder.setPreviewSink(session.sink)
+            isPreviewOn = true
+            previewNotice = nil
+            previewTask?.cancel()
+            previewTask = Task { @MainActor [weak self] in
+                for await event in session.events {
+                    guard let self, !Task.isCancelled else { return }
+                    PreviewReducer.apply(event, to: &self.preview)
+                }
+            }
+        } catch {
+            Self.log.error("preview didn't start: \(error.localizedDescription, privacy: .public)")
+            previewNotice = "Live words aren't available right now."
+        }
+    }
+
+    private func stopPreview(clearing: Bool = true) async {
+        previewTask?.cancel()
+        previewTask = nil
+        guard isPreviewOn else { return }
+        isPreviewOn = false
+        await services.recorder.setPreviewSink(nil)
+        await services.transcriptPreview.stop()
+        if clearing { preview = PreviewState() }
     }
 
     func dismissError() {

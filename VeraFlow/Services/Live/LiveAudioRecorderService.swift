@@ -119,6 +119,7 @@ actor LiveAudioRecorderService: AudioRecorderService {
             throw AudioRecorderError.sessionFailed("Could not create the audio file: \(error.localizedDescription)")
         }
         let writer = TapWriter(file: file, sampleRate: Self.sampleRate)
+        writer.previewSink = pendingPreviewSink
 
         let engine = AVAudioEngine()
         let inputFormat = engine.inputNode.outputFormat(forBus: 0)
@@ -182,6 +183,15 @@ actor LiveAudioRecorderService: AudioRecorderService {
         status = .recording
         publishSnapshot()
     }
+
+    /// Stored on the writer so it is attached before and after every capture restart. A sink set
+    /// before `start` is kept for the next recording.
+    func setPreviewSink(_ sink: AudioBufferSink?) async {
+        pendingPreviewSink = sink
+        writer?.previewSink = sink
+    }
+
+    private var pendingPreviewSink: AudioBufferSink?
 
     func stop() async throws -> RecorderResult {
         guard status != .idle, let writer, let fileURL else {
@@ -645,6 +655,7 @@ private final class TapWriter: @unchecked Sendable {
     private var largestPeak: Float = 0
     private var isClosed = false
     private var _isPaused = false
+    private var _previewSink: AudioBufferSink?
 
     init(file: AVAudioFile, sampleRate: Double) {
         self.file = file
@@ -662,8 +673,16 @@ private final class TapWriter: @unchecked Sendable {
         }
     }
 
+    /// The live transcript preview's consumer (v1.1 plan item 4); survives capture restarts
+    /// because the writer does.
+    var previewSink: AudioBufferSink? {
+        get { lock.withLock { _previewSink } }
+        set { lock.withLock { _previewSink = newValue } }
+    }
+
     func append(_ buffer: AVAudioPCMBuffer) {
         if isPaused { return }
+        previewSink?(buffer)
         var bufferPeak: Float = 0
         if let channels = buffer.floatChannelData {
             let frameCount = Int(buffer.frameLength)

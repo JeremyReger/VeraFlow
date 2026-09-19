@@ -44,6 +44,7 @@ enum AppPreferences {
     static let sampleSeededKey = "sample.seeded"
     static let defaultCustomTemplateKey = "recording.defaultCustomTemplate"
     static let translationLanguageKey = "translation.targetLanguage"
+    static let liveTranscriptKey = "recording.liveTranscript"
 
     static func onboardingCompleted(in defaults: UserDefaults = .standard) -> Bool {
         defaults.bool(forKey: onboardingCompletedKey)
@@ -152,6 +153,15 @@ enum AppPreferences {
 
     static func setDefaultCustomTemplateID(_ id: UUID?, in defaults: UserDefaults = .standard) {
         defaults.set(id?.uuidString, forKey: defaultCustomTemplateKey)
+    }
+
+    /// "Show words while recording" (plan item 4). On by default.
+    static func showsLiveTranscript(in defaults: UserDefaults = .standard) -> Bool {
+        defaults.object(forKey: liveTranscriptKey) as? Bool ?? true
+    }
+
+    static func setShowsLiveTranscript(_ value: Bool, in defaults: UserDefaults = .standard) {
+        defaults.set(value, forKey: liveTranscriptKey)
     }
 
     /// The language last chosen under "Translate to…" (plan item 14), offered first next time.

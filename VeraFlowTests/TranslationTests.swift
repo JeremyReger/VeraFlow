@@ -56,6 +56,8 @@ struct TranslationTests {
 
     @Test("Prose is collected in a fixed order; names, values, quantities, owners, due phrases and timestamps stay put")
     func summaryStrings() {
+        // Built once: the computed property makes a fresh action-item id every time it is read.
+        let walkthrough = self.walkthrough
         let strings = SummaryTranslation.strings(of: walkthrough)
         #expect(strings == ["Kitchen remodel", "Walked the kitchen.", "Kitchen", "Pour footer", "North wall", "Rebar", "Grade 60", "Island", "Permit first", "Call the county"])
 

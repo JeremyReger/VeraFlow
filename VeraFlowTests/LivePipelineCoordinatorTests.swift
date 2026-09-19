@@ -308,6 +308,9 @@ struct LivePipelineCoordinatorTests {
         #expect(try harness.fetch(id)?.failedStage == nil)
     }
 
+    /// This one caught the dropped-retry bug: the store read `.ready` a moment before the drain
+    /// loop let go of the recording, and the relabel that landed in that window was thrown away
+    /// by `enqueue` with the stage already wound back (2026-09-19).
     @Test("Re-running speaker labels on a summarized recording keeps the summary and spends nothing")
     func relabelKeepsSummary() async throws {
         let harness = try makeHarness(unlocked: false)

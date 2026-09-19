@@ -27,6 +27,8 @@ actor LivePipelineCoordinator: PipelineCoordinating {
 
     private lazy var context = ModelContext(container)
     private var queue: [UUID] = []
+    /// Recordings asked for again while they were the one being processed; see `enqueue`.
+    private var requeueWhenCurrentFinishes: Set<UUID> = []
     private var current: UUID?
     private var currentTask: Task<Void, Never>?
     private var drainTask: Task<Void, Never>?
@@ -81,7 +83,15 @@ actor LivePipelineCoordinator: PipelineCoordinating {
 
     func enqueue(recordingID: UUID) async {
         cancelledIDs.remove(recordingID)
-        guard current != recordingID, !queue.contains(recordingID) else { return }
+        // Asked for again while this very recording is being processed. Dropping it here loses
+        // the request outright, and `retry` has already wound the stage back, so the recording
+        // would sit half-done with nothing queued: "Retry" and "Label speakers again" do nothing
+        // if they land in the last moments of a pass. Remember it and re-queue when that pass ends.
+        if current == recordingID {
+            requeueWhenCurrentFinishes.insert(recordingID)
+            return
+        }
+        guard !queue.contains(recordingID) else { return }
         queue.append(recordingID)
         startDrainIfNeeded()
     }
@@ -161,6 +171,7 @@ actor LivePipelineCoordinator: PipelineCoordinating {
         rateLimitRetries.removeValue(forKey: recordingID)?.cancel()
         rateLimitDue[recordingID] = nil
         queue.removeAll { $0 == recordingID }
+        requeueWhenCurrentFinishes.remove(recordingID)
         if current == recordingID {
             cancelledIDs.insert(recordingID)
             currentTask?.cancel()
@@ -218,6 +229,11 @@ actor LivePipelineCoordinator: PipelineCoordinating {
             await task.value
             currentTask = nil
             current = nil
+            // Something asked for this recording again while it was running. Take it next, so a
+            // Retry tapped as the pass ended is honoured rather than silently dropped.
+            if requeueWhenCurrentFinishes.remove(id) != nil, !cancelledIDs.contains(id) {
+                queue.insert(id, at: 0)
+            }
         }
     }
 

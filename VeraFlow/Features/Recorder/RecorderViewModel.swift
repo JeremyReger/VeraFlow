@@ -47,6 +47,12 @@ final class RecorderViewModel {
     private(set) var inputChoice: AudioInputChoice
     /// Summary template for the next recording, picked before recording starts (design spec §4).
     private(set) var selectedTemplate: TemplateID
+    /// A custom template on top of the base (v1.1 plan item 13), or nil for the built-in.
+    private(set) var selectedCustomTemplate: CustomTemplate?
+    /// The user's custom templates, for the picker.
+    private(set) var customTemplates: [CustomTemplate] = []
+    /// One line the summary should pay attention to (v1.1 plan item 13). Prefilled from the custom template.
+    var focusDraft = ""
     /// Free bytes when the low-disk warning fired; `nil` when there is no warning.
     private(set) var lowDiskBytes: Int64?
     /// True after a phone call ends and the system says we may resume (SPEC §8.3).
@@ -86,7 +92,34 @@ final class RecorderViewModel {
     /// Chooses the template the summary will use, and remembers it for next time.
     func selectTemplate(_ template: TemplateID) {
         selectedTemplate = template
+        selectedCustomTemplate = nil
         AppPreferences.setDefaultTemplate(template, in: defaults)
+        AppPreferences.setDefaultCustomTemplateID(nil, in: defaults)
+    }
+
+    /// A custom template: its base becomes the template, its focus prefills the focus line.
+    func selectCustomTemplate(_ template: CustomTemplate) {
+        selectedTemplate = template.base
+        selectedCustomTemplate = template
+        if focusDraft.trimmingCharacters(in: .whitespaces).isEmpty || focusDraft == selectedCustomTemplate?.focus {
+            focusDraft = template.focus
+        }
+        AppPreferences.setDefaultTemplate(template.base, in: defaults)
+        AppPreferences.setDefaultCustomTemplateID(template.id, in: defaults)
+    }
+
+    /// Reads the custom templates and restores the remembered one if it still exists.
+    func loadTemplates() {
+        customTemplates = (try? context.fetch(FetchDescriptor<CustomTemplate>(sortBy: [SortDescriptor(\.createdAt)]))) ?? []
+        if selectedCustomTemplate == nil, let id = AppPreferences.defaultCustomTemplateID(in: defaults) {
+            if let template = customTemplates.first(where: { $0.id == id }) {
+                selectedCustomTemplate = template
+                selectedTemplate = template.base
+                if focusDraft.isEmpty { focusDraft = template.focus }
+            } else {
+                AppPreferences.setDefaultCustomTemplateID(nil, in: defaults)
+            }
+        }
     }
 
     // MARK: Inputs
@@ -170,6 +203,8 @@ final class RecorderViewModel {
             localeIdentifier: AppPreferences.effectiveTranscriptionLocale(in: defaults).identifier(.bcp47),
             templateID: selectedTemplate
         )
+        recording.customTemplateID = selectedCustomTemplate?.id
+        recording.focus = FocusLine.sanitize(focusDraft)
         do {
             try services.storage.folder(for: recording.id, excludeFromBackup: !AppPreferences.includesRecordingsInBackup(in: defaults))
             let url = services.storage.audioURL(for: recording.id, fileName: recording.audioFileName)

@@ -13,6 +13,7 @@ struct ExportMenuItems: View {
     /// Passed in explicitly: toolbar menu content doesn't reliably see `@Environment` objects.
     let isUnlocked: Bool
     @Environment(\.services) private var services
+    @Environment(\.modelContext) private var modelContext
     @AppStorage("export.includeTranscript") private var includeTranscript = true
 
     /// Runs `action` if the tier allows it, otherwise opens the paywall.
@@ -83,7 +84,11 @@ struct ExportMenuItems: View {
     }
 
     private func document() -> ExportDocument {
-        ExportDocument.make(from: recording, includeTranscript: includeTranscript)
+        ExportDocument.make(
+            from: recording,
+            includeTranscript: includeTranscript,
+            hiddenSections: ExportDocument.hiddenSections(for: recording.currentSummary, in: modelContext)
+        )
     }
 }
 

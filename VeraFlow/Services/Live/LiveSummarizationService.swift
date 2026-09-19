@@ -271,7 +271,7 @@ actor LiveSummarizationService: SummarizationService {
         let template = input.template
         if TranscriptChunker.fitsInOneCall(input.lines, budgetTokens: inputTokens, tokenCount: tokenCount) {
             progress(SummarizationProgress(completedChunks: 0, totalChunks: 1))
-            let payload = try await final(from: TranscriptChunker.text(for: input.lines), template: template, fromTranscript: true)
+            let payload = try await final(from: TranscriptChunker.text(for: input.lines), template: template, fromTranscript: true, focus: input.focus)
             progress(SummarizationProgress(completedChunks: 1, totalChunks: 1))
             return payload
         }
@@ -311,7 +311,7 @@ actor LiveSummarizationService: SummarizationService {
             combined = notes.joined(separator: "\n\n")
         }
 
-        let payload = try await final(from: combined, template: template, fromTranscript: false)
+        let payload = try await final(from: combined, template: template, fromTranscript: false, focus: input.focus)
         completed += 1
         progress(SummarizationProgress(completedChunks: completed, totalChunks: total))
         return payload
@@ -322,9 +322,11 @@ actor LiveSummarizationService: SummarizationService {
         return try await session.respond(to: Prompt { text }, generating: ChunkNotesGenerable.self, options: Self.options).content
     }
 
-    private func final(from text: String, template: TemplateID, fromTranscript: Bool) async throws -> SummaryPayload {
+    /// The focus line adds at most ~60 tokens to the instructions; the output reserve absorbs it,
+    /// so the per-template budget cache stays valid.
+    private func final(from text: String, template: TemplateID, fromTranscript: Bool, focus: String) async throws -> SummaryPayload {
         let step = fromTranscript ? Prompts.finalFromTranscript(for: template) : Prompts.final(for: template)
-        let session = LanguageModelSession(instructions: Prompts.instructions(step))
+        let session = LanguageModelSession(instructions: Prompts.instructions(step, focus: focus))
         let prompt = Prompt { text }
         switch template {
         case .general:

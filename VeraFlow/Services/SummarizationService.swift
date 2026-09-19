@@ -31,6 +31,8 @@ struct SummarizationInput: Sendable, Equatable {
     var duration: TimeInterval
     var lines: [TranscriptLine]
     var template: TemplateID
+    /// v1.1: the focus line for the FINAL step, already sanitized (plan item 13).
+    var focus: String = ""
 }
 
 /// Why on-device summaries aren't available right now (SPEC §11.1).

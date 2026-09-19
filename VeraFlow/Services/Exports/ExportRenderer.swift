@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 
 /// Markdown and plain-text renderings of a recording (SPEC §12). Pure Swift, unit-tested; the
 /// PDF is laid out from the plain-text sections by `LiveExportService`.
@@ -24,7 +25,7 @@ enum ExportRenderer {
             out.append(contentsOf: section.lines)
             out.append("")
         }
-        if let summary = document.summary, !summary.actionItems.isEmpty {
+        if let summary = document.summary, !summary.actionItems.isEmpty, !document.hiddenSections.contains(.actionItems) {
             out.append("## Action items")
             out.append("")
             out.append(contentsOf: summary.actionItems.map { "- [ ] " + actionItemLine($0, document: document) })
@@ -60,7 +61,7 @@ enum ExportRenderer {
             out.append(contentsOf: section.lines.map { $0.hasPrefix("- ") ? "• " + String($0.dropFirst(2)) : $0 })
             out.append("")
         }
-        if let summary = document.summary, !summary.actionItems.isEmpty {
+        if let summary = document.summary, !summary.actionItems.isEmpty, !document.hiddenSections.contains(.actionItems) {
             out.append("ACTION ITEMS")
             out.append(contentsOf: summary.actionItems.map { "☐ " + actionItemLine($0, document: document) })
             out.append("")
@@ -92,7 +93,7 @@ enum ExportRenderer {
 
     /// Action items only (for Copy), one per line.
     static func actionItemsText(for document: ExportDocument) -> String {
-        guard let summary = document.summary else { return "" }
+        guard let summary = document.summary, !document.hiddenSections.contains(.actionItems) else { return "" }
         return summary.actionItems.map { "☐ " + actionItemLine($0, document: document) }.joined(separator: "\n")
     }
 
@@ -132,19 +133,23 @@ enum ExportRenderer {
 
     // MARK: Sections
 
+    /// Hidden sections (a custom template, v1.1 plan item 13) are left out here and in every format.
     static func summarySections(_ document: ExportDocument) -> [Section] {
         guard let summary = document.summary else { return [] }
+        let hidden = document.hiddenSections
         var sections: [Section] = []
-        func add(_ heading: String, _ items: [String]) {
-            guard !items.isEmpty else { return }
+        func add(_ heading: String, _ items: [String], _ section: SummarySection) {
+            guard !items.isEmpty, !hidden.contains(section) else { return }
             sections.append(Section(heading: heading, lines: items.map { "- \($0)" }))
         }
         switch summary {
         case .general(let general):
             sections.append(Section(heading: "Summary", lines: [general.overview]))
             let groups = general.keyPointGroups
-            if groups.count == 1, let only = groups.first, only.title == nil {
-                add("Key points", only.points)
+            if hidden.contains(.keyPoints) {
+                // nothing
+            } else if groups.count == 1, let only = groups.first, only.title == nil {
+                add("Key points", only.points, .keyPoints)
             } else if !groups.isEmpty {
                 // Subject headings as their own lines, points as bullets under each.
                 var lines: [String] = []
@@ -154,22 +159,22 @@ enum ExportRenderer {
                 }
                 sections.append(Section(heading: "Key points", lines: lines))
             }
-            add("Decisions", general.decisions)
-            add("Open questions", general.openQuestions)
+            add("Decisions", general.decisions, .decisions)
+            add("Open questions", general.openQuestions, .openQuestions)
         case .client(let client):
             sections.append(Section(heading: "Summary", lines: [client.overview]))
-            add("Client goals", client.clientGoals)
-            add("Concerns", client.concerns)
-            add("Decisions", client.decisions)
-            if !client.nextMeeting.isEmpty {
+            add("Client goals", client.clientGoals, .clientGoals)
+            add("Concerns", client.concerns, .concerns)
+            add("Decisions", client.decisions, .decisions)
+            if !client.nextMeeting.isEmpty, !hidden.contains(.nextMeeting) {
                 sections.append(Section(heading: "Next meeting", lines: [client.nextMeeting]))
             }
-            add("Open questions", client.openQuestions)
+            add("Open questions", client.openQuestions, .openQuestions)
         case .walkthrough(let walkthrough):
             var overview = [walkthrough.overview]
             if !walkthrough.location.isEmpty { overview.insert("Location: \(walkthrough.location)", at: 0) }
             sections.append(Section(heading: "Summary", lines: overview))
-            for area in walkthrough.areas {
+            for area in walkthrough.areas where !hidden.contains(.areas) {
                 var lines = area.tasks.map { "- \($0)" }
                 lines += area.measurements.map { measurement in
                     var line = "- \(measurement.item): \(measurement.value)"
@@ -182,9 +187,9 @@ enum ExportRenderer {
                 }
                 if !lines.isEmpty { sections.append(Section(heading: area.name, lines: lines)) }
             }
-            add("Customer requests", walkthrough.customerRequests)
-            add("Issues found", walkthrough.issuesFound)
-            add("Quote notes", walkthrough.quoteNotes)
+            add("Customer requests", walkthrough.customerRequests, .customerRequests)
+            add("Issues found", walkthrough.issuesFound, .issuesFound)
+            add("Quote notes", walkthrough.quoteNotes, .quoteNotes)
         }
         return sections
     }
@@ -193,7 +198,7 @@ enum ExportRenderer {
     /// plan item 1). Rendered after the summary sections in every format.
     static func contextSections(_ document: ExportDocument) -> [Section] {
         var sections: [Section] = []
-        if let chapters = document.summary?.chapters, !chapters.isEmpty {
+        if let chapters = document.summary?.chapters, !chapters.isEmpty, !document.hiddenSections.contains(.chapters) {
             sections.append(Section(heading: "Chapters", lines: chapters.map { "- [\(TranscriptChunker.timestamp($0.start))] \($0.title)" }))
         }
         if !document.marks.isEmpty {
@@ -230,7 +235,7 @@ enum ExportRenderer {
 extension ExportDocument {
     /// Snapshot of a recording for export; the current summary unless another is given.
     @MainActor
-    static func make(from recording: Recording, summary: SummaryRecord? = nil, includeTranscript: Bool) -> ExportDocument {
+    static func make(from recording: Recording, summary: SummaryRecord? = nil, includeTranscript: Bool, hiddenSections: Set<SummarySection> = []) -> ExportDocument {
         let record = summary ?? recording.currentSummary
         return ExportDocument(
             title: recording.title,
@@ -240,7 +245,17 @@ extension ExportDocument {
             summary: record.flatMap { try? $0.resolvedPayload() },
             segments: recording.orderedSegments.map { ExportSegment(start: $0.start, speakerKey: $0.speakerKey, text: $0.text) },
             includeTranscript: includeTranscript,
-            marks: recording.bookmarks.filter(\.isUserMark).sorted { $0.time < $1.time }.map { ExportMark(time: $0.time, label: $0.note ?? "") }
+            marks: recording.bookmarks.filter(\.isUserMark).sorted { $0.time < $1.time }.map { ExportMark(time: $0.time, label: $0.note ?? "") },
+            hiddenSections: hiddenSections
         )
+    }
+
+    /// The sections the summary's custom template hides, looked up in the store (v1.1 plan item 13).
+    @MainActor
+    static func hiddenSections(for record: SummaryRecord?, in context: ModelContext) -> Set<SummarySection> {
+        guard let id = record?.customTemplateID else { return [] }
+        var descriptor = FetchDescriptor<CustomTemplate>(predicate: #Predicate { $0.id == id })
+        descriptor.fetchLimit = 1
+        return (try? context.fetch(descriptor).first)?.hiddenSections ?? []
     }
 }

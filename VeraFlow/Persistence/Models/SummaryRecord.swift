@@ -13,6 +13,10 @@ final class SummaryRecord {
     var actionItemsState: Data
     /// e.g. "SystemLanguageModel iOS 27.0 · prompt v1"
     var modelInfo: String
+    /// v1.1: the custom template this summary was made with, if any (plan item 13).
+    var customTemplateID: UUID?
+    /// v1.1: the focus line it was told (plan item 13).
+    var focus: String = ""
 
     var recording: Recording?
 

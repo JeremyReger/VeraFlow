@@ -9,6 +9,7 @@ struct LibraryView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(AppState.self) private var appState
     @Query(sort: \Recording.createdAt, order: .reverse) private var recordings: [Recording]
+    @Query(sort: \CustomTemplate.createdAt) private var customTemplates: [CustomTemplate]
 
     @State private var controller: RecordingActionsController?
     @State private var filter = LibraryFilter()
@@ -259,10 +260,11 @@ struct LibraryView: View {
         let templates = TemplateID.allCases.filter { template in liveRecordings.contains { $0.templateID == template } }
         return ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                VFChip("All", isSelected: !filter.favoritesOnly && filter.template == nil && filter.tag == nil) {
+                VFChip("All", isSelected: !filter.favoritesOnly && filter.template == nil && filter.tag == nil && filter.customTemplateID == nil) {
                     filter.favoritesOnly = false
                     filter.template = nil
                     filter.tag = nil
+                    filter.customTemplateID = nil
                 }
                 VFChip("Starred", isSelected: filter.favoritesOnly) {
                     filter.favoritesOnly.toggle()
@@ -273,6 +275,12 @@ struct LibraryView: View {
                             filter.template = filter.template == template ? nil : template
                         }
                     }
+                }
+                ForEach(customTemplates.filter { template in liveRecordings.contains { $0.customTemplateID == template.id } }, id: \.id) { template in
+                    VFChip(template.name, isSelected: filter.customTemplateID == template.id) {
+                        filter.customTemplateID = filter.customTemplateID == template.id ? nil : template.id
+                    }
+                    .accessibilityHint("Filters the library by this template")
                 }
                 ForEach(allTags, id: \.self) { tag in
                     VFChip(tag, isSelected: filter.tag == tag) {

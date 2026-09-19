@@ -10,6 +10,7 @@ enum ModelContainerFactory {
         Speaker.self,
         Bookmark.self,
         SummaryRecord.self,
+        CustomTemplate.self,   // v1.1 plan item 13
     ])
 
     /// The on-disk container used by the app.

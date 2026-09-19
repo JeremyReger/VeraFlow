@@ -29,6 +29,8 @@ struct ExportDocument: Sendable, Equatable {
     var segments: [ExportSegment]
     var includeTranscript: Bool
     var marks: [ExportMark] = []
+    /// v1.1 plan item 13: sections a custom template hides.
+    var hiddenSections: Set<SummarySection> = []
 
     /// Display name for a speaker key, falling back to the key itself.
     func speakerName(for key: String?) -> String {

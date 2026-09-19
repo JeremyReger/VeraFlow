@@ -57,6 +57,7 @@ private struct RecorderContent: View {
             }
         }
         .task {
+            viewModel.loadTemplates()
             await viewModel.loadInputs()
             await viewModel.watchInputs()
         }
@@ -152,6 +153,7 @@ private struct RecorderContent: View {
             VStack(spacing: VFSpace.listGap) {
                 MicrophoneMenu(viewModel: viewModel, compact: false)
                 TemplateMenu(viewModel: viewModel)
+                FocusField(viewModel: viewModel)
             }
             .padding(.horizontal, VFSpace.gutter)
             VFReassurance()
@@ -331,8 +333,16 @@ private struct RecorderContent: View {
                     }
                     VFHairline()
                     VFSettingsRow(title: "Summary template") {
-                        Text(viewModel.selectedTemplate.shortName)
+                        Text(viewModel.selectedCustomTemplate?.name ?? viewModel.selectedTemplate.shortName)
                             .vfText(VFText.meta, color: VFColor.textSecondary)
+                    }
+                    if !viewModel.focusDraft.trimmingCharacters(in: .whitespaces).isEmpty {
+                        VFHairline()
+                        VFSettingsRow(title: "Focus") {
+                            Text(FocusLine.sanitize(viewModel.focusDraft))
+                                .vfText(VFText.meta, color: VFColor.textSecondary)
+                                .lineLimit(2)
+                        }
                     }
                     if viewModel.bookmarkCount > 0 {
                         VFHairline()
@@ -566,8 +576,13 @@ private struct MarkLabelChips: View {
 }
 
 /// The summary template picker, offered before recording (design spec §4 Record — ready).
+/// Custom templates (v1.1 plan item 13) list under the built-ins.
 private struct TemplateMenu: View {
     let viewModel: RecorderViewModel
+
+    private var selectedName: String {
+        viewModel.selectedCustomTemplate?.name ?? viewModel.selectedTemplate.displayName
+    }
 
     var body: some View {
         Menu {
@@ -575,18 +590,58 @@ private struct TemplateMenu: View {
                 Button {
                     viewModel.selectTemplate(template)
                 } label: {
-                    if template == viewModel.selectedTemplate {
+                    if template == viewModel.selectedTemplate, viewModel.selectedCustomTemplate == nil {
                         Label(template.displayName, systemImage: "checkmark")
                     } else {
                         Text(template.displayName)
                     }
                 }
             }
+            if !viewModel.customTemplates.isEmpty {
+                Divider()
+                ForEach(viewModel.customTemplates, id: \.id) { template in
+                    Button {
+                        viewModel.selectCustomTemplate(template)
+                    } label: {
+                        if template.id == viewModel.selectedCustomTemplate?.id {
+                            Label(template.name, systemImage: "checkmark")
+                        } else {
+                            Text(template.name)
+                        }
+                    }
+                }
+            }
         } label: {
-            VFPickerRowLabel(eyebrow: "Summary template", value: viewModel.selectedTemplate.displayName, systemName: "text.document")
+            VFPickerRowLabel(eyebrow: "Summary template", value: selectedName, systemName: "text.document")
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Summary template: \(viewModel.selectedTemplate.displayName)")
+        .accessibilityLabel("Summary template: \(selectedName)")
         .accessibilityIdentifier("recorder.templatePicker")
+    }
+}
+
+/// "Focus (optional)": one line the summary pays particular attention to (v1.1 plan item 13).
+private struct FocusField: View {
+    @Bindable var viewModel: RecorderViewModel
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "scope")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(VFColor.textTertiary)
+                .accessibilityHidden(true)
+            TextField("Focus (optional), e.g. the budget", text: $viewModel.focusDraft)
+                .vfText(VFText.rowLabel)
+                .submitLabel(.done)
+                .accessibilityLabel("Focus for the summary")
+                .accessibilityIdentifier("recorder.focus")
+        }
+        .padding(.horizontal, 14)
+        .frame(minHeight: 50)
+        .background(VFColor.surface, in: RoundedRectangle(cornerRadius: VFRadius.field, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: VFRadius.field, style: .continuous)
+                .strokeBorder(VFColor.border, lineWidth: VFMetric.hairline)
+        }
     }
 }

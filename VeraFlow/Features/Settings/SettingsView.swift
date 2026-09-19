@@ -212,6 +212,14 @@ struct SettingsView: View {
                 }
                 VFHairline()
                 NavigationLink {
+                    TemplatesView()
+                } label: {
+                    navigationRow("Templates")
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("settings.templates")
+                VFHairline()
+                NavigationLink {
                     LanguagePickerView()
                 } label: {
                     VFSettingsRow(title: "Transcription language", detail: "For new recordings and imports") {

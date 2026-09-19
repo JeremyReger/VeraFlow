@@ -44,8 +44,13 @@ enum Prompts {
     Draft a short, professional follow-up email from the consultant to the client based on this meeting summary. Thank them, restate the goals and decisions, list the action items with owners, and propose the next step. Do not add anything the summary does not say.
     """
 
-    /// Instructions for one call: the shared rules plus the step's own text.
-    static func instructions(_ step: String) -> String {
-        sharedRules + "\n\n" + step
+    /// Instructions for one call: the shared rules plus the step's own text, and for the FINAL
+    /// step the user's focus line last (v1.1 plan item 13).
+    static func instructions(_ step: String, focus: String = "") -> String {
+        var text = sharedRules + "\n\n" + step
+        if let line = FocusLine.instruction(for: focus) {
+            text += "\n\n" + line
+        }
+        return text
     }
 }

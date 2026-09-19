@@ -8,13 +8,15 @@ enum ExportGate {
         case copyActionItems
         case email
         case reminders
+        /// v1.1 plan item 13: making and using custom templates.
+        case customTemplates
     }
 
     static func isAllowed(_ action: Action, unlocked: Bool) -> Bool {
         if unlocked { return true }
         switch action {
         case .copySummary, .copyActionItems: return true
-        case .file, .email, .reminders: return false
+        case .file, .email, .reminders, .customTemplates: return false
         }
     }
 }

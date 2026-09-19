@@ -13,6 +13,10 @@ struct SummaryTab: View {
     @State private var selectedSummaryID: UUID?
     @State private var state = ActionItemsState()
     @State private var showsPaywall = false
+    @Query(sort: \CustomTemplate.createdAt) private var customTemplates: [CustomTemplate]
+    /// "Set focus…" from the Change menu (v1.1 plan item 13).
+    @State private var focusDraft = ""
+    @State private var isEditingFocus = false
     /// The action item being edited or added (v1.1 plan item 2).
     @State private var editing: EditingItem?
 
@@ -52,6 +56,18 @@ struct SummaryTab: View {
         }
         .sheet(isPresented: $showsPaywall) {
             PaywallView()
+        }
+        .alert("Focus for the summary", isPresented: $isEditingFocus) {
+            TextField("e.g. the budget", text: $focusDraft)
+            Button("Summarize again") {
+                recording.focus = FocusLine.sanitize(focusDraft)
+                try? modelContext.save()
+                selectedSummaryID = nil
+                Task { await services.pipeline.retry(recordingID: recording.id, from: .summarizing) }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("One line the summary pays particular attention to. The model still uses only what was said.")
         }
         .sheet(item: $editing) { editing in
             if let record = selected {
@@ -198,16 +214,29 @@ struct SummaryTab: View {
 
     // MARK: Content
 
+    /// The custom template a summary was made with, if it still exists.
+    private func customTemplate(for record: SummaryRecord) -> CustomTemplate? {
+        guard let id = record.customTemplateID else { return nil }
+        return customTemplates.first { $0.id == id }
+    }
+
     @ViewBuilder
     private func content(for payload: SummaryPayload, record: SummaryRecord) -> some View {
+        let hidden = customTemplate(for: record)?.hiddenSections ?? []
         Section {
             Text(payload.overview)
                 .vfText(VFText.summaryBody)
                 .padding(.vertical, 4)
                 .listRowSeparator(.hidden)
+            if !record.focus.isEmpty {
+                Label(record.focus, systemImage: "scope")
+                    .vfText(VFText.meta, color: VFColor.textTertiary)
+                    .listRowSeparator(.hidden)
+                    .accessibilityLabel("Focus: \(record.focus)")
+            }
         } header: {
             HStack(spacing: 10) {
-                Text(record.templateID.displayName.uppercased())
+                Text((customTemplate(for: record)?.name ?? record.templateID.displayName).uppercased())
                     .font(.custom(VFFontName.sansBold, size: 10.5, relativeTo: .caption2))
                     .tracking(1.4)
                     .foregroundStyle(VFColor.accent)
@@ -224,23 +253,23 @@ struct SummaryTab: View {
         let items = payload.resolvedActionItems(applying: state)
         switch payload {
         case .general(let summary):
-            keyPoints(summary.keyPointGroups)
-            stringList("Decisions", summary.decisions)
-            actionItems(items, record: record)
-            stringList("Open questions", summary.openQuestions)
+            if !hidden.contains(.keyPoints) { keyPoints(summary.keyPointGroups) }
+            if !hidden.contains(.decisions) { stringList("Decisions", summary.decisions) }
+            if !hidden.contains(.actionItems) { actionItems(items, record: record) }
+            if !hidden.contains(.openQuestions) { stringList("Open questions", summary.openQuestions) }
         case .client(let summary):
-            stringList("Client goals", summary.clientGoals)
-            stringList("Concerns", summary.concerns)
-            stringList("Decisions", summary.decisions)
-            actionItems(items, record: record)
-            if !summary.nextMeeting.isEmpty {
+            if !hidden.contains(.clientGoals) { stringList("Client goals", summary.clientGoals) }
+            if !hidden.contains(.concerns) { stringList("Concerns", summary.concerns) }
+            if !hidden.contains(.decisions) { stringList("Decisions", summary.decisions) }
+            if !hidden.contains(.actionItems) { actionItems(items, record: record) }
+            if !summary.nextMeeting.isEmpty, !hidden.contains(.nextMeeting) {
                 Section {
                     Text(summary.nextMeeting).vfText(VFText.summaryBody)
                 } header: {
                     VFSectionLabel("Next meeting")
                 }
             }
-            stringList("Open questions", summary.openQuestions)
+            if !hidden.contains(.openQuestions) { stringList("Open questions", summary.openQuestions) }
         case .walkthrough(let summary):
             if !summary.location.isEmpty {
                 Section {
@@ -249,13 +278,15 @@ struct SummaryTab: View {
                     VFSectionLabel("Location")
                 }
             }
-            ForEach(Array(summary.areas.enumerated()), id: \.offset) { _, area in
-                workArea(area)
+            if !hidden.contains(.areas) {
+                ForEach(Array(summary.areas.enumerated()), id: \.offset) { _, area in
+                    workArea(area)
+                }
             }
-            stringList("Customer requests", summary.customerRequests)
-            stringList("Issues found", summary.issuesFound)
-            stringList("Quote notes", summary.quoteNotes)
-            actionItems(items, record: record)
+            if !hidden.contains(.customerRequests) { stringList("Customer requests", summary.customerRequests) }
+            if !hidden.contains(.issuesFound) { stringList("Issues found", summary.issuesFound) }
+            if !hidden.contains(.quoteNotes) { stringList("Quote notes", summary.quoteNotes) }
+            if !hidden.contains(.actionItems) { actionItems(items, record: record) }
         }
 
         Section {
@@ -274,14 +305,37 @@ struct SummaryTab: View {
         Menu {
             ForEach(TemplateID.allCases) { template in
                 Button {
-                    rerun(with: template)
+                    rerun(with: template, custom: nil)
                 } label: {
-                    if template == recording.templateID {
+                    if template == recording.templateID, recording.customTemplateID == nil {
                         Label(template.displayName, systemImage: "checkmark")
                     } else {
                         Text(template.displayName)
                     }
                 }
+            }
+            if !customTemplates.isEmpty {
+                Divider()
+                ForEach(customTemplates, id: \.id) { template in
+                    Button {
+                        if ExportGate.isAllowed(.customTemplates, unlocked: appState?.isUnlocked ?? false) {
+                            rerun(with: template.base, custom: template)
+                        } else {
+                            showsPaywall = true
+                        }
+                    } label: {
+                        if template.id == recording.customTemplateID {
+                            Label(template.name, systemImage: "checkmark")
+                        } else {
+                            Text(template.name)
+                        }
+                    }
+                }
+            }
+            Divider()
+            Button("Set focus…", systemImage: "scope") {
+                focusDraft = recording.focus
+                isEditingFocus = true
             }
         } label: {
             Text("Change")
@@ -296,8 +350,10 @@ struct SummaryTab: View {
     }
 
     /// Sets the template and re-runs only the summary stage; the old summary stays in the history.
-    private func rerun(with template: TemplateID) {
+    private func rerun(with template: TemplateID, custom: CustomTemplate?) {
         recording.templateID = template
+        recording.customTemplateID = custom?.id
+        if let custom, recording.focus.isEmpty { recording.focus = custom.focus }
         try? modelContext.save()
         selectedSummaryID = nil
         Task { await services.pipeline.retry(recordingID: recording.id, from: .summarizing) }

@@ -27,10 +27,12 @@ struct LibraryFilter: Equatable, Sendable {
     var tag: String?
     /// Filter chip for one summary template (design spec: "the user's own template names").
     var template: TemplateID?
+    /// Filter chip for one custom template (v1.1 plan item 13).
+    var customTemplateID: UUID?
 
     /// True when anything other than the default ordering is applied.
     var isNarrowing: Bool {
-        !trimmedSearch.isEmpty || favoritesOnly || tag != nil || template != nil
+        !trimmedSearch.isEmpty || favoritesOnly || tag != nil || template != nil || customTemplateID != nil
     }
 
     private var trimmedSearch: String {
@@ -45,6 +47,7 @@ struct LibraryFilter: Equatable, Sendable {
             if favoritesOnly, !recording.isFavorite { return false }
             if let tag, !recording.tags.contains(tag) { return false }
             if let template, recording.templateID != template { return false }
+            if let customTemplateID, recording.customTemplateID != customTemplateID { return false }
             if !query.isEmpty, !Self.matches(query: query, in: Self.searchableText(for: recording)) { return false }
             return true
         }

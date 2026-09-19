@@ -393,6 +393,8 @@ actor LivePipelineCoordinator: PipelineCoordinating {
                 payloadJSON: try payload.encoded(),
                 modelInfo: "\(await summarization.modelInfo()) · prompt v\(Prompts.version)"
             )
+            record.customTemplateID = recording.customTemplateID
+            record.focus = input.focus
             recording.summaries.append(record)
             recording.stage = .ready
             rateLimitStrikes[id] = nil

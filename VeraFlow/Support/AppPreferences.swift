@@ -42,6 +42,7 @@ enum AppPreferences {
     static let notifySummaryReadyKey = "notifications.summaryReady"
     static let includeInBackupKey = "storage.includeInBackup"
     static let sampleSeededKey = "sample.seeded"
+    static let defaultCustomTemplateKey = "recording.defaultCustomTemplate"
 
     static func onboardingCompleted(in defaults: UserDefaults = .standard) -> Bool {
         defaults.bool(forKey: onboardingCompletedKey)
@@ -141,6 +142,15 @@ enum AppPreferences {
 
     static func setIncludesRecordingsInBackup(_ value: Bool, in defaults: UserDefaults = .standard) {
         defaults.set(value, forKey: includeInBackupKey)
+    }
+
+    /// The custom template last picked on the Record screen (plan item 13); `nil` = a built-in.
+    static func defaultCustomTemplateID(in defaults: UserDefaults = .standard) -> UUID? {
+        defaults.string(forKey: defaultCustomTemplateKey).flatMap(UUID.init(uuidString:))
+    }
+
+    static func setDefaultCustomTemplateID(_ id: UUID?, in defaults: UserDefaults = .standard) {
+        defaults.set(id?.uuidString, forKey: defaultCustomTemplateKey)
     }
 
     /// Alpha builds add the sample recording on first launch (plan item 7); once only.

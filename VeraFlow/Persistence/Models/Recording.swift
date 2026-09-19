@@ -27,6 +27,10 @@ final class Recording {
     /// v1.1: false when the audio file is gone (an archive without audio, plan item 5); the
     /// transcript, labels and summary stay usable, playback is hidden.
     var audioAvailable: Bool = true
+    /// v1.1: the custom template chosen for this recording (plan item 13); `templateID` holds its base.
+    var customTemplateID: UUID?
+    /// v1.1: one line the summary should pay particular attention to (plan item 13).
+    var focus: String = ""
 
     @Relationship(deleteRule: .cascade, inverse: \TranscriptSegment.recording)
     var segments: [TranscriptSegment]

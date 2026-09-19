@@ -22,7 +22,8 @@ extension SummarizationInput {
             recordedAt: recording.createdAt,
             duration: recording.duration,
             lines: lines,
-            template: template ?? recording.templateID
+            template: template ?? recording.templateID,
+            focus: FocusLine.sanitize(recording.focus)
         )
     }
 }

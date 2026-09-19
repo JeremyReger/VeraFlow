@@ -117,7 +117,7 @@ Update this file at the end of every session. Check an item only when its "Done 
   - [ ] App icon (generated, reproducible) + alpha variant
   - [ ] Listing copy, privacy + terms pages, screenshot UI test, review notes
   - [ ] §14.5 checklist with evidence; TestFlight build
-  - [ ] Xcode 27 migration (needs Xcode 27 on Jeremy's Mac)
+  - [ ] Xcode 27 migration (needs Xcode 27 on Jeremy's Mac). Until then `LanguageModelErrorBridge` names the iOS 27 `LanguageModelError` cases from their description. Device 2026-09-19: a 25:39 recording's summary had failed twice ("LanguageModelError error -1" after 110 s, then rate limited); on the bridged build Retry summarized it cleanly in 2 chunks of ≤6,140 tokens (context 8,192) with 6 action items and no model error
   - [x] Redesign from Jeremy's design package (plan: `docs/plans/2026-09-18-redesign.md`): every screen restyled; `scripts/test.sh` green; Jeremy 2026-09-18: "looks very good" on device. Follow-ups from that look: Appearance picker (System / Light / Dark) and search across summary, tags and transcript, both built the same day. Two real bugs surfaced by the UI tests on the way: a rename never showed because the card preferred the generated title, and a screen identifier was overwriting every header button's identifier. Now in day-to-day use by Jeremy; VoiceOver pass, largest text size, and Files import still to check
 
 ## Requests from device testing

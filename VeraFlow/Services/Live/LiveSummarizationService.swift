@@ -10,15 +10,22 @@ import os
 // cycled the same six topics nineteen times until it ran out of window and the JSON was cut off
 // mid-string, which came back as a decoding failure. `.maximumCount` is enforced by constrained
 // decoding, so the loop can't start (2026-09-19).
+//
+// No description carries an example value. A guide reading "e.g. '12 ft 4 in'" put that string
+// into the answer: on a 35-second, 117-word recording the walkthrough template returned ten rooms
+// and twenty measurements, and "Kitchen wall, north", "12 ft 4 in" and "Master bath" — the three
+// example values these descriptions used to carry — appeared in every attempt. The model reads
+// the schema as part of its context, so an example in it is something to copy when there is
+// nothing real to say. Describe the shape; never show a value (2026-09-20).
 
 @available(iOS 26, *)
 @Generable(description: "One task someone agreed to do.")
 struct ActionItemDraftGenerable {
     @Guide(description: "The task, starting with a verb. One sentence.")
     var task: String
-    @Guide(description: "Person responsible, exactly as named in the transcript, e.g. 'Speaker 2' or a first name. Empty if not stated.")
+    @Guide(description: "Person responsible, named exactly as the transcript names them. Empty if the transcript does not say.")
     var owner: String
-    @Guide(description: "Due date phrase exactly as spoken, e.g. 'next Friday', 'by the 30th'. Empty if none was said. Do not invent dates.")
+    @Guide(description: "The due date phrase word for word as it was spoken. Empty if no date was spoken. Never work one out.")
     var dueText: String
     @Guide(description: "Timestamp mm:ss or h:mm:ss of the line where this was said.")
     var timestamp: String
@@ -98,9 +105,9 @@ struct FollowUpEmailGenerable {
 @available(iOS 26, *)
 @Generable(description: "A measurement spoken on site.")
 struct MeasurementGenerable {
-    @Guide(description: "What was measured, e.g. 'Kitchen wall, north'.")
+    @Guide(description: "What was measured, named as the transcript names it.")
     var item: String
-    @Guide(description: "The value exactly as spoken, e.g. '12 ft 4 in'. Never estimate or convert.")
+    @Guide(description: "The value word for word as it was spoken. Never estimate, round or convert.")
     var value: String
 }
 
@@ -115,7 +122,7 @@ struct MaterialGenerable {
 @available(iOS 26, *)
 @Generable(description: "One room or area of the job.")
 struct WorkAreaGenerable {
-    @Guide(description: "Room or area name, e.g. 'Master bath'.")
+    @Guide(description: "The room or area, named as the transcript names it.")
     var name: String
     @Guide(description: "Work to be done in this area.", .maximumCount(10))
     var tasks: [String]
@@ -146,6 +153,132 @@ struct WalkthroughSummaryGenerable {
     var quoteNotes: [String]
     @Guide(description: "Tasks someone agreed to do. Empty if none.", .maximumCount(10))
     var actionItems: [ActionItemDraftGenerable]
+}
+
+// MARK: - Compact drafts
+
+// The same shapes with a third of the room, for a transcript too short to fill the full ones.
+// Each converts straight to the payload type rather than to its full-sized twin, so nothing here
+// has to construct a `@Generable` value.
+
+@available(iOS 26, *)
+@Generable(description: "One subject and the points made about it.")
+struct KeyPointTopicCompactGenerable {
+    @Guide(description: "The subject, 2–6 words, as the participants would name it.")
+    var title: String
+    @Guide(description: "Key points on this subject, each under 20 words. Statements, never questions.", .maximumCount(3))
+    var points: [String]
+    @Guide(description: "Timestamp mm:ss or h:mm:ss of the first transcript line about this subject. Empty if unsure.")
+    var startTimestamp: String
+}
+
+@available(iOS 26, *)
+@Generable(description: "A short meeting summary.")
+struct GeneralSummaryCompactGenerable {
+    @Guide(description: "Short title, max 8 words.")
+    var title: String
+    @Guide(description: "A 2–4 sentence overview of what was said. Only what the transcript says.")
+    var overview: String
+    @Guide(description: "Key points grouped by subject. A recording about one subject gets one topic.", .maximumCount(2))
+    var topics: [KeyPointTopicCompactGenerable]
+    @Guide(description: "Decisions actually agreed on. Empty if none.", .maximumCount(3))
+    var decisions: [String]
+    @Guide(description: "Tasks someone agreed to do. Empty if none.", .maximumCount(4))
+    var actionItems: [ActionItemDraftGenerable]
+    @Guide(description: "Unresolved questions. Empty if none.", .maximumCount(3))
+    var openQuestions: [String]
+}
+
+@available(iOS 26, *)
+@Generable(description: "A short client meeting summary.")
+struct ClientMeetingSummaryCompactGenerable {
+    @Guide(description: "Short title, max 8 words.")
+    var title: String
+    @Guide(description: "A 2–4 sentence overview.")
+    var overview: String
+    @Guide(description: "What the client wants to achieve, in their words where possible.", .maximumCount(3))
+    var clientGoals: [String]
+    @Guide(description: "Concerns, objections, budget or timeline constraints the client raised.", .maximumCount(3))
+    var concerns: [String]
+    @Guide(description: "Decisions actually agreed on. Empty if none.", .maximumCount(3))
+    var decisions: [String]
+    @Guide(description: "Tasks someone agreed to do. Empty if none.", .maximumCount(4))
+    var actionItems: [ActionItemDraftGenerable]
+    @Guide(description: "Next meeting or check-in if mentioned, else empty.")
+    var nextMeeting: String
+    @Guide(description: "Unresolved questions. Empty if none.", .maximumCount(3))
+    var openQuestions: [String]
+    @Guide(description: "The subjects discussed, in order. Never repeat a subject.", .maximumCount(2))
+    var topics: [KeyPointTopicCompactGenerable]
+}
+
+@available(iOS 26, *)
+@Generable(description: "One room or area of a job site.")
+struct WorkAreaCompactGenerable {
+    @Guide(description: "The room or area, named as the transcript names it.")
+    var name: String
+    @Guide(description: "Work to be done in this area.", .maximumCount(3))
+    var tasks: [String]
+    @Guide(description: "Only measurements explicitly spoken. Never estimate or convert.", .maximumCount(4))
+    var measurements: [MeasurementGenerable]
+    @Guide(description: "Materials mentioned for this area. Empty if none.", .maximumCount(3))
+    var materials: [MaterialGenerable]
+    @Guide(description: "Timestamp mm:ss or h:mm:ss of the first transcript line in this area. Empty if unsure.")
+    var startTimestamp: String
+}
+
+@available(iOS 26, *)
+@Generable(description: "A short job-site walk-through summary.")
+struct WalkthroughSummaryCompactGenerable {
+    @Guide(description: "Short title, max 8 words.")
+    var title: String
+    @Guide(description: "Job address or location if spoken, else empty.")
+    var location: String
+    @Guide(description: "A 2–4 sentence overview.")
+    var overview: String
+    @Guide(description: "One entry per room or area actually walked. Never repeat an area.", .maximumCount(2))
+    var areas: [WorkAreaCompactGenerable]
+    @Guide(description: "Specific customer requests or preferences.", .maximumCount(3))
+    var customerRequests: [String]
+    @Guide(description: "Problems found. Empty if none.", .maximumCount(3))
+    var issuesFound: [String]
+    @Guide(description: "Notes useful for writing the quote. Empty if none.", .maximumCount(3))
+    var quoteNotes: [String]
+    @Guide(description: "Tasks someone agreed to do. Empty if none.", .maximumCount(4))
+    var actionItems: [ActionItemDraftGenerable]
+}
+
+// MARK: - How much room the answer gets
+
+/// A short transcript handed the full schema is the padding engine.
+///
+/// The walkthrough schema offers ten areas, each with ten tasks, twelve measurements and ten
+/// materials — over three hundred slots. On a 117-word recording the model filled them, and a
+/// bound is also a budget: `.maximumCount` turned "runs until the window blows" into "runs until
+/// the cap", which is an improvement in failure mode and none at all in content. So the cap is
+/// chosen from the transcript rather than fixed.
+///
+/// This is deliberately not `DynamicGenerationSchema`, which is the obvious tool and stays on the
+/// list (DECISIONS.md 2026-09-19). Building a schema at runtime means an API this project has not
+/// verified against the SDK, and CLAUDE.md is explicit that these APIs are not to be written from
+/// memory. Two statically-bounded tiers use `.maximumCount`, which is already in use and already
+/// proven to be enforced by constrained decoding.
+enum SummaryScale: Sendable {
+    case compact
+    case full
+
+    /// Below this, a transcript gets the compact schema. Roughly three minutes of speech: short
+    /// enough that a full-sized answer would have to be invented, long enough that a real meeting
+    /// isn't squeezed. A recording at the boundary loses nothing it had anything to say about.
+    static let compactWordLimit = 400
+
+    static func forTranscript(words: Int) -> SummaryScale {
+        words < compactWordLimit ? .compact : .full
+    }
+
+    static func words(in text: String) -> Int {
+        text.split(whereSeparator: \.isWhitespace).count
+    }
 }
 
 // MARK: - Service
@@ -330,9 +463,13 @@ actor LiveSummarizationService: SummarizationService {
         progress: @Sendable @escaping (SummarizationProgress) -> Void
     ) async throws -> SummaryPayload {
         let template = input.template
+        let transcript = TranscriptChunker.text(for: input.lines)
+        // Measured on the transcript, never on the notes the reduce step produces: a long meeting
+        // reduced to a page of notes still has a long meeting's worth of things to say.
+        let scale = SummaryScale.forTranscript(words: SummaryScale.words(in: transcript))
         if !forceChunking, TranscriptChunker.fitsInOneCall(input.lines, budgetTokens: inputTokens, tokenCount: tokenCount) {
             progress(SummarizationProgress(completedChunks: 0, totalChunks: 1))
-            let payload = try await final(from: TranscriptChunker.text(for: input.lines), template: template, fromTranscript: true, focus: input.focus, outputTokens: outputTokens)
+            let payload = try await final(from: transcript, template: template, fromTranscript: true, focus: input.focus, outputTokens: outputTokens, scale: scale)
             progress(SummarizationProgress(completedChunks: 1, totalChunks: 1))
             return payload
         }
@@ -372,7 +509,7 @@ actor LiveSummarizationService: SummarizationService {
             combined = notes.joined(separator: "\n\n")
         }
 
-        let payload = try await final(from: combined, template: template, fromTranscript: false, focus: input.focus, outputTokens: outputTokens)
+        let payload = try await final(from: combined, template: template, fromTranscript: false, focus: input.focus, outputTokens: outputTokens, scale: scale)
         completed += 1
         progress(SummarizationProgress(completedChunks: completed, totalChunks: total))
         return payload
@@ -389,56 +526,31 @@ actor LiveSummarizationService: SummarizationService {
 
     /// The focus line adds at most ~60 tokens to the instructions; the output reserve absorbs it,
     /// so the per-template budget cache stays valid.
-    private func final(from text: String, template: TemplateID, fromTranscript: Bool, focus: String, outputTokens: Int) async throws -> SummaryPayload {
+    private func final(from text: String, template: TemplateID, fromTranscript: Bool, focus: String, outputTokens: Int, scale: SummaryScale) async throws -> SummaryPayload {
         let step = fromTranscript ? Prompts.finalFromTranscript(for: template) : Prompts.final(for: template)
         let session = LanguageModelSession(instructions: Prompts.instructions(step, focus: focus))
         let prompt = Prompt { text }
         let options = Self.options(outputTokens: outputTokens)
-        switch template {
-        case .general:
+        Self.log.info("final call: \(String(describing: template), privacy: .public) schema, \(String(describing: scale), privacy: .public)")
+        switch (template, scale) {
+        case (.general, .full):
             let content = try await session.respond(to: prompt, generating: GeneralSummaryGenerable.self, options: options).content
-            return .general(GeneralSummary(
-                title: content.title,
-                overview: content.overview,
-                keyPoints: content.topics.flatMap(\.points),
-                topics: content.topics.map(Self.topic),
-                decisions: content.decisions,
-                actionItems: content.actionItems.map(Self.actionItem),
-                openQuestions: content.openQuestions
-            ))
-        case .client:
+            return .general(Self.summary(content))
+        case (.general, .compact):
+            let content = try await session.respond(to: prompt, generating: GeneralSummaryCompactGenerable.self, options: options).content
+            return .general(Self.summary(content))
+        case (.client, .full):
             let content = try await session.respond(to: prompt, generating: ClientMeetingSummaryGenerable.self, options: options).content
-            return .client(ClientMeetingSummary(
-                title: content.title,
-                overview: content.overview,
-                clientGoals: content.clientGoals,
-                concerns: content.concerns,
-                decisions: content.decisions,
-                actionItems: content.actionItems.map(Self.actionItem),
-                nextMeeting: content.nextMeeting,
-                openQuestions: content.openQuestions,
-                topics: content.topics.map(Self.topic)
-            ))
-        case .walkthrough:
+            return .client(Self.summary(content))
+        case (.client, .compact):
+            let content = try await session.respond(to: prompt, generating: ClientMeetingSummaryCompactGenerable.self, options: options).content
+            return .client(Self.summary(content))
+        case (.walkthrough, .full):
             let content = try await session.respond(to: prompt, generating: WalkthroughSummaryGenerable.self, options: options).content
-            return .walkthrough(WalkthroughSummary(
-                title: content.title,
-                location: content.location,
-                overview: content.overview,
-                areas: content.areas.map { area in
-                    WorkArea(
-                        name: area.name,
-                        tasks: area.tasks,
-                        measurements: area.measurements.map { Measurement(item: $0.item, value: $0.value, timestamp: nil) },
-                        materials: area.materials.map { Material(name: $0.name, quantity: $0.quantity, notes: $0.notes) },
-                        start: ActionItemPostProcessor.parseTimestamp(area.startTimestamp)
-                    )
-                },
-                customerRequests: content.customerRequests,
-                issuesFound: content.issuesFound,
-                quoteNotes: content.quoteNotes,
-                actionItems: content.actionItems.map(Self.actionItem)
-            ))
+            return .walkthrough(Self.summary(content))
+        case (.walkthrough, .compact):
+            let content = try await session.respond(to: prompt, generating: WalkthroughSummaryCompactGenerable.self, options: options).content
+            return .walkthrough(Self.summary(content))
         }
     }
 
@@ -529,6 +641,108 @@ actor LiveSummarizationService: SummarizationService {
 
     static func topic(_ draft: KeyPointTopicGenerable) -> KeyPointTopic {
         KeyPointTopic(title: draft.title, points: draft.points, start: ActionItemPostProcessor.parseTimestamp(draft.startTimestamp))
+    }
+
+    static func topic(_ draft: KeyPointTopicCompactGenerable) -> KeyPointTopic {
+        KeyPointTopic(title: draft.title, points: draft.points, start: ActionItemPostProcessor.parseTimestamp(draft.startTimestamp))
+    }
+
+    // Each tier maps itself. The two shapes are identical field for field — only the counts in
+    // their guides differ — so the payload types below are built twice rather than converting a
+    // compact draft into a full one, which would mean constructing a `@Generable` value.
+
+    static func summary(_ draft: GeneralSummaryGenerable) -> GeneralSummary {
+        GeneralSummary(
+            title: draft.title,
+            overview: draft.overview,
+            keyPoints: draft.topics.flatMap(\.points),
+            topics: draft.topics.map(Self.topic),
+            decisions: draft.decisions,
+            actionItems: draft.actionItems.map(Self.actionItem),
+            openQuestions: draft.openQuestions
+        )
+    }
+
+    static func summary(_ draft: GeneralSummaryCompactGenerable) -> GeneralSummary {
+        GeneralSummary(
+            title: draft.title,
+            overview: draft.overview,
+            keyPoints: draft.topics.flatMap(\.points),
+            topics: draft.topics.map(Self.topic),
+            decisions: draft.decisions,
+            actionItems: draft.actionItems.map(Self.actionItem),
+            openQuestions: draft.openQuestions
+        )
+    }
+
+    static func summary(_ draft: ClientMeetingSummaryGenerable) -> ClientMeetingSummary {
+        ClientMeetingSummary(
+            title: draft.title,
+            overview: draft.overview,
+            clientGoals: draft.clientGoals,
+            concerns: draft.concerns,
+            decisions: draft.decisions,
+            actionItems: draft.actionItems.map(Self.actionItem),
+            nextMeeting: draft.nextMeeting,
+            openQuestions: draft.openQuestions,
+            topics: draft.topics.map(Self.topic)
+        )
+    }
+
+    static func summary(_ draft: ClientMeetingSummaryCompactGenerable) -> ClientMeetingSummary {
+        ClientMeetingSummary(
+            title: draft.title,
+            overview: draft.overview,
+            clientGoals: draft.clientGoals,
+            concerns: draft.concerns,
+            decisions: draft.decisions,
+            actionItems: draft.actionItems.map(Self.actionItem),
+            nextMeeting: draft.nextMeeting,
+            openQuestions: draft.openQuestions,
+            topics: draft.topics.map(Self.topic)
+        )
+    }
+
+    static func summary(_ draft: WalkthroughSummaryGenerable) -> WalkthroughSummary {
+        WalkthroughSummary(
+            title: draft.title,
+            location: draft.location,
+            overview: draft.overview,
+            areas: draft.areas.map { area in
+                WorkArea(
+                    name: area.name,
+                    tasks: area.tasks,
+                    measurements: area.measurements.map { Measurement(item: $0.item, value: $0.value, timestamp: nil) },
+                    materials: area.materials.map { Material(name: $0.name, quantity: $0.quantity, notes: $0.notes) },
+                    start: ActionItemPostProcessor.parseTimestamp(area.startTimestamp)
+                )
+            },
+            customerRequests: draft.customerRequests,
+            issuesFound: draft.issuesFound,
+            quoteNotes: draft.quoteNotes,
+            actionItems: draft.actionItems.map(Self.actionItem)
+        )
+    }
+
+    static func summary(_ draft: WalkthroughSummaryCompactGenerable) -> WalkthroughSummary {
+        WalkthroughSummary(
+            title: draft.title,
+            location: draft.location,
+            overview: draft.overview,
+            areas: draft.areas.map { area in
+                WorkArea(
+                    name: area.name,
+                    tasks: area.tasks,
+                    measurements: area.measurements.map { Measurement(item: $0.item, value: $0.value, timestamp: nil) },
+                    materials: area.materials.map { Material(name: $0.name, quantity: $0.quantity, notes: $0.notes) },
+                    start: ActionItemPostProcessor.parseTimestamp(area.startTimestamp)
+                )
+            },
+            customerRequests: draft.customerRequests,
+            issuesFound: draft.issuesFound,
+            quoteNotes: draft.quoteNotes,
+            actionItems: draft.actionItems.map(Self.actionItem)
+        )
     }
 
     static func actionItem(_ draft: ActionItemDraftGenerable) -> ActionItem {

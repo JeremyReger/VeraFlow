@@ -320,9 +320,10 @@ struct FollowUpEmail: Codable, Sendable, Equatable {
 // MARK: - Template 3: Contractor job walk-through
 
 struct Measurement: Codable, Sendable, Equatable {
-    /// e.g. "Kitchen wall, north"
+    /// What was measured, named as the transcript names it.
     var item: String
-    /// Verbatim, e.g. "12 ft 4 in". Never estimated or converted.
+    /// Word for word as spoken. Never estimated, rounded or converted, and dropped outright by
+    /// `TranscriptGrounding` when a number in it was never said.
     var value: String
     /// Where it was said, if it could be placed.
     var timestamp: TimeInterval?

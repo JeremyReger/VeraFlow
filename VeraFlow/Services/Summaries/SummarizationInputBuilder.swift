@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 extension SummarizationInput {
     /// The transcript as `[mm:ss] Name: text` lines plus the facts the summarizer needs (SPEC §11.3).
@@ -59,12 +60,53 @@ extension ActionItemPostProcessor.Context {
 }
 
 extension SummaryPayload {
+    private static let groundingLog = Logger(subsystem: "com.jeremyreger.veraflow", category: "summaries")
+
+    /// What grounding took out, so a device run says so rather than silently shrinking. A high
+    /// count is the signal that the model is filling the schema rather than reading the transcript.
+    private static func logGrounding(before: SummaryPayload, after: SummaryPayload, index: TranscriptGrounding.Index) {
+        let measurements = before.measurementCount - after.measurementCount
+        let areas = before.areaCount - after.areaCount
+        let items = before.actionItems.count - after.actionItems.count
+        if measurements > 0 || areas > 0 || items > 0 {
+            groundingLog.notice("""
+                grounding dropped \(areas, privacy: .public) areas, \(measurements, privacy: .public) measurements, \
+                \(items, privacy: .public) action items the transcript never said
+                """)
+        }
+        let unsupported = TranscriptGrounding.unsupportedOverviewNumbers(after, in: index)
+        if !unsupported.isEmpty {
+            // Kept, because a summary with no overview is worse — but it wants to be visible.
+            groundingLog.notice("overview carries \(unsupported.count, privacy: .public) numbers the transcript never said")
+        }
+    }
+
+    fileprivate var measurementCount: Int {
+        guard case .walkthrough(let summary) = self else { return 0 }
+        return summary.areas.reduce(0) { $0 + $1.measurements.count }
+    }
+
+    fileprivate var areaCount: Int {
+        guard case .walkthrough(let summary) = self else { return 0 }
+        return summary.areas.count
+    }
+
     /// Runs SPEC §11.6 post-processing over every action item (and walk-through measurements'
     /// timestamps) in the payload, then validates the chapter starts (v1.1 plan item 12).
     func postProcessed(with processor: ActionItemPostProcessor, context: ActionItemPostProcessor.Context) -> SummaryPayload {
+        // Grounding runs before everything else. A measurement that was never spoken must not
+        // reach the chapter pass or the due-date resolver, which would give an invented figure a
+        // timestamp and an invented phrase a real date on the calendar (2026-09-20).
+        let index = TranscriptGrounding.index(
+            segments: context.segments,
+            speakers: context.speakers.map { $0.displayName }
+        )
+        var result = TranscriptGrounding.grounded(self, in: index)
+        Self.logGrounding(before: self, after: result, index: index)
+
         // The model pads a thin transcript by repeating itself; drop the repeats before anything
         // downstream reads the topics, so a dropped topic never claims a chapter.
-        var result = SummaryDeduplicator.cleaned(self)
+        result = SummaryDeduplicator.cleaned(result)
         let sources = result.chapterSources
         result.setChapterStarts(ChapterPostProcessor.starts(
             for: sources.map(\.title),

@@ -262,6 +262,17 @@ Waves A, B and C were written together in one build on 2026-09-19 while Jeremy w
   - [x] One more fixed height found and fixed: the summary's template chip (`frame(height: 24)`), the same bug as the six in the first pass
   - [ ] Device: at the largest accessibility size check the library (header buttons stacked, card titles whole, last card clear of Record), the detail header (title on up to three lines, metadata wrapping as a sentence) and the Summary tab's template row
   - [ ] Device: VoiceOver on the detail header — the metadata should read as one phrase with the duration spoken ("11 seconds", not "zero colon eleven")
+- [x] Invented measurements: the guardrail moves into Swift (2026-09-20, from Jeremy's Mac log)
+  - [x] A 35-second, 117-word recording came back from the walkthrough template with ten rooms — Kitchen, Bathroom, Living Room, Bedroom, Hallway, Garage, Basement, Attic, Utility room, Storage room — and twenty-odd measurements, materials and a street address. Two attempts failed only because the JSON overran the window; the third parsed and was saved
+  - [x] `"Kitchen wall, north"`, `"12 ft 4 in"` and `"Master bath"` appeared in every attempt, and all three were the example values in the `@Guide` descriptions. The schema is part of the model's context, so an example in it is a thing to copy. No description carries a value now
+  - [x] `TranscriptGrounding` is the guarantee: anything carrying a number is kept only when every number in it was spoken, anything naming a thing is kept only when the transcript mentions it, and paraphrasing prose is left alone. Spoken number words are read as digits, so "twelve foot four" still grounds "12 ft 4 in" and a real measurement isn't thrown away
+  - [x] It runs first in `postProcessed`, before the chapter pass and the due-date resolver — an invented figure must never get a timestamp, and an invented phrase must never reach the calendar
+  - [x] `SummaryScale`: a transcript under 400 words gets a schema about a third the size. A bound is also a budget, and the full walkthrough schema offers over three hundred slots
+  - [x] Prompt v5. A summary generated before this is worth re-running; the footer says which one made it
+  - [x] The overview is the one field grounding won't remove — a summary with no overview is worse — so its unsupported numbers are logged instead. Deliberate, recorded in DECISIONS.md
+  - [ ] Device: re-run the walkthrough summary on `94CAD352` (the saved one). It should come back with the rooms actually walked and no measurement nobody spoke. The console should say `grounding dropped N areas, N measurements…`
+  - [ ] Device: run a real walkthrough — a few minutes, two or three rooms, measurements read aloud — and check the spoken ones survive. The risk in this change is the opposite of the bug: dropping measurements that were real
+  - [ ] Jeremy: the existing summary on `94CAD352` is still in the library with invented numbers in it. Re-run or delete it
 - [ ] Wave G — iPad (opens 1.2)
 
 ## Requests from device testing

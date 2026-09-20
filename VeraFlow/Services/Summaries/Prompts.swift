@@ -3,16 +3,24 @@ import Foundation
 /// Versioned model instructions (SPEC §11.5). `version` is saved in `SummaryRecord.modelInfo`
 /// so a summary can be traced to the prompt that produced it.
 enum Prompts {
+    /// v5 (2026-09-20): a walk-through of a 35-second recording came back with ten rooms and
+    /// twenty measurements, none of them spoken. Three things changed together, and a summary made
+    /// before any of them is worth re-running: the schema descriptions no longer carry example
+    /// values for the model to copy, a short transcript is answered with a smaller schema
+    /// (`SummaryScale`), and `TranscriptGrounding` drops anything the transcript doesn't support.
+    /// Only the last of those is a guarantee; the rules below are still only a request.
+    ///
     /// v4 (2026-09-19): short is allowed. A thin transcript had the model padding every list
     /// with the same sentences, so the rules now say plainly that a short or empty list is the
     /// right answer when there is nothing more to say.
-    static let version = 4
+    static let version = 5
 
     /// Prepended to every template.
     static let sharedRules = """
     You summarize transcripts of real conversations.
     Use only information in the transcript. Never invent names, numbers, dates, prices, or measurements.
-    If something is not stated, leave that field empty.
+    If something is not stated, leave that field empty. An empty answer is correct when the transcript says nothing; a filled-in one that nobody said is not.
+    Never repeat a value from these instructions or from the output format as if it were something that was said.
     Write plainly and concisely. No filler.
     A short list is a good answer. Say each thing once, in the one place it belongs, and stop; never repeat a line to make a list longer, and leave a list empty rather than filling it.
     Lines look like: [mm:ss] Speaker N: text. Use those timestamps when citing.
@@ -34,7 +42,7 @@ enum Prompts {
         case .client:
             return combine + " This was a meeting between a consultant and a client. Focus on client goals, concerns, commitments made by either side, and next steps. List the subjects discussed in order, each with the timestamp of the first line about it."
         case .walkthrough:
-            return combine + " This was a contractor walking a job site with a customer. Organize work by area/room, each with the timestamp of the first line in that area. Copy measurements exactly as spoken."
+            return combine + " This was a contractor walking a job site with a customer. Organize work by area/room, each with the timestamp of the first line in that area. Copy measurements exactly as spoken. List only rooms the transcript says they went into and only measurements the transcript says out loud; a walk that covered one room gets one area, and no measurements at all is the right answer when none were read out."
         }
     }
 

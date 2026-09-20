@@ -45,15 +45,25 @@ struct SummarizationInputBuilderTests {
 
     @Test("Post-processing a payload resolves owners, due dates, and measurement timestamps")
     func postProcessesPayload() throws {
-        let recording = PreviewData.sampleRecording()
+        // Grounding runs first now (2026-09-20), so the fixture has to say what the transcript
+        // says: a room or a figure nobody spoke is dropped before the owner, due-date and
+        // timestamp work this test is about ever runs.
+        let recording = Recording(title: "Footing walk-through", duration: 7, templateID: .walkthrough)
+        recording.speakers = [Speaker.default(number: 1), Speaker.default(number: 2)]
+        recording.segments = [
+            TranscriptSegment(index: 0, start: 0, end: 3.5,
+                              text: "The footer runs 12 ft along the north wall.", speakerKey: "S1"),
+            TranscriptSegment(index: 1, start: 3.6, end: 7,
+                              text: "I will call the county about the permit tomorrow.", speakerKey: "S2"),
+        ]
         let processor = ActionItemPostProcessor(dueDates: FakeDueDateResolver(), calendar: Calendar(identifier: .gregorian))
         let payload = SummaryPayload.walkthrough(WalkthroughSummary(
             title: "t", location: "", overview: "o",
             areas: [WorkArea(
-                name: "Kitchen", tasks: [],
+                name: "Footer", tasks: [],
                 measurements: [
                     Measurement(item: "north wall", value: "12 ft", timestamp: 99),
-                    Measurement(item: "call the county on Monday", value: "", timestamp: nil),
+                    Measurement(item: "call the county about the permit", value: "", timestamp: nil),
                 ],
                 materials: []
             )],
@@ -72,8 +82,12 @@ struct SummarizationInputBuilderTests {
             Issue.record("template changed")
             return
         }
-        #expect(summary.areas[0].measurements[0].timestamp == 7, "clamped to the duration")
-        let placed = try #require(summary.areas[0].measurements[1].timestamp)
+        // Required rather than indexed: a grounding change that empties these should fail the
+        // test, not take the whole run down with an index out of range.
+        let area = try #require(summary.areas.first, "the transcript walked the footer, so it stays")
+        #expect(area.measurements.count == 2, "both figures were spoken, so neither is dropped")
+        #expect(area.measurements.first?.timestamp == 7, "clamped to the duration")
+        let placed = try #require(area.measurements.last?.timestamp)
         #expect(abs(placed - 3.6) < 0.001, "placed on the paragraph that says it")
     }
 }

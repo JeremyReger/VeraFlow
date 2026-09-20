@@ -231,6 +231,12 @@ Waves A, B and C were written together in one build on 2026-09-19 while Jeremy w
 - [x] Mini player: the scrub target has real height (2026-09-19)
   - [x] The first version put the gesture in an overlay overflowing a 3 pt frame; SwiftUI doesn't reliably hit-test outside a parent's bounds, so the drag didn't register. The track row is now 24 pt with the 3 pt line centred in it, and the gesture is on the row itself
   - [x] Costs no height: the 46 pt play button already sets the player row's height
+- [x] Ask leaves the tab strip (2026-09-20, Jeremy)
+  - [x] Four labels came to ~308 pt of the ~343 pt a 375 pt iPhone has inside the gutters, and `VFTabs` is a plain `HStack` with no wrapping, so it truncated as soon as text size went up. Summary / Transcript / Audio keep the strip; Ask is a capsule at the trailing edge, inside the strip so the hairline still runs full width
+  - [x] The strip is bottom-aligned now, so a taller trailing control lines up with the tab underlines instead of dragging the labels upward
+  - [x] Tab buttons got `.buttonStyle(.plain)`: without it the Mac drew each tab as a bordered button, which is why they read as grey segmented chips in the screenshots rather than the designed underline
+  - [ ] Device: check the strip at the largest accessibility text size on the smallest iPhone — three labels should still fit, and Ask should stay a pill
+- [ ] Noticed in Jeremy's Mac log, not chased: `LazyVStackLayout: the ID … is used by multiple child views, this will give undefined results!` fires five times on the detail screen. Something in a lazy stack is handing out the same id (index 0) to more than one row
 - [ ] Wave G — iPad (opens 1.2)
 
 ## Requests from device testing

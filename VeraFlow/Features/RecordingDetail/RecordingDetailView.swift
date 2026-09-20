@@ -12,6 +12,10 @@ struct RecordingDetailView: View {
 
         var id: String { rawValue }
 
+        /// The ones in the tab strip. Ask is reached from its own pill: four labels crowd the
+        /// strip on an iPhone and truncate outright at larger text sizes (Jeremy, 2026-09-20).
+        static let stripTabs: [Tab] = [.summary, .transcript, .audio]
+
         var title: String {
             switch self {
             case .summary: "Summary"
@@ -238,9 +242,14 @@ struct RecordingDetailView: View {
                 }
             }
             .vfText(VFText.meta, color: VFColor.textTertiary)
-            VFTabs(tabs: Tab.allCases.map { (tab: $0, title: $0.title) }, selection: $tab)
-                .padding(.top, 6)
-                .accessibilityIdentifier("detail.tabs")
+            VFTabs(tabs: Tab.stripTabs.map { (tab: $0, title: $0.title) }, selection: $tab) {
+                VFTabPill(title: Tab.ask.title, systemImage: "sparkles", isSelected: tab == .ask) {
+                    withAnimation(VFMotion.tabSwitch) { tab = .ask }
+                }
+                .accessibilityIdentifier("detail.ask")
+            }
+            .padding(.top, 6)
+            .accessibilityIdentifier("detail.tabs")
         }
         .padding(.horizontal, VFSpace.gutterTight)
         .padding(.top, 4)

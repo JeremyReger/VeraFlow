@@ -186,18 +186,29 @@ public struct VFRecordingCard: View {
 
 // MARK: - Underline tabs
 
-public struct VFTabs<Tab: Hashable>: View {
+/// The underline tab strip, with an optional control parked at the trailing edge — a view that
+/// belongs with the tabs but shouldn't crowd them. It sits inside the strip rather than beside it
+/// so the baseline hairline still runs the full width (Jeremy, 2026-09-20).
+public struct VFTabs<Tab: Hashable, Trailing: View>: View {
     private let tabs: [(tab: Tab, title: String)]
     @Binding private var selection: Tab
+    private let trailing: Trailing
     @Namespace private var underline
 
-    public init(tabs: [(tab: Tab, title: String)], selection: Binding<Tab>) {
+    public init(
+        tabs: [(tab: Tab, title: String)],
+        selection: Binding<Tab>,
+        @ViewBuilder trailing: () -> Trailing
+    ) {
         self.tabs = tabs
         self._selection = selection
+        self.trailing = trailing()
     }
 
     public var body: some View {
-        HStack(spacing: 22) {
+        // Bottom-aligned: the tab underlines sit on the hairline, and a taller trailing control
+        // lines up with them instead of dragging the labels upward.
+        HStack(alignment: .bottom, spacing: 22) {
             ForEach(tabs, id: \.tab) { item in
                 Button {
                     withAnimation(VFMotion.tabSwitch) { selection = item.tab }
@@ -217,15 +228,66 @@ public struct VFTabs<Tab: Hashable>: View {
                         .frame(height: 2)
                     }
                 }
+                // Without this the Mac draws every tab as a bordered button, which is not the design.
+                .buttonStyle(.plain)
                 .accessibilityLabel(item.title)
                 .accessibilityAddTraits(selection == item.tab ? [.isButton, .isSelected] : .isButton)
             }
-            Spacer(minLength: 0)
+            Spacer(minLength: 8)
+            trailing
         }
         .frame(minHeight: VFMetric.minHit, alignment: .bottom)
         .overlay(alignment: .bottom) {
             Rectangle().fill(VFColor.border).frame(height: VFMetric.hairline)
         }
+    }
+}
+
+extension VFTabs where Trailing == EmptyView {
+    public init(tabs: [(tab: Tab, title: String)], selection: Binding<Tab>) {
+        self.init(tabs: tabs, selection: selection) { EmptyView() }
+    }
+}
+
+/// A small capsule that switches to a view, for a destination that doesn't fit the tab strip.
+/// Reads as "not one of the tabs" while still behaving like one.
+public struct VFTabPill: View {
+    private let title: String
+    private let systemImage: String
+    private let isSelected: Bool
+    private let action: () -> Void
+
+    public init(title: String, systemImage: String, isSelected: Bool, action: @escaping () -> Void) {
+        self.title = title
+        self.systemImage = systemImage
+        self.isSelected = isSelected
+        self.action = action
+    }
+
+    public var body: some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 11, weight: .semibold))
+                Text(title.uppercased())
+                    .vfText(VFText.tabLabel, color: isSelected ? VFColor.onAccent : VFColor.textSecondary)
+            }
+            .foregroundStyle(isSelected ? VFColor.onAccent : VFColor.textSecondary)
+            .padding(.horizontal, 12)
+            .frame(height: 30)
+            .background {
+                if isSelected {
+                    Capsule().fill(VFColor.accent)
+                } else {
+                    Capsule().strokeBorder(VFColor.borderStrong, lineWidth: VFMetric.hairline)
+                }
+            }
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .padding(.bottom, 6)
+        .accessibilityLabel(title)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 }
 

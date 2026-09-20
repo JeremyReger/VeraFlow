@@ -189,6 +189,14 @@ struct AskTests {
         #expect(!AskController.canSend(question: "What was decided?", isWorking: true))
     }
 
+    @Test("Ask is a destination but not a tab: the strip keeps three, so they don't crowd on an iPhone")
+    func askIsReachedFromItsOwnPill() {
+        #expect(RecordingDetailView.Tab.stripTabs == [.summary, .transcript, .audio])
+        #expect(!RecordingDetailView.Tab.stripTabs.contains(.ask))
+        #expect(RecordingDetailView.Tab.allCases.count == RecordingDetailView.Tab.stripTabs.count + 1,
+                "Ask still switches the view; it just isn't drawn in the strip")
+    }
+
     @Test("Suggestions come from open questions, then generic ones with a named speaker; Ask is unlocked or sample only")
     func suggestionsAndGate() {
         let items = AskController.suggestions(openQuestions: ["Who signs the permit?", " ", "When is the pour?"], speakerNames: ["Speaker 1", "Dana"])

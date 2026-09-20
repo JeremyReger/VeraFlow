@@ -251,6 +251,17 @@ Waves A, B and C were written together in one build on 2026-09-19 while Jeremy w
   - [x] `VFSpeakerTag` stacks at accessibility sizes: the name, the timecode and the NAME? chip in one row left the name too little width and it broke mid-word ("SPEAK ER 1"). Two rows give the name its width back
   - [ ] Device: set Settings → Accessibility → Display & Text Size → Larger Text to the largest accessibility size, then check the detail screen (strip scrolls, every label whole, Ask is a capsule), the transcript (speaker tags stacked, nothing broken mid-word), the naming screen after Stop (Save and Discard both readable, nothing touching a border) and the microphone row on the Record screen
   - [ ] Device: back at the default text size, confirm nothing moved — that's the point of padding-plus-minimum over a fixed height
+- [x] Large text sizes, second pass (2026-09-20, from Jeremy's second set of screenshots)
+  - [x] The strip fix held: SUMMARY / TRANSCRIPT / AUDIO all whole, scrolling sideways, Ask a proper capsule. The screenshots showed the same defect on four screens the first pass didn't touch
+  - [x] `VFMetaLine`: every "Sep 19 · 0:11 · 1 speaker" line was an `HStack` of `Text`s, which hands each piece a share of the width — and a piece narrower than its own word breaks inside it ("1 speak / er"). Joined into one `Text`, the line wraps at word boundaries like a sentence, and each piece keeps its own font and colour. Used by the detail header and the library card
+  - [x] Joining costs each piece its own VoiceOver label, so the whole line carries one spoken string instead, comma-separated — a middot reads as nothing useful aloud. `VFMetaLine.spoken` is the tested part
+  - [x] `VFScreenHeader` stacks its round buttons under the title at accessibility sizes: sharing the row left "VERAFLOW" too little width and it broke as "VERAFLO / W". `VFRecordingCard` does the same with its duration ("Recordin / g Mark"), and the summary's template row with its Change control ("GEN…", "Chang / e")
+  - [x] The detail title was truncating to one line with three available: the header shares a `VStack` with the tab content, and SwiftUI was compressing it. `fixedSize(vertical:)` on the title and metadata makes the scroll view below yield instead
+  - [x] `Change` needed `fixedSize()` too — it was being squeezed down to its own 44 pt hit area
+  - [x] The library's bottom inset is `@ScaledMetric` now: the Record pill grows with the text, and a fixed inset left the last card half-hidden behind it
+  - [x] One more fixed height found and fixed: the summary's template chip (`frame(height: 24)`), the same bug as the six in the first pass
+  - [ ] Device: at the largest accessibility size check the library (header buttons stacked, card titles whole, last card clear of Record), the detail header (title on up to three lines, metadata wrapping as a sentence) and the Summary tab's template row
+  - [ ] Device: VoiceOver on the detail header — the metadata should read as one phrase with the duration spoken ("11 seconds", not "zero colon eleven")
 - [ ] Wave G — iPad (opens 1.2)
 
 ## Requests from device testing

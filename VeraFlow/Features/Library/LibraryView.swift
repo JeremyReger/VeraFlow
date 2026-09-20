@@ -29,6 +29,10 @@ struct LibraryView: View {
     @State private var isImporting = false
     @State private var importMessage: String?
     @State private var isSearching = false
+    /// The blank row that keeps the last card clear of the pinned Record pill. `@ScaledMetric`
+    /// because the pill is padding-plus-minimum now and grows with the text.
+    @ScaledMetric(relativeTo: .body) private var recordRowInset: CGFloat
+        = VFMetric.primaryPillHeight + VFSpace.bottomInset
 
     /// Types the Files picker offers (SPEC M2: m4a, mp3, wav, caf) plus mp4/mov video, whose
     /// audio track is extracted (Teams and Zoom recordings).
@@ -249,9 +253,11 @@ struct LibraryView: View {
                 }
             }
         }
-        // Room for the pinned Record row.
+        // Room for the pinned Record row. Scaled, because the Record pill grows with the text:
+        // at a large size a fixed inset left the last card half-hidden behind it (Jeremy,
+        // 2026-09-20). Erring generous costs only blank space at the foot of the list.
         Color.clear
-            .frame(height: VFMetric.primaryPillHeight + VFSpace.bottomInset)
+            .frame(height: recordRowInset)
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
     }

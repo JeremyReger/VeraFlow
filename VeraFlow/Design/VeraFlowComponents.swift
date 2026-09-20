@@ -152,10 +152,16 @@ public struct VFRecordingCard: View {
 
     private let model: Model
     public init(_ model: Model) { self.model = model }
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
+        // The duration drops below the title once the text is large: sharing the row left the
+        // title too little width and it broke as "Recordin / g Mark" (Jeremy, 2026-09-20).
+        let titleRow = typeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 2))
+            : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: 12))
+        return VStack(alignment: .leading, spacing: 7) {
+            titleRow {
                 Text(model.title)
                     .vfText(VFText.cardTitle)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -167,19 +173,11 @@ public struct VFRecordingCard: View {
                 .vfText(VFText.snippet, color: VFColor.textSecondary)
                 .lineLimit(2)
 
-            HStack(spacing: 7) {
-                Text(model.timeOfDay)
-                Text("·")
-                Text("^[\(model.speakerCount) speaker](inflect: true)")
-                if model.actionCount > 0 {
-                    Text("·")
-                    Text("^[\(model.actionCount) action](inflect: true)")
-                        .font(.custom(VFFontName.sansSemiBold, size: 11.5, relativeTo: .caption))
-                        .foregroundStyle(VFColor.accent)
-                }
-            }
-            .vfText(VFText.meta, color: VFColor.textTertiary)
-            .padding(.top, 2)
+            // One sentence, not a row of pieces — see `VFMetaLine`. The action count keeps its
+            // own weight and colour because a `Text` run's own styling survives the join.
+            VFMetaLine.joined(metaParts)
+                .vfText(VFText.meta, color: VFColor.textTertiary)
+                .padding(.top, 2)
         }
         .padding(.horizontal, VFSpace.cardPaddingH)
         .padding(.vertical, VFSpace.cardPaddingV)
@@ -188,6 +186,21 @@ public struct VFRecordingCard: View {
             RoundedRectangle(cornerRadius: VFRadius.card, style: .continuous)
                 .strokeBorder(VFColor.border, lineWidth: VFMetric.hairline)
         }
+    }
+
+    private var metaParts: [Text] {
+        var parts = [
+            Text(model.timeOfDay),
+            Text("^[\(model.speakerCount) speaker](inflect: true)"),
+        ]
+        if model.actionCount > 0 {
+            parts.append(
+                Text("^[\(model.actionCount) action](inflect: true)")
+                    .font(.custom(VFFontName.sansSemiBold, size: 11.5, relativeTo: .caption))
+                    .foregroundStyle(VFColor.accent)
+            )
+        }
+        return parts
     }
 }
 
@@ -821,6 +834,30 @@ public struct VFWaveformMark: View {
     }
 }
 
+// MARK: - Metadata line
+
+/// A metadata line read as one sentence rather than a row of pieces.
+///
+/// A `·`-separated `HStack` of `Text`s hands each piece a share of the width, and at a large
+/// text size a piece narrower than its own word breaks in the middle of it — "1 speak / er",
+/// "Recordin / g Mark" (Jeremy, 2026-09-20). Joined into a single `Text`, the line wraps at word
+/// boundaries like any other sentence, and each piece keeps its own font and colour.
+public enum VFMetaLine {
+    public static let separator = " · "
+
+    public static func joined(_ parts: [Text]) -> Text {
+        guard let first = parts.first else { return Text(verbatim: "") }
+        return parts.dropFirst().reduce(first) { $0 + Text(verbatim: separator) + $1 }
+    }
+
+    /// The same line for VoiceOver. Joining `Text`s costs each piece its own spoken form, so the
+    /// whole line carries one label instead — and it reads "·" as nothing useful, so the spoken
+    /// version separates with a comma, which VoiceOver hears as a pause.
+    public static func spoken(_ parts: [String]) -> String {
+        parts.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }.joined(separator: ", ")
+    }
+}
+
 // MARK: - Screen header
 
 /// Tracked eyebrow over a serif title, with the screen's icon buttons trailing.
@@ -828,6 +865,7 @@ public struct VFScreenHeader<Trailing: View>: View {
     private let eyebrow: String?
     private let title: String
     private let trailing: Trailing
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     public init(eyebrow: String? = nil, title: String, @ViewBuilder trailing: () -> Trailing = { EmptyView() }) {
         self.eyebrow = eyebrow
@@ -836,7 +874,12 @@ public struct VFScreenHeader<Trailing: View>: View {
     }
 
     public var body: some View {
-        HStack(alignment: .center, spacing: 10) {
+        // The round buttons drop below the title once the text is large: sharing the row left
+        // "VERAFLOW" too little width and it broke as "VERAFLO / W" (Jeremy, 2026-09-20).
+        let layout = typeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
+            : AnyLayout(HStackLayout(alignment: .center, spacing: 10))
+        return layout {
             VStack(alignment: .leading, spacing: 4) {
                 if let eyebrow {
                     Text(eyebrow.uppercased())
@@ -846,7 +889,9 @@ public struct VFScreenHeader<Trailing: View>: View {
                     .vfText(VFText.screenTitle)
                     .accessibilityAddTraits(.isHeader)
             }
-            Spacer(minLength: 0)
+            // Takes the slack in either layout, so the trailing controls sit at the far edge of
+            // the row without a `Spacer` that would push them off the bottom in the stacked one.
+            .frame(maxWidth: .infinity, alignment: .leading)
             trailing
         }
     }

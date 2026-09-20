@@ -219,6 +219,30 @@ struct RecordingDetailView: View {
         }
     }
 
+    private func metaParts(for card: LibraryCardModel) -> [Text] {
+        var parts = [
+            Text(recording.createdAt, format: .dateTime.month(.abbreviated).day().hour().minute()),
+            Text(card.duration),
+        ]
+        if card.speakerCount > 0 { parts.append(Text("^[\(card.speakerCount) speaker](inflect: true)")) }
+        if card.isImported { parts.append(Text("Imported")) }
+        return parts
+    }
+
+    /// Joining the pieces into one `Text` costs the duration its own spoken form, so the whole
+    /// line carries it instead — "11 seconds", not "zero colon eleven".
+    private func spokenMeta(for card: LibraryCardModel) -> String {
+        var parts = [
+            recording.createdAt.formatted(.dateTime.month(.abbreviated).day().hour().minute()),
+            SpokenFormat.duration(recording.duration),
+        ]
+        if card.speakerCount > 0 {
+            parts.append(card.speakerCount == 1 ? "1 speaker" : "\(card.speakerCount) speakers")
+        }
+        if card.isImported { parts.append("Imported") }
+        return VFMetaLine.spoken(parts)
+    }
+
     /// Serif title, one metadata line, and the underline tabs (design spec §4 Summary / Transcript / Audio).
     private var header: some View {
         let card = LibraryCardModel(recording: recording)
@@ -226,22 +250,18 @@ struct RecordingDetailView: View {
             Text(card.title)
                 .vfText(VFText.recordingTitle)
                 .lineLimit(3)
+                // Keeps its full height. The header shares a VStack with the tab content, and at a
+                // large text size SwiftUI was compressing it: the title had three lines to use and
+                // was squeezed onto one, truncating to "Recording M…" (Jeremy, 2026-09-20). The
+                // content below is a scroll view, so it's the one that should yield.
+                .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
-            HStack(spacing: 7) {
-                Text(recording.createdAt, format: .dateTime.month(.abbreviated).day().hour().minute())
-                Text("·").accessibilityHidden(true)
-                Text(card.duration)
-                    .accessibilityLabel(SpokenFormat.duration(recording.duration))
-                if card.speakerCount > 0 {
-                    Text("·").accessibilityHidden(true)
-                    Text("^[\(card.speakerCount) speaker](inflect: true)")
-                }
-                if card.isImported {
-                    Text("·").accessibilityHidden(true)
-                    Text("Imported")
-                }
-            }
-            .vfText(VFText.meta, color: VFColor.textTertiary)
+            // One sentence, not a row of pieces — see `VFMetaLine`. Side by side each piece got a
+            // share of the width and broke inside its own word: "1 speak / er" (Jeremy, 2026-09-20).
+            VFMetaLine.joined(metaParts(for: card))
+                .vfText(VFText.meta, color: VFColor.textTertiary)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityLabel(spokenMeta(for: card))
             VFTabs(tabs: Tab.stripTabs.map { (tab: $0, title: $0.title) }, selection: $tab) {
                 VFTabPill(title: Tab.ask.title, systemImage: "sparkles", isSelected: tab == .ask) {
                     withAnimation(VFMotion.tabSwitch) { tab = .ask }

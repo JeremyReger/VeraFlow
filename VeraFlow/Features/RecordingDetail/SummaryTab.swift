@@ -12,6 +12,7 @@ struct SummaryTab: View {
     @Environment(\.services) private var services
     @Environment(\.modelContext) private var modelContext
     @Environment(AppState.self) private var appState: AppState?
+    @Environment(\.dynamicTypeSize) private var typeSize
     @State private var selectedSummaryID: UUID?
     @State private var state = ActionItemsState()
     @State private var showsPaywall = false
@@ -288,18 +289,29 @@ struct SummaryTab: View {
                     .accessibilityIdentifier("summary.translated")
             }
         } header: {
-            HStack(spacing: 10) {
+            // The controls drop below the template chip once the text is large: side by side the
+            // chip truncated to "GEN…" and Change broke as "Chang / e" (Jeremy, 2026-09-20).
+            let layout = typeSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+                : AnyLayout(HStackLayout(alignment: .center, spacing: 10))
+            layout {
                 Text((customTemplate(for: record)?.name ?? record.templateID.displayName).uppercased())
                     .font(.custom(VFFontName.sansBold, size: 10.5, relativeTo: .caption2))
                     .tracking(1.4)
                     .foregroundStyle(VFColor.accent)
                     .padding(.horizontal, 10)
-                    .frame(height: 24)
+                    // Padding to a minimum, not a fixed height, so the capsule grows with the label.
+                    .padding(.vertical, 5)
+                    .frame(minHeight: 24)
                     .background(VFColor.accent.opacity(0.12), in: Capsule())
                     .accessibilityLabel("Template: \(record.templateID.displayName)")
-                Spacer()
-                if editable { editButton(for: SummaryBlock(.overview)) }
-                templateMenu
+                    // Takes the slack in either layout, in place of a `Spacer` that would push the
+                    // controls off the bottom of the stacked one.
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                HStack(spacing: 10) {
+                    if editable { editButton(for: SummaryBlock(.overview)) }
+                    templateMenu
+                }
             }
             .textCase(nil)
         }
@@ -389,6 +401,9 @@ struct SummaryTab: View {
             Text("Change")
                 .font(.custom(VFFontName.sansSemiBold, size: 12.5, relativeTo: .caption))
                 .foregroundStyle(VFColor.textSecondary)
+                // Its own width, never a share of the row's: without this it was squeezed down to
+                // the 44 pt hit area and broke mid-word (Jeremy, 2026-09-20).
+                .fixedSize()
                 .frame(minWidth: 44, minHeight: 44)
                 .contentShape(Rectangle())
         }

@@ -38,3 +38,29 @@ struct TabStripScalingTests {
         }
     }
 }
+
+/// The metadata lines under a recording title (Jeremy, 2026-09-20). Side by side in an HStack,
+/// each piece got a share of the width and broke inside its own word — "1 speak / er". They're
+/// joined into one Text now, which costs each piece its own VoiceOver label, so the whole line
+/// carries one spoken string instead. That string is what's pinned here.
+struct MetaLineTests {
+    @Test("Pieces are separated for a listener, not with the printed middot")
+    func spokenUsesCommas() {
+        let line = VFMetaLine.spoken(["Sep 19 at 8:53 PM", "11 seconds", "1 speaker"])
+        #expect(line == "Sep 19 at 8:53 PM, 11 seconds, 1 speaker")
+        #expect(!line.contains(VFMetaLine.separator), "a middot reads as nothing useful aloud")
+    }
+
+    @Test("A piece that isn't there leaves no stray separator")
+    func spokenDropsEmptyPieces() {
+        #expect(VFMetaLine.spoken(["Sep 19", "", "1 speaker"]) == "Sep 19, 1 speaker")
+        #expect(VFMetaLine.spoken(["Sep 19", "   "]) == "Sep 19", "whitespace isn't a piece either")
+    }
+
+    @Test("One piece, and nothing at all")
+    func spokenEdges() {
+        #expect(VFMetaLine.spoken(["0:11"]) == "0:11")
+        #expect(VFMetaLine.spoken([]).isEmpty)
+        #expect(VFMetaLine.spoken(["", "  "]).isEmpty)
+    }
+}

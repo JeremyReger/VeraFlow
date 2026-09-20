@@ -72,8 +72,12 @@ public struct VFPrimaryPillStyle: ButtonStyle {
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .vfText(VFText.buttonLabel, color: VFColor.onAccent)
+            .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity)
-            .frame(height: VFMetric.primaryPillHeight)
+            // Padding to a minimum, not a fixed height: a label that outgrows the capsule should
+            // grow the capsule, not hang out of it (Jeremy, 2026-09-20).
+            .padding(.vertical, 14)
+            .frame(minHeight: VFMetric.primaryPillHeight)
             .background(VFColor.accent, in: Capsule())
             .opacity(configuration.isPressed ? 0.82 : 1)
     }
@@ -85,8 +89,10 @@ public struct VFSecondaryPillStyle: ButtonStyle {
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .vfText(VFText.rowLabel, color: VFColor.textPrimary)
+            .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity)
-            .frame(height: 54)
+            .padding(.vertical, 14)
+            .frame(minHeight: 54)
             .background(VFColor.surface, in: Capsule())
             .overlay { Capsule().strokeBorder(VFColor.borderStrong, lineWidth: VFMetric.hairline) }
             .opacity(configuration.isPressed ? 0.82 : 1)
@@ -112,7 +118,8 @@ public struct VFChip: View {
                 .font(.custom(VFFontName.sansSemiBold, size: 12.5, relativeTo: .caption))
                 .foregroundStyle(isSelected ? VFColor.background : VFColor.textSecondary)
                 .padding(.horizontal, 15)
-                .frame(height: 34)
+                .padding(.vertical, 8)
+                .frame(minHeight: 34)
                 .background(isSelected ? VFColor.textPrimary : .clear, in: Capsule())
                 .overlay { Capsule().strokeBorder(isSelected ? .clear : VFColor.border, lineWidth: VFMetric.hairline) }
         }
@@ -186,6 +193,20 @@ public struct VFRecordingCard: View {
 
 // MARK: - Underline tabs
 
+/// How the tab strip answers a reader who has turned text up. Kept out of `VFTabs` so it can be
+/// tested without a running view, and so the strip and the pill beside it read the one constant.
+public enum VFTabMetrics {
+    /// Where the strip's own labels stop growing. Nothing else is clamped — the transcript, the
+    /// summary and the action items scale the whole way — and the strip is clamped only so that
+    /// reaching Audio doesn't mean scrolling past two screens of "TRANSCRIPT". This is still an
+    /// accessibility size: about 1.7x the default, not a refusal to scale.
+    public static let maximumLabelSize: DynamicTypeSize = .accessibility1
+
+    public static func clamped(_ size: DynamicTypeSize) -> DynamicTypeSize {
+        min(size, maximumLabelSize)
+    }
+}
+
 /// The underline tab strip, with an optional control parked at the trailing edge — a view that
 /// belongs with the tabs but shouldn't crowd them. It sits inside the strip rather than beside it
 /// so the baseline hairline still runs the full width (Jeremy, 2026-09-20).
@@ -193,7 +214,10 @@ public struct VFTabs<Tab: Hashable, Trailing: View>: View {
     private let tabs: [(tab: Tab, title: String)]
     @Binding private var selection: Tab
     private let trailing: Trailing
-    @Namespace private var underline
+    /// One namespace per candidate below: `ViewThatFits` builds every candidate in order to
+    /// measure it, and two live views claiming the same matched-geometry id is a runtime warning.
+    @Namespace private var plainUnderline
+    @Namespace private var scrollingUnderline
 
     public init(
         tabs: [(tab: Tab, title: String)],
@@ -206,6 +230,26 @@ public struct VFTabs<Tab: Hashable, Trailing: View>: View {
     }
 
     public var body: some View {
+        // Measured rather than guessed at: whether four tracked-capital labels fit depends on the
+        // text size, the device width and the words themselves, and a hardcoded size threshold
+        // would be wrong on an iPhone SE and wasteful on a Pro Max. The strip is used as it always
+        // was whenever it fits; only when it doesn't does it scroll sideways, which is what it now
+        // does instead of breaking a word in half ("SU MM A…", Jeremy 2026-09-20).
+        ViewThatFits(in: .horizontal) {
+            strip(in: plainUnderline)
+            // `fixedSize` vertically because a ScrollView is greedy on both axes: without it a
+            // horizontal one still stretches to whatever height it is offered.
+            ScrollView(.horizontal, showsIndicators: false) { strip(in: scrollingUnderline) }
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(minHeight: VFMetric.minHit, alignment: .bottom)
+        .overlay(alignment: .bottom) {
+            // Outside the scroll view, so the hairline spans the screen rather than the labels.
+            Rectangle().fill(VFColor.border).frame(height: VFMetric.hairline)
+        }
+    }
+
+    private func strip(in underline: Namespace.ID) -> some View {
         // Bottom-aligned: the tab underlines sit on the hairline, and a taller trailing control
         // lines up with them instead of dragging the labels upward.
         HStack(alignment: .bottom, spacing: 22) {
@@ -217,6 +261,10 @@ public struct VFTabs<Tab: Hashable, Trailing: View>: View {
                         Text(item.title.uppercased())
                             .vfText(VFText.tabLabel,
                                     color: selection == item.tab ? VFColor.textPrimary : VFColor.textTertiary)
+                            // One line at its natural width. A tracked capital label that runs
+                            // past the edge scrolls out of view; it never breaks mid-word.
+                            .lineLimit(1)
+                            .fixedSize(horizontal: true, vertical: false)
                         Group {
                             if selection == item.tab {
                                 Capsule().fill(VFColor.accent)
@@ -236,10 +284,9 @@ public struct VFTabs<Tab: Hashable, Trailing: View>: View {
             Spacer(minLength: 8)
             trailing
         }
-        .frame(minHeight: VFMetric.minHit, alignment: .bottom)
-        .overlay(alignment: .bottom) {
-            Rectangle().fill(VFColor.border).frame(height: VFMetric.hairline)
-        }
+        // The strip is the only thing clamped, and the trailing pill inherits the same ceiling
+        // so it never outgrows the labels beside it.
+        .dynamicTypeSize(...VFTabMetrics.maximumLabelSize)
     }
 }
 
@@ -256,6 +303,8 @@ public struct VFTabPill: View {
     private let systemImage: String
     private let isSelected: Bool
     private let action: () -> Void
+    /// The glyph grew with nothing when the label grew, and ended up a speck beside it.
+    @ScaledMetric(relativeTo: .caption) private var glyphSize: CGFloat = 11
 
     public init(title: String, systemImage: String, isSelected: Bool, action: @escaping () -> Void) {
         self.title = title
@@ -268,13 +317,17 @@ public struct VFTabPill: View {
         Button(action: action) {
             HStack(spacing: 5) {
                 Image(systemName: systemImage)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: glyphSize, weight: .semibold))
                 Text(title.uppercased())
                     .vfText(VFText.tabLabel, color: isSelected ? VFColor.onAccent : VFColor.textSecondary)
+                    .lineLimit(1)
             }
             .foregroundStyle(isSelected ? VFColor.onAccent : VFColor.textSecondary)
             .padding(.horizontal, 12)
-            .frame(height: 30)
+            // Padding and a minimum, not a fixed height: at larger text sizes a 30 pt frame left
+            // the label hanging out of its own capsule (Jeremy, 2026-09-20).
+            .padding(.vertical, 6)
+            .frame(minHeight: 30)
             .background {
                 if isSelected {
                     Capsule().fill(VFColor.accent)
@@ -299,6 +352,8 @@ public struct VFSpeakerTag: View {
     private let timecode: String
     private let needsName: Bool
     private let rename: () -> Void
+    @Environment(\.dynamicTypeSize) private var typeSize
+    @ScaledMetric(relativeTo: .caption) private var dotSize: CGFloat = 7
 
     public init(name: String, index: Int, timecode: String, needsName: Bool = false, rename: @escaping () -> Void) {
         self.name = name
@@ -309,25 +364,36 @@ public struct VFSpeakerTag: View {
     }
 
     public var body: some View {
-        HStack(spacing: 8) {
-            Circle()
-                .fill(VFColor.speaker(index))
-                .frame(width: 7, height: 7)
-            Button(action: rename) {
-                Text(name.uppercased())
-                    .vfText(VFText.speakerLabel, color: VFColor.speaker(index))
+        // One row normally, two once the text is large: a speaker name, a timecode and the NAME?
+        // chip side by side leave the name too little width, and it breaks in the middle of a
+        // word ("SPEAK ER 1", Jeremy 2026-09-20). Stacking gives the name the full width back.
+        let layout = typeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
+            : AnyLayout(HStackLayout(alignment: .center, spacing: 8))
+        return layout {
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(VFColor.speaker(index))
+                    .frame(width: dotSize, height: dotSize)
+                Button(action: rename) {
+                    Text(name.uppercased())
+                        .vfText(VFText.speakerLabel, color: VFColor.speaker(index))
+                }
+                .accessibilityLabel(needsName ? "Name this speaker" : "Rename \(name)")
             }
-            .accessibilityLabel(needsName ? "Name this speaker" : "Rename \(name)")
-            Text(timecode)
-                .vfText(VFText.meta, color: VFColor.textTertiary)
-            if needsName {
-                Text("NAME?")
-                    .font(.custom(VFFontName.sansBold, size: 9.5, relativeTo: .caption2))
-                    .tracking(1)
-                    .foregroundStyle(VFColor.textTertiary)
-                    .padding(.horizontal, 8)
-                    .frame(height: 20)
-                    .overlay { Capsule().strokeBorder(VFColor.borderStrong, lineWidth: VFMetric.hairline) }
+            HStack(spacing: 8) {
+                Text(timecode)
+                    .vfText(VFText.meta, color: VFColor.textTertiary)
+                if needsName {
+                    Text("NAME?")
+                        .font(.custom(VFFontName.sansBold, size: 9.5, relativeTo: .caption2))
+                        .tracking(1)
+                        .foregroundStyle(VFColor.textTertiary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .frame(minHeight: 20)
+                        .overlay { Capsule().strokeBorder(VFColor.borderStrong, lineWidth: VFMetric.hairline) }
+                }
             }
         }
     }
@@ -638,7 +704,8 @@ public struct VFLiveChip: View {
                 .foregroundStyle(isLive ? VFColor.dangerMuted : VFColor.textSecondary)
         }
         .padding(.horizontal, 12)
-        .frame(height: 30)
+        .padding(.vertical, 7)
+        .frame(minHeight: 30)
         .background(isLive ? VFColor.danger.opacity(0.14) : VFColor.surfaceRaised, in: Capsule())
         .overlay {
             Capsule().strokeBorder(isLive ? VFColor.danger.opacity(0.4) : VFColor.borderStrong, lineWidth: VFMetric.hairline)
@@ -666,6 +733,9 @@ public struct VFPickerRowLabel: View {
     private let eyebrow: String
     private let value: String
     private let systemName: String
+    @ScaledMetric(relativeTo: .body) private var glyphSize: CGFloat = 16
+    @ScaledMetric(relativeTo: .body) private var glyphWidth: CGFloat = 24
+    @ScaledMetric(relativeTo: .footnote) private var chevronSize: CGFloat = 12
 
     public init(eyebrow: String, value: String, systemName: String) {
         self.eyebrow = eyebrow
@@ -676,24 +746,29 @@ public struct VFPickerRowLabel: View {
     public var body: some View {
         HStack(spacing: 12) {
             Image(systemName: systemName)
-                .font(.system(size: 16, weight: .medium))
+                .font(.system(size: glyphSize, weight: .medium))
                 .foregroundStyle(VFColor.iconPrimary)
-                .frame(width: 24)
+                .frame(width: glyphWidth)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 3) {
                 Text(eyebrow.uppercased())
                     .vfText(VFText.sectionLabel, color: VFColor.textTertiary)
                 Text(value)
+                    // Two lines: once the eyebrow above wrapped, a one-line value had no room
+                    // left and truncated to "iPhone Micr…" (Jeremy, 2026-09-20).
                     .vfText(VFText.rowLabel)
-                    .lineLimit(1)
+                    .lineLimit(2)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             Image(systemName: "chevron.up.chevron.down")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.system(size: chevronSize, weight: .semibold))
                 .foregroundStyle(VFColor.textTertiary)
                 .accessibilityHidden(true)
         }
         .padding(.horizontal, VFSpace.cardPaddingH)
+        // The row already grew past 60 pt when the text wrapped, but with no vertical padding the
+        // wrapped lines sat right on the card's border and read as overlapping it.
+        .padding(.vertical, 10)
         .frame(minHeight: 60)
         .background(VFColor.surface, in: RoundedRectangle(cornerRadius: VFRadius.block, style: .continuous))
         .overlay {

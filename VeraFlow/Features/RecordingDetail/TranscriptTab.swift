@@ -386,8 +386,12 @@ struct TranscriptTab: View {
                         )
                         .id(segment.index)
                     }
+                    // Marks past the last paragraph. Same naming as the ones above: without it
+                    // these rows keep their Int id and collide with a paragraph's `.id(segment.index)`
+                    // in the same view list, which is the LazyVStack duplicate-id warning.
                     ForEach(placements[visibleSegments.count] ?? [], id: \.self) { markIndex in
                         markerRow(marks[markIndex])
+                            .id("mark-\(markIndex)")
                     }
                 }
                 .padding(.horizontal, VFSpace.gutterTight)

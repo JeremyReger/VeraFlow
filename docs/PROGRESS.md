@@ -236,7 +236,11 @@ Waves A, B and C were written together in one build on 2026-09-19 while Jeremy w
   - [x] The strip is bottom-aligned now, so a taller trailing control lines up with the tab underlines instead of dragging the labels upward
   - [x] Tab buttons got `.buttonStyle(.plain)`: without it the Mac drew each tab as a bordered button, which is why they read as grey segmented chips in the screenshots rather than the designed underline
   - [ ] Device: check the strip at the largest accessibility text size on the smallest iPhone — three labels should still fit, and Ask should stay a pill
-- [ ] Noticed in Jeremy's Mac log, not chased: `LazyVStackLayout: the ID … is used by multiple child views, this will give undefined results!` fires five times on the detail screen. Something in a lazy stack is handing out the same id (index 0) to more than one row
+- [x] The LazyVStack duplicate-id warning on the transcript (2026-09-20, from Jeremy's Mac log)
+  - [x] Marks placed past the last paragraph were the one `ForEach` in that stack with no `.id(…)`, so their rows kept the plain `Int` id from `id: \.self` and collided with a paragraph's `.id(segment.index)` in the same view list. The log named the type: `explicitID: Optional(0)[Optional(Swift.Int)]`
+  - [x] They now use `"mark-\(markIndex)"` like the marks and chapters between paragraphs already did; the earlier fix for those simply missed the trailing bucket
+  - [x] Paragraphs keep their `Int` id on purpose — `proxy.scrollTo` follows the playhead and the first search match by segment index
+  - [ ] Device: open a recording with a mark after the last paragraph and confirm the warning is gone from the console. No unit test — view identity isn't reachable without introspection
 - [ ] Wave G — iPad (opens 1.2)
 
 ## Requests from device testing

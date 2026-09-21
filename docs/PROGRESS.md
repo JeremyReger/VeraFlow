@@ -273,6 +273,15 @@ Waves A, B and C were written together in one build on 2026-09-19 while Jeremy w
   - [ ] Device: re-run the walkthrough summary on `94CAD352` (the saved one). It should come back with the rooms actually walked and no measurement nobody spoke. The console should say `grounding dropped N areas, N measurements…`
   - [ ] Device: run a real walkthrough — a few minutes, two or three rooms, measurements read aloud — and check the spoken ones survive. The risk in this change is the opposite of the bug: dropping measurements that were real
   - [ ] Jeremy: the existing summary on `94CAD352` is still in the library with invented numbers in it. Re-run or delete it
+- [x] A 39-minute meeting wouldn't summarize (2026-09-21, from Jeremy's iPhone log)
+  - [x] The device log named it: `context 8192 tokens; instructions 408; schema 694; input budget 5590`, two chunks mapped, then `model call failed (unknown): GeneratedContent does not contain a property 'startTimestamp'` over JSON that ends mid-array
+  - [x] The reserve is also the response cap, and 1,500 tokens is smaller than the full general schema's own maximum (~2,500–3,000). The model wasn't cut off by the window; it was cut off by us
+  - [x] MAP and FINAL now have separate budgets. They are mirror images — MAP is input-heavy and output-light, FINAL is a page of notes in and a whole summary out — and one shared reserve priced FINAL as if it were MAP. Deviates from SPEC §11.2's single figure; recorded in DECISIONS.md
+  - [x] An answer that won't build into its type is recognised as a decoding failure whatever threw it. This one wasn't a `LanguageModelError`, so it read as `.unknown`, hit `default: throw`, and spent none of its three retries
+  - [x] The first retry now asks for the **compact** schema. The old retry shrank the chunks — the wrong lever, since the transcript was never what overflowed
+  - [x] `startTimestamp` is optional in the four `@Generable` types that carry it, so a field missing from a cut-off answer decodes instead of throwing
+  - [ ] Device: Retry the summary on the A3L meeting (`8403EAB0`). The transcript is intact, so it should summarize without re-recording. Expect `final budget … (answer 3000)` in the log, and no compact retry unless it still overruns
+  - [ ] Device: confirm `@Generable` accepts an optional property on the current SDK — if it doesn't, the build fails and the fallback is a sentinel empty string
 - [ ] Wave G — iPad (opens 1.2)
 
 ## Requests from device testing

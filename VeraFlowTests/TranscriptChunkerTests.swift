@@ -74,6 +74,41 @@ struct TranscriptChunkerTests {
         #expect(ContextBudget(contextSize: 500, instructionsTokens: 400, schemaOverhead: 400).inputTokens == 200)
     }
 
+    /// The FINAL call is the mirror of a MAP call: its input is a page of notes, its output is the
+    /// whole summary. One shared reserve priced it as if it were a MAP call, and the cap it set
+    /// (1,500 tokens) was smaller than the schema's own maximum, so a long meeting's answer was cut
+    /// off mid-array and wouldn't decode (2026-09-21).
+    @Test("The final call reserves more room for the answer than a chunk does, and less for input")
+    func finalBudget() {
+        // Jeremy's iPhone, from the device log: context 8192, instructions 408, schema 694.
+        let budget = ContextBudget(contextSize: 8_192, instructionsTokens: 408, schemaOverhead: 694)
+        #expect(budget.outputReserve == 1_500, "a chunk's notes are small")
+        #expect(budget.finalOutputReserve == 3_000, "the whole summary is not")
+        #expect(budget.inputTokens == 5_590, "unchanged: chunks still get the room they had")
+        #expect(budget.finalInputTokens == 4_090)
+        #expect(budget.finalInputTokens < budget.inputTokens)
+        // Never more than half the window, so input keeps a working share on a small model.
+        let small = ContextBudget(contextSize: 4_096, instructionsTokens: 300, schemaOverhead: 200)
+        #expect(small.finalOutputReserve == 2_048)
+        #expect(small.finalInputTokens == 1_548)
+        #expect(small.finalOutputReserve > small.outputReserve)
+        // A window too small for the overheads still terminates.
+        #expect(ContextBudget(contextSize: 500, instructionsTokens: 400, schemaOverhead: 400).finalInputTokens == 200)
+    }
+
+    @Test("A full final input plus an answer at the final reserve still fits the context window")
+    func aFullFinalCallFitsTheWindow() {
+        for size in [4_096, 8_192, 16_384] {
+            for instructions in [200, 500] {
+                for schema in [200, 900] {
+                    let budget = ContextBudget(contextSize: size, instructionsTokens: instructions, schemaOverhead: schema)
+                    let whole = instructions + schema + budget.finalInputTokens + budget.finalOutputReserve
+                    #expect(whole == size, "context \(size) with \(instructions)/\(schema) budgets \(whole) tokens")
+                }
+            }
+        }
+    }
+
     /// The reserve is also the cap on the model's answer, so this is what keeps a call inside the
     /// window: a chunk that fills its whole input budget, plus an answer that runs right to the
     /// cap, still adds up to the context size. Without the cap the answer had no ceiling, and a

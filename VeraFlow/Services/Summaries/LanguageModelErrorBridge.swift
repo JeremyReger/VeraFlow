@@ -23,11 +23,30 @@ enum LanguageModelErrorBridge {
         case unknown
     }
 
-    /// `nil` when the error isn't a `LanguageModelError` at all.
+    /// `nil` when the error is neither a `LanguageModelError` nor a failure to build the answer.
     static func kind(of error: any Error) -> Kind? {
-        let domain = (error as NSError).domain
-        guard isLanguageModelErrorDomain(domain) else { return nil }
-        return kind(describing: String(describing: error))
+        let description = String(describing: error)
+        if isLanguageModelErrorDomain((error as NSError).domain) {
+            let named = kind(describing: description)
+            guard named == .unknown else { return named }
+            return isParseFailure(description) || isParseFailure(error.localizedDescription) ? .decodingFailure : .unknown
+        }
+        // Turning the answer into a `@Generable` type throws its own error type, outside the
+        // `LanguageModelError` domain, so the name check above never sees it.
+        return isParseFailure(description) || isParseFailure(error.localizedDescription) ? .decodingFailure : nil
+    }
+
+    /// The answer couldn't be built into the requested type.
+    ///
+    /// Seen on device 2026-09-21: "GeneratedContent does not contain a property 'startTimestamp'",
+    /// thrown after the model's answer was cut off mid-array, leaving the last object short of a
+    /// field. It reached the app as an unrecognised error, which the summarizer treated as fatal
+    /// instead of running the retry that exists for exactly this.
+    static func isParseFailure(_ description: String) -> Bool {
+        let text = description.lowercased()
+        return text.contains("does not contain a property")
+            || text.contains("failed to parse generated content")
+            || text.contains("generatedcontent")
     }
 
     static func isLanguageModelErrorDomain(_ domain: String) -> Bool {
@@ -46,7 +65,7 @@ enum LanguageModelErrorBridge {
         // A fully qualified description ("LanguageModelError.timeout(…)") keeps only the last component.
         let caseName = name.split(separator: ".").last.map(String.init) ?? name
         switch caseName {
-        case "contextsizeexceeded": return .contextSizeExceeded
+        case "contextsizeexceeded", "exceededcontextwindowsize": return .contextSizeExceeded
         case "decodingfailure": return .decodingFailure
         case "ratelimited": return .rateLimited
         case "timeout": return .timeout

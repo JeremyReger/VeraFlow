@@ -52,7 +52,7 @@ struct KeyPointTopicGenerable {
     @Guide(description: "Key points on this subject, each under 20 words. Statements, never questions. Never a point already used under another subject.", .maximumCount(5))
     var points: [String]
     @Guide(description: "Timestamp mm:ss or h:mm:ss of the first transcript line about this subject. Empty if unsure.")
-    var startTimestamp: String
+    var startTimestamp: String?
 }
 
 @available(iOS 26, *)
@@ -131,7 +131,7 @@ struct WorkAreaGenerable {
     @Guide(description: "Materials mentioned for this area. Empty if none.", .maximumCount(10))
     var materials: [MaterialGenerable]
     @Guide(description: "Timestamp mm:ss or h:mm:ss of the first transcript line in this area. Empty if unsure.")
-    var startTimestamp: String
+    var startTimestamp: String?
 }
 
 @available(iOS 26, *)
@@ -169,7 +169,7 @@ struct KeyPointTopicCompactGenerable {
     @Guide(description: "Key points on this subject, each under 20 words. Statements, never questions.", .maximumCount(3))
     var points: [String]
     @Guide(description: "Timestamp mm:ss or h:mm:ss of the first transcript line about this subject. Empty if unsure.")
-    var startTimestamp: String
+    var startTimestamp: String?
 }
 
 @available(iOS 26, *)
@@ -224,7 +224,7 @@ struct WorkAreaCompactGenerable {
     @Guide(description: "Materials mentioned for this area. Empty if none.", .maximumCount(3))
     var materials: [MaterialGenerable]
     @Guide(description: "Timestamp mm:ss or h:mm:ss of the first transcript line in this area. Empty if unsure.")
-    var startTimestamp: String
+    var startTimestamp: String?
 }
 
 @available(iOS 26, *)
@@ -263,7 +263,7 @@ struct WalkthroughSummaryCompactGenerable {
 /// verified against the SDK, and CLAUDE.md is explicit that these APIs are not to be written from
 /// memory. Two statically-bounded tiers use `.maximumCount`, which is already in use and already
 /// proven to be enforced by constrained decoding.
-enum SummaryScale: Sendable {
+enum SummaryScale: Equatable, Sendable {
     case compact
     case full
 
@@ -354,18 +354,27 @@ actor LiveSummarizationService: SummarizationService {
 
         let budget = try await makeBudget(for: input.template)
         var inputTokens = budget.inputTokens
-        let counter = await tokenCounter(calibratedOn: TranscriptChunker.text(for: input.lines))
+        let transcript = TranscriptChunker.text(for: input.lines)
+        let counter = await tokenCounter(calibratedOn: transcript)
+        // Asking for the compact schema is only a retry worth spending when the full one is what
+        // the recording would otherwise get.
+        let naturalScale = SummaryScale.forTranscript(words: SummaryScale.words(in: transcript))
 
+        var finalInputTokens = budget.finalInputTokens
         var rateLimitWaits = 0
         var forceChunking = false
+        var scaleOverride: SummaryScale?
         for attempt in 0...Self.maxOverflowRetries {
             do {
                 return try await run(
                     input,
                     inputTokens: inputTokens,
+                    finalInputTokens: finalInputTokens,
                     outputTokens: budget.outputReserve,
+                    finalOutputTokens: budget.finalOutputReserve,
                     tokenCount: counter,
                     forceChunking: forceChunking,
+                    scaleOverride: scaleOverride,
                     progress: progress
                 )
             } catch is CancellationError {
@@ -385,23 +394,35 @@ actor LiveSummarizationService: SummarizationService {
                     rateLimitWaits += 1
                     Self.log.notice("model rate limited; retrying in \(delay.description, privacy: .public)")
                     try await Task.sleep(for: delay)
+                case .decodingFailure where scaleOverride == nil && naturalScale == .full:
+                    // The answer wouldn't build into the type, which on device means it ran to its
+                    // cap and stopped mid-array (2026-09-21). Shrinking the input is the wrong
+                    // lever — the transcript wasn't what overflowed, the answer was — so ask for a
+                    // smaller answer instead: the compact schema has a third of the topics and
+                    // half the points. Chunking too, so a one-call attempt doesn't simply repeat.
+                    guard attempt < Self.maxOverflowRetries else { throw Self.map(error, kind: kind) }
+                    scaleOverride = .compact
+                    forceChunking = true
+                    Self.log.notice("answer didn't fit its schema; retrying with the compact schema")
                 case .contextSizeExceeded, .decodingFailure:
-                    // Both are one answer that ran on too long: an overflow throws, and an answer
-                    // cut off mid-JSON comes back as a decoding failure. Only the chunk size
-                    // shrinks (SPEC §11.2); the reserve stays. A transcript that already fits one
-                    // call never reads the chunk size, so the retry would repeat the call that
-                    // just failed: force the map-reduce path as well, which asks for short notes
-                    // per chunk instead of a whole summary in one answer.
+                    // An overflow really is too much input, and a decoding failure that survived
+                    // the compact schema is treated the same way. Only the chunk size shrinks
+                    // (SPEC §11.2); the reserves stay. A transcript that already fits one call
+                    // never reads the chunk size, so the retry would repeat the call that just
+                    // failed: force the map-reduce path as well, which asks for short notes per
+                    // chunk instead of a whole summary in one answer.
                     guard attempt < Self.maxOverflowRetries else {
                         throw kind == .decodingFailure ? Self.map(error, kind: kind) : SummarizationError.contextOverflow
                     }
                     inputTokens = ContextBudget.shrunk(inputTokens)
+                    finalInputTokens = ContextBudget.shrunk(finalInputTokens)
                     forceChunking = true
                     Self.log.notice("answer ran on (\(String(describing: kind), privacy: .public)); retrying chunked at \(inputTokens, privacy: .public) tokens")
                 case .timeout where attempt < Self.maxOverflowRetries:
                     // A request that ran out of time (seen on device after 110 s) gets smaller,
                     // faster calls before giving up for now.
                     inputTokens = ContextBudget.shrunk(inputTokens)
+                    finalInputTokens = ContextBudget.shrunk(finalInputTokens)
                     forceChunking = true
                     Self.log.notice("model timed out; retrying chunked at \(inputTokens, privacy: .public) tokens")
                 case .timeout:
@@ -457,19 +478,25 @@ actor LiveSummarizationService: SummarizationService {
     private func run(
         _ input: SummarizationInput,
         inputTokens: Int,
+        finalInputTokens: Int,
         outputTokens: Int,
+        finalOutputTokens: Int,
         tokenCount: @escaping (String) -> Int,
         forceChunking: Bool,
+        scaleOverride: SummaryScale?,
         progress: @Sendable @escaping (SummarizationProgress) -> Void
     ) async throws -> SummaryPayload {
         let template = input.template
         let transcript = TranscriptChunker.text(for: input.lines)
         // Measured on the transcript, never on the notes the reduce step produces: a long meeting
-        // reduced to a page of notes still has a long meeting's worth of things to say.
-        let scale = SummaryScale.forTranscript(words: SummaryScale.words(in: transcript))
-        if !forceChunking, TranscriptChunker.fitsInOneCall(input.lines, budgetTokens: inputTokens, tokenCount: tokenCount) {
+        // reduced to a page of notes still has a long meeting's worth of things to say. A retry
+        // after the answer overran its cap passes the smaller scale in instead.
+        let scale = scaleOverride ?? SummaryScale.forTranscript(words: SummaryScale.words(in: transcript))
+        // The whole transcript in one call is a FINAL call, so it's the FINAL call's input room
+        // that decides whether it fits.
+        if !forceChunking, TranscriptChunker.fitsInOneCall(input.lines, budgetTokens: finalInputTokens, tokenCount: tokenCount) {
             progress(SummarizationProgress(completedChunks: 0, totalChunks: 1))
-            let payload = try await final(from: transcript, template: template, fromTranscript: true, focus: input.focus, outputTokens: outputTokens, scale: scale)
+            let payload = try await final(from: transcript, template: template, fromTranscript: true, focus: input.focus, outputTokens: finalOutputTokens, scale: scale)
             progress(SummarizationProgress(completedChunks: 1, totalChunks: 1))
             return payload
         }
@@ -491,7 +518,7 @@ actor LiveSummarizationService: SummarizationService {
 
         // REDUCE: while the notes don't fit one call, combine them in groups (SPEC §11.3).
         var combined = notes.joined(separator: "\n\n")
-        while tokenCount(combined) > inputTokens, notes.count > 1 {
+        while tokenCount(combined) > finalInputTokens, notes.count > 1 {
             try Task.checkCancellation()
             let groups = Self.group(notes, budgetTokens: inputTokens, tokenCount: tokenCount)
             total += groups.count
@@ -509,7 +536,7 @@ actor LiveSummarizationService: SummarizationService {
             combined = notes.joined(separator: "\n\n")
         }
 
-        let payload = try await final(from: combined, template: template, fromTranscript: false, focus: input.focus, outputTokens: outputTokens, scale: scale)
+        let payload = try await final(from: combined, template: template, fromTranscript: false, focus: input.focus, outputTokens: finalOutputTokens, scale: scale)
         completed += 1
         progress(SummarizationProgress(completedChunks: completed, totalChunks: total))
         return payload
@@ -583,7 +610,12 @@ actor LiveSummarizationService: SummarizationService {
             if largest > 0 { schemaTokens = largest }
         }
         let budget = ContextBudget(contextSize: contextSize, instructionsTokens: instructionTokens, schemaOverhead: schemaTokens)
-        Self.log.info("context \(contextSize, privacy: .public) tokens; instructions \(instructionTokens, privacy: .public); schema \(schemaTokens, privacy: .public); input budget \(budget.inputTokens, privacy: .public)")
+        Self.log.info("""
+            context \(contextSize, privacy: .public) tokens; instructions \(instructionTokens, privacy: .public); \
+            schema \(schemaTokens, privacy: .public); chunk budget \(budget.inputTokens, privacy: .public) \
+            (answer \(budget.outputReserve, privacy: .public)); final budget \(budget.finalInputTokens, privacy: .public) \
+            (answer \(budget.finalOutputReserve, privacy: .public))
+            """)
         if model.contextSize >= 1_024 {
             budgetCache[template] = budget // only cache counts made with a healthy model
         }
@@ -640,11 +672,11 @@ actor LiveSummarizationService: SummarizationService {
     // MARK: Rendering
 
     static func topic(_ draft: KeyPointTopicGenerable) -> KeyPointTopic {
-        KeyPointTopic(title: draft.title, points: draft.points, start: ActionItemPostProcessor.parseTimestamp(draft.startTimestamp))
+        KeyPointTopic(title: draft.title, points: draft.points, start: ActionItemPostProcessor.parseTimestamp(draft.startTimestamp ?? ""))
     }
 
     static func topic(_ draft: KeyPointTopicCompactGenerable) -> KeyPointTopic {
-        KeyPointTopic(title: draft.title, points: draft.points, start: ActionItemPostProcessor.parseTimestamp(draft.startTimestamp))
+        KeyPointTopic(title: draft.title, points: draft.points, start: ActionItemPostProcessor.parseTimestamp(draft.startTimestamp ?? ""))
     }
 
     // Each tier maps itself. The two shapes are identical field for field — only the counts in
@@ -714,7 +746,7 @@ actor LiveSummarizationService: SummarizationService {
                     tasks: area.tasks,
                     measurements: area.measurements.map { Measurement(item: $0.item, value: $0.value, timestamp: nil) },
                     materials: area.materials.map { Material(name: $0.name, quantity: $0.quantity, notes: $0.notes) },
-                    start: ActionItemPostProcessor.parseTimestamp(area.startTimestamp)
+                    start: ActionItemPostProcessor.parseTimestamp(area.startTimestamp ?? "")
                 )
             },
             customerRequests: draft.customerRequests,
@@ -735,7 +767,7 @@ actor LiveSummarizationService: SummarizationService {
                     tasks: area.tasks,
                     measurements: area.measurements.map { Measurement(item: $0.item, value: $0.value, timestamp: nil) },
                     materials: area.materials.map { Material(name: $0.name, quantity: $0.quantity, notes: $0.notes) },
-                    start: ActionItemPostProcessor.parseTimestamp(area.startTimestamp)
+                    start: ActionItemPostProcessor.parseTimestamp(area.startTimestamp ?? "")
                 )
             },
             customerRequests: draft.customerRequests,

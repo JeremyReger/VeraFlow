@@ -280,8 +280,8 @@ Waves A, B and C were written together in one build on 2026-09-19 while Jeremy w
   - [x] An answer that won't build into its type is recognised as a decoding failure whatever threw it. This one wasn't a `LanguageModelError`, so it read as `.unknown`, hit `default: throw`, and spent none of its three retries
   - [x] The first retry now asks for the **compact** schema. The old retry shrank the chunks — the wrong lever, since the transcript was never what overflowed
   - [x] `startTimestamp` is optional in the four `@Generable` types that carry it, so a field missing from a cut-off answer decodes instead of throwing
-  - [ ] Device: Retry the summary on the A3L meeting (`8403EAB0`). The transcript is intact, so it should summarize without re-recording. Expect `final budget … (answer 3000)` in the log, and no compact retry unless it still overruns
-  - [ ] Device: confirm `@Generable` accepts an optional property on the current SDK — if it doesn't, the build fails and the fallback is a sentinel empty string
+  - [x] Device (2026-09-21, iPhone): the A3L meeting (`8403EAB0`) summarized on the first attempt — `context 8192 tokens; instructions 408; schema 691; chunk budget 5593 (answer 1500); final budget 4093 (answer 3000)`, two chunks mapped, `final call: general schema, full`, then `summarized … with general: 9 action items`. No compact retry, no decoding failure. The final call needed the room, not a smaller transcript
+  - [x] Device: `@Generable` accepts an optional property on the current SDK — the target builds and the meeting summarized, so no sentinel empty string is needed
 - [ ] Wave G — iPad (opens 1.2)
 
 ## Requests from device testing

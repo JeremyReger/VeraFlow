@@ -70,12 +70,18 @@ struct SummarizationInputBuilderTests {
             customerRequests: [], issuesFound: [], quoteNotes: [],
             actionItems: [
                 ActionItem(task: "Call the county about the permit", owner: "Speaker 2", dueText: "tomorrow", timestamp: 3.6),
-                ActionItem(task: "Call county about the permit", owner: "", dueText: "", timestamp: nil),
+                // The duplicate carries a later timestamp rather than none, so merging keeps the
+                // first item's and this assertion still measures the round trip. Placing a
+                // timestamp-less item on the paragraph that says it is
+                // ActionItemPostProcessorTests' job, and the measurement below still exercises it.
+                ActionItem(task: "Call county about the permit", owner: "", dueText: "", timestamp: 6),
             ]
         ))
         let processed = payload.postProcessed(with: processor, context: .init(recording: recording))
         #expect(processed.actionItems.count == 1)
         #expect(processed.actionItems.first?.ownerSpeakerKey == "S2")
+        // Seconds out of the payload go through "mm:ss" and back on the way into post-processing,
+        // so 3.6 lands on 4. Merging keeps the earlier of the two, which is this one.
         #expect(processed.actionItems.first?.timestamp == 4)
         #expect(processed.actionItems.first?.dueDate != nil)
         guard case .walkthrough(let summary) = processed else {

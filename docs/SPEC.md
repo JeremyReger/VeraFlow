@@ -148,7 +148,7 @@ Rules:
 
 ### 4.4 Review
 Recording detail has 3 tabs:
-- **Summary**: template output; action items with checkboxes; each item shows owner, due date, and a ▶︎ timestamp link.
+- **Summary**: template output; action items with checkboxes; each item shows owner, due date, and a ▶︎ timestamp link. Every other summary line plays from where it was said when tapped — no timestamp on the row, only a quiet waveform on the lines that could be placed. The place is matched in Swift against the transcript, never asked of the model; a line that can't be placed stays inert.
 - **Transcript**: speaker-labeled paragraphs with timestamps; audio player pinned at the bottom; the current line highlights during playback; tap a line to seek; edit mode.
 - **Audio**: waveform, bookmarks, playback speed (1×, 1.5×, 2×), skip silence (stretch).
 

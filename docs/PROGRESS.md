@@ -301,4 +301,12 @@ Waves A, B and C were written together in one build on 2026-09-19 while Jeremy w
 
 - Live transcription while recording (Jeremy, 2026-09-18): start showing words about 10 s into a recording instead of after Stop. `SpeechAnalyzer` accepts streaming input, so the tap's buffers could feed it live and the file pass at the end would still produce the final, timed transcript. Built in v1.1 Wave D (2026-09-19) as the words-while-recording preview; the file pass is unchanged. Device check pending (see M10).
 
+- Tap a summary line to hear it (Jeremy, 2026-09-21): "much like the decisions, it doesnt have to have a time button but if you click on it, it goes to the audio to refresh your memory on what it was." Every prose line in a summary — key points, decisions, open questions, client goals, concerns, customer requests, issues found, quote notes, work-area tasks — now seeks the player and plays from where it was said. No time button on the row: a quiet waveform marks the lines that could be placed, and the row itself is the control. Action items and measurements keep their ▶︎ buttons, and tapping an action item still opens its editor. The place is worked out in Swift by `SummaryMomentIndex`, matching the line against the transcript the way `ActionItemPostProcessor` places an item that came without a timestamp — the model is never asked for a time, so this costs no output tokens and can invent nothing. Three shared meaningful words over a run of at most three neighbouring paragraphs is the bar; below it the line draws exactly as before and does nothing when tapped. A translated line shares no words with the transcript, so the model's own line in the same position stands in. Matching runs off the main thread.
+  - [ ] Device: open a summary, tap a key point or decision — the mini player should jump to that moment and start playing
+  - [ ] Device: tap a line with no waveform mark — nothing should happen (a point distilled from the whole meeting has no single place)
+  - [ ] Device: check a jump lands where the line actually came from, not merely nearby. This is the risk in the change: a confident wrong jump is worse than no jump
+  - [ ] Device: translate a summary, then tap a line — it should still jump
+  - [ ] Device: VoiceOver — a placed line reads its text, says "Plays this part of the recording", and offers "Play from …" as an action
+  - [ ] Device: open the 39-minute A3L summary — it should draw with no pause; the matching is off the main thread
+
 ## Notes / blockers

@@ -26,11 +26,20 @@ struct SummaryTab: View {
     @State private var edits = SummaryEdits()
     /// The block whose editor is open.
     @State private var editingSection: SummaryBlock?
+    /// Where each summary line was said, so tapping it can play that moment (Jeremy, 2026-09-21).
+    @State private var moments = SummaryMomentIndex()
 
     private struct EditingItem: Identifiable {
         var item: ActionItem
         var isNew: Bool
         var id: UUID { item.id }
+    }
+
+    /// What the line index is built from; it is rebuilt whenever any of these change.
+    private struct MomentsKey: Equatable {
+        var record: UUID?
+        var language: String?
+        var edits: SummaryEdits
     }
 
     private var summaries: [SummaryRecord] {
@@ -74,6 +83,9 @@ struct SummaryTab: View {
         .task(id: selected?.id) {
             state = (try? selected?.actionItems()) ?? ActionItemsState()
             edits = (try? selected?.summaryEdits()) ?? SummaryEdits()
+        }
+        .task(id: MomentsKey(record: selected?.id, language: translationLanguage, edits: edits)) {
+            await indexMoments()
         }
         .sheet(isPresented: $showsPaywall) {
             PaywallView()
@@ -506,16 +518,8 @@ struct SummaryTab: View {
         if !items.isEmpty {
             Section {
                 ForEach(Array(items.enumerated()), id: \.offset) { index, item in
-                    HStack(alignment: .firstTextBaseline, spacing: 12) {
-                        Text("\(index + 1)")
-                            .vfText(VFText.meta, color: VFColor.textTertiary)
-                            .frame(width: 18, alignment: .trailing)
-                            .accessibilityHidden(true)
-                        Text(item)
-                            .vfText(VFText.summaryBody)
-                    }
-                    .padding(.vertical, 4)
-                    .listRowSeparatorTint(VFColor.separator)
+                    summaryLine(marker: "\(index + 1)", text: item)
+                        .listRowSeparatorTint(VFColor.separator)
                 }
             } header: {
                 sectionHeader(field, editable: editable)
@@ -576,16 +580,8 @@ struct SummaryTab: View {
         if !group.points.isEmpty {
             Section {
                 ForEach(Array(group.points.enumerated()), id: \.offset) { index, point in
-                    HStack(alignment: .firstTextBaseline, spacing: 12) {
-                        Text(group.title == nil ? "\(index + 1)" : "•")
-                            .vfText(VFText.meta, color: VFColor.textTertiary)
-                            .frame(width: 18, alignment: .trailing)
-                            .accessibilityHidden(true)
-                        Text(point)
-                            .vfText(VFText.summaryBody)
-                    }
-                    .padding(.vertical, 4)
-                    .listRowSeparatorTint(VFColor.separator)
+                    summaryLine(marker: group.title == nil ? "\(index + 1)" : "•", text: point)
+                        .listRowSeparatorTint(VFColor.separator)
                 }
             } header: {
                 switch group.source {
@@ -621,7 +617,7 @@ struct SummaryTab: View {
     private func workArea(_ area: WorkArea, at index: Int, editable: Bool) -> some View {
         Section {
             ForEach(Array(area.tasks.enumerated()), id: \.offset) { _, task in
-                Text(task)
+                summaryLine(marker: nil, text: task)
             }
             ForEach(Array(area.measurements.enumerated()), id: \.offset) { _, measurement in
                 HStack {
@@ -658,6 +654,68 @@ struct SummaryTab: View {
                 }
             }
         }
+    }
+
+    // MARK: A line you can hear (Jeremy, 2026-09-21)
+
+    /// One line of the summary: its number or bullet, the text, and — when the line could be
+    /// placed in the transcript — a tap that sends the player to the moment it came from.
+    ///
+    /// No timestamp button: the row itself is the control, marked only by a quiet waveform so it
+    /// doesn't read as plain text. A line that couldn't be placed draws exactly as it always did.
+    private func summaryLine(marker: String?, text: String) -> some View {
+        let start = moments.start(for: text)
+        return HStack(alignment: .firstTextBaseline, spacing: 12) {
+            if let marker {
+                Text(marker)
+                    .vfText(VFText.meta, color: VFColor.textTertiary)
+                    .frame(width: 18, alignment: .trailing)
+                    .accessibilityHidden(true)
+            }
+            Text(text)
+                .vfText(VFText.summaryBody)
+            if start != nil {
+                Spacer(minLength: 8)
+                Image(systemName: "waveform")
+                    .font(.caption2)
+                    .foregroundStyle(VFColor.textTertiary)
+                    .accessibilityHidden(true)
+            }
+        }
+        .padding(.vertical, 4)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if let start { play(from: start) }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityHint(start == nil ? Text("") : Text("Plays this part of the recording"))
+        .accessibilityActions {
+            if let start {
+                Button("Play from \(SpokenFormat.duration(start))") { play(from: start) }
+            }
+        }
+        .accessibilityIdentifier(start == nil ? "summary.line" : "summary.playableLine")
+    }
+
+    private func play(from start: TimeInterval) {
+        player.seek(to: start)
+        player.play()
+    }
+
+    /// Works out where each summary line was said, off the main thread: the transcript can run to
+    /// hundreds of paragraphs and the tab shouldn't wait on the matching to draw.
+    private func indexMoments() async {
+        guard let record = selected, let payload = displayedPayload(record) else {
+            moments = SummaryMomentIndex()
+            return
+        }
+        let displayed = payload.applying(edits)
+        // Translated prose shares no words with the transcript, so the model's own lines stand in.
+        let model: SummaryPayload? = shownTranslationName == nil ? nil : (try? record.payload())
+        let segments: [(start: TimeInterval, text: String)] = recording.orderedSegments.map { ($0.start, $0.text) }
+        moments = await Task.detached(priority: .userInitiated) {
+            SummaryMomentIndex(displayed: displayed, model: model, segments: segments)
+        }.value
     }
 
     // MARK: Action items

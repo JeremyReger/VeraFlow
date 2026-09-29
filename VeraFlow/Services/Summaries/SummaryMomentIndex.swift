@@ -19,6 +19,9 @@ struct SummaryMomentIndex: Sendable {
     /// Line → where it was said. Keyed by the text the Summary tab draws, so a row only has to
     /// hand back what it is already showing.
     private var starts: [String: TimeInterval] = [:]
+    /// How many lines the summary drew, placed or not. With `count` it says how well the matching
+    /// did — counts only, so a log of it never carries the user's meeting.
+    private(set) var lineCount = 0
 
     init() {}
 
@@ -36,6 +39,7 @@ struct SummaryMomentIndex: Sendable {
         // Only positionally comparable when nothing added or removed lines; an edit that did
         // means the user's own text is in their own language anyway, so it matches directly.
         let aligned = modelLines.count == lines.count
+        lineCount = lines.count
         for (index, line) in lines.enumerated() {
             let key = line.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !key.isEmpty, starts[key] == nil else { continue }
@@ -53,6 +57,9 @@ struct SummaryMomentIndex: Sendable {
     }
 
     var isEmpty: Bool { starts.isEmpty }
+
+    /// How many lines could be placed.
+    var count: Int { starts.count }
 
     /// Every line the Summary tab draws as prose, in draw order. Action items and measurements
     /// aren't here: they carry their own timestamp and already have a ▶︎ button.

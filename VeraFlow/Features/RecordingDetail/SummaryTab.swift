@@ -1,3 +1,4 @@
+import OSLog
 import SwiftData
 import SwiftUI
 
@@ -698,9 +699,13 @@ struct SummaryTab: View {
     }
 
     private func play(from start: TimeInterval) {
+        Self.log.info("summary line tapped: playing from \(Int(start))s")
         player.seek(to: start)
         player.play()
     }
+
+    /// Counts only, never the summary's words: a log is not a place for the user's meeting.
+    private static let log = Logger(subsystem: "com.jeremyreger.veraflow", category: "summaries")
 
     /// Works out where each summary line was said, off the main thread: the transcript can run to
     /// hundreds of paragraphs and the tab shouldn't wait on the matching to draw.
@@ -716,6 +721,9 @@ struct SummaryTab: View {
         moments = await Task.detached(priority: .userInitiated) {
             SummaryMomentIndex(displayed: displayed, model: model, segments: segments)
         }.value
+        Self.log.info(
+            "summary moments: placed \(moments.count) of \(moments.lineCount) lines over \(segments.count) paragraphs"
+        )
     }
 
     // MARK: Action items

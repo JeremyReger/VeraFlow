@@ -608,10 +608,27 @@ Keep the free count in the Keychain (survives reinstall) as well as UserDefaults
 - Audio stored with `FileProtectionType.completeUntilFirstUserAuthentication` (recording must keep working while locked).
 
 ### 14.5 App Store checklist
-- [ ] Mic usage string explains why ("to record your meetings; audio stays on this iPhone").
-- [ ] Background audio mode justified (active recording only; stop the session when not recording).
-- [ ] Reminders usage string.
-- [ ] Privacy manifest.
+Four of these are machine-checked now, so they can't rot between here and submission:
+`UsageDescriptionTests` requires a usage string for every permission the sources request — in
+**both** app targets, since they compile the same files — and fails on a string no API earns;
+`PrivacyManifestTests` holds the manifest to Data Not Collected and to a declared reason for every
+required-reason API the code reaches; `ContentClaimsTests` keeps §14.3 out of the code and the
+Info.plist strings; `NetworkPolicyTests` is what makes "nothing leaves the device" a build failure.
+
+- [x] Mic usage string explains why ("to record your meetings; audio stays on this iPhone"). Enforced.
+- [ ] Background audio mode justified (active recording only; stop the session when not recording). Review notes.
+- [x] Reminders usage string. Enforced.
+- [x] Biometry usage string on both targets. The Mac shipped without one for a while: `AppLock` has
+      no `#if os(...)` guard and the Settings toggle has Mac copy, so `.deviceOwnerAuthentication`
+      could reach Touch ID with nothing to explain it (2026-09-30).
+- [x] Privacy manifest. Enforced, including that each declared category carries a reason code.
+- [ ] **Verify on a clean install** whether the Speech path asks for authorization. The code uses
+      `SpeechTranscriber`/`DictationTranscriber`/`SpeechAnalyzer` and never calls
+      `SFSpeechRecognizer.requestAuthorization`, so it likely needs no
+      `NSSpeechRecognitionUsageDescription` — but if any path does request it, a missing string is a
+      crash on the first recording, not a warning. Check both the iOS 26 and the iOS 18 Parakeet path.
+      If it turns out to be needed, add the string *and* its API marker to `UsageDescriptionTests`,
+      or the unearned-string half of that test will fail.
 - [ ] IAP configured, screenshots of the paywall, review notes explaining the free tier.
 - [ ] Review notes: how to test without Apple Intelligence (include a sample recording in the review notes or a demo mode).
 - [ ] Accessibility: VoiceOver labels on all controls, Dynamic Type, sufficient contrast.

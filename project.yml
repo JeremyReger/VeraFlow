@@ -220,6 +220,10 @@ targets:
         # The bundled fonts sit at the top of Contents/Resources; AppKit registers them from here.
         ATSApplicationFontsPath: "."
         NSMicrophoneUsageDescription: "VeraFlow uses the microphone to record your meetings. Audio stays on this Mac."
+        # AppLock ships on the Mac too (Settings → "Require Face ID or passcode", Mac copy and all)
+        # and asks LocalAuthentication for `.deviceOwnerAuthentication`, which is Touch ID on a Mac
+        # that has it. The key is spelled FaceID on every platform; the sentence is not.
+        NSFaceIDUsageDescription: "VeraFlow uses Touch ID to unlock the app when you turn on the app lock."
         NSRemindersFullAccessUsageDescription: "VeraFlow adds the action items you choose to your Reminders lists. Nothing is read back or sent anywhere."
         ITSAppUsesNonExemptEncryption: false
         UTExportedTypeDeclarations:

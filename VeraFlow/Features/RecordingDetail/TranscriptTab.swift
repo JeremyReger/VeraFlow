@@ -20,6 +20,8 @@ struct TranscriptTab: View {
     /// Edits in progress, keyed by segment index; applied on Done.
     @State private var drafts: [Int: String] = [:]
     @State private var speakerController: SpeakerActionsController?
+    /// Chapter headings from the current summary (v1.1 plan item 12). See `loadChapters`.
+    @State private var chapters: [Chapter] = []
 
     private var speakers: [Speaker] { recording.speakers.sorted { $0.key < $1.key } }
 
@@ -48,18 +50,10 @@ struct TranscriptTab: View {
         recording.bookmarks.filter(\.isUserMark).sorted { $0.time < $1.time }
     }
 
-    /// Marks keyed by the position in `visibleSegments` they show before.
-    private var markPlacements: [Int: [Int]] {
-        TranscriptMarkers.placements(markTimes: marks.map(\.time), segmentStarts: visibleSegments.map(\.start))
-    }
-
-    /// Chapter headings from the current summary (v1.1 plan item 12), keyed the same way.
-    private var chapters: [Chapter] {
-        (try? recording.currentSummary?.payload())?.chapters ?? []
-    }
-
-    private var chapterPlacements: [Int: [Int]] {
-        TranscriptMarkers.placements(markTimes: chapters.map(\.start), segmentStarts: visibleSegments.map(\.start), inclusive: true)
+    /// Re-read when the summary changes, not on every update: this decodes the summary's whole
+    /// JSON, and it used to be read twice per body — once for the headings and once to place them.
+    private func loadChapters() {
+        chapters = (try? recording.currentSummary?.payload())?.chapters ?? []
     }
 
     private var position: TranscriptPosition? {
@@ -91,6 +85,9 @@ struct TranscriptTab: View {
             if speakerController == nil {
                 speakerController = SpeakerActionsController(actions: SpeakerActions(context: modelContext))
             }
+        }
+        .task(id: recording.currentSummary?.id) {
+            loadChapters()
         }
     }
 
@@ -351,31 +348,38 @@ struct TranscriptTab: View {
     // MARK: Paragraphs
 
     private var paragraphList: some View {
+        // Each of these is worked out once per update. `visibleSegments` filters every paragraph in
+        // the recording and was read five times here; `matches` builds a struct per paragraph and
+        // then scans them all, and was read three times. On a 39-minute meeting that is the
+        // difference you feel between keystrokes in the search field.
         let current = position
-        let matched = Set(matches)
+        let visible = visibleSegments
+        let hits = matches
+        let matched = Set(hits)
+        let starts = visible.map(\.start)
+        let markList = marks
+        let placements = TranscriptMarkers.placements(markTimes: markList.map(\.time), segmentStarts: starts)
+        let chapterList = chapters
+        let chapterPlacements = TranscriptMarkers.placements(markTimes: chapterList.map(\.start), segmentStarts: starts, inclusive: true)
         return ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: VFSpace.listGap) {
-                    if visibleSegments.isEmpty {
+                    if visible.isEmpty {
                         Text("No paragraphs for this speaker.")
                             .vfText(VFText.body, color: VFColor.textSecondary)
                             .padding(.vertical, 24)
                             .frame(maxWidth: .infinity)
                     }
-                    let placements = markPlacements
-                    let marks = marks
-                    let chapters = chapters
-                    let chapterPlacements = chapterPlacements
-                    ForEach(Array(visibleSegments.enumerated()), id: \.element.index) { position, segment in
+                    ForEach(Array(visible.enumerated()), id: \.element.index) { position, segment in
                         // The whole stack is one view list, so a chapter and a mark that share an
                         // index would share an id; name them apart (SwiftUI warns and the rows
                         // are then undefined).
                         ForEach(chapterPlacements[position] ?? [], id: \.self) { chapterIndex in
-                            chapterHeading(chapters[chapterIndex])
+                            chapterHeading(chapterList[chapterIndex])
                                 .id("chapter-\(chapterIndex)")
                         }
                         ForEach(placements[position] ?? [], id: \.self) { markIndex in
-                            markerRow(marks[markIndex])
+                            markerRow(markList[markIndex])
                                 .id("mark-\(markIndex)")
                         }
                         paragraph(
@@ -389,8 +393,8 @@ struct TranscriptTab: View {
                     // Marks past the last paragraph. Same naming as the ones above: without it
                     // these rows keep their Int id and collide with a paragraph's `.id(segment.index)`
                     // in the same view list, which is the LazyVStack duplicate-id warning.
-                    ForEach(placements[visibleSegments.count] ?? [], id: \.self) { markIndex in
-                        markerRow(marks[markIndex])
+                    ForEach(placements[visible.count] ?? [], id: \.self) { markIndex in
+                        markerRow(markList[markIndex])
                             .id("mark-\(markIndex)")
                     }
                 }
@@ -401,11 +405,11 @@ struct TranscriptTab: View {
             .onChange(of: current?.segmentIndex) { _, index in
                 // Follow the playhead only while playing, not busy searching or editing, and
                 // only when the playing paragraph is listed (a filtered speaker may hide it).
-                guard let index, player.isPlaying, !isEditing, matches.isEmpty,
-                      visibleSegments.contains(where: { $0.index == index }) else { return }
+                guard let index, player.isPlaying, !isEditing, hits.isEmpty,
+                      visible.contains(where: { $0.index == index }) else { return }
                 withAnimation { proxy.scrollTo(index, anchor: .center) }
             }
-            .onChange(of: matches.first) { _, first in
+            .onChange(of: hits.first) { _, first in
                 guard let first else { return }
                 withAnimation { proxy.scrollTo(first, anchor: .top) }
             }

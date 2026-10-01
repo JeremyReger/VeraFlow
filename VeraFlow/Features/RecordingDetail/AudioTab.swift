@@ -19,6 +19,11 @@ struct AudioTab: View {
     @State private var peaks: [CGFloat] = []
     @State private var barCount = 0
     @State private var scrubFraction: Double?
+    /// Decoded once per summary, not per frame. `chapters` used to decode the whole summary's JSON
+    /// every time it was read — and it is read from the body, the scrubber's chapter ticks and the
+    /// Chapters list, so a recording played with chapters open decoded its summary four times a
+    /// tick. The waveform redraws on the playhead, so "a tick" is as often as the player moves.
+    @State private var chapters: [Chapter] = []
     @ScaledMetric(relativeTo: .title) private var playSize: CGFloat = 64
 
     var body: some View {
@@ -50,6 +55,9 @@ struct AudioTab: View {
         }
         .task(id: barCount) {
             await loadPeaks()
+        }
+        .task(id: recording.currentSummary?.id) {
+            loadChapters()
         }
     }
 
@@ -227,8 +235,10 @@ struct AudioTab: View {
 
     // MARK: Chapters (v1.1 plan item 12)
 
-    private var chapters: [Chapter] {
-        (try? recording.currentSummary?.payload())?.chapters ?? []
+    /// Re-reads when the summary changes — a re-run makes a new `SummaryRecord`, so its id is the
+    /// whole of the key.
+    private func loadChapters() {
+        chapters = (try? recording.currentSummary?.payload())?.chapters ?? []
     }
 
     private var chaptersSection: some View {

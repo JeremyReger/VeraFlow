@@ -16,7 +16,7 @@ struct MiniPlayerBar: View {
                 .vfText(VFText.meta, color: VFColor.textTertiary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
-                .background(VFColor.playerBar)
+                .vfSurface(.chrome, in: Rectangle())
                 .overlay(alignment: .top) {
                     Rectangle().fill(VFColor.border).frame(height: VFMetric.hairline)
                 }

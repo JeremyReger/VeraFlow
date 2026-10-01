@@ -80,7 +80,7 @@ struct SummaryTab: View {
                 emptyState
             }
         }
-        .background(VFColor.background)
+        .background { VFBackdrop() }
         .task(id: selected?.id) {
             state = (try? selected?.actionItems()) ?? ActionItemsState()
             edits = (try? selected?.summaryEdits()) ?? SummaryEdits()
@@ -172,7 +172,7 @@ struct SummaryTab: View {
             }
             .padding(.horizontal)
             .padding(.vertical, 10)
-            .background(VFColor.surface)
+            .vfSurface(.content, in: Rectangle())
             .accessibilityElement(children: .combine)
         } else if recording.failedStage == .summarizing, let message = recording.failureMessage {
             let unlockedNow = isFreeLimitReached && appState?.isUnlocked == true
@@ -202,13 +202,13 @@ struct SummaryTab: View {
             }
             .padding(.horizontal)
             .padding(.vertical, 10)
-            .background(VFColor.surface)
+            .vfSurface(.content, in: Rectangle())
         } else if let appState, !appState.isUnlocked, appState.capabilities?.canSummarize ?? true, recording.summaries.isEmpty {
             Text("\(min(appState.freeSummariesUsed, FreeTier.summaryLimit)) of \(FreeTier.summaryLimit) free summaries used.")
                 .vfText(VFText.meta, color: VFColor.textTertiary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 6)
-                .background(VFColor.surface)
+                .vfSurface(.content, in: Rectangle())
         }
     }
 

@@ -213,7 +213,7 @@ struct RecordingDetailView: View {
             }
             .padding(.horizontal, VFSpace.gutterTight)
             .padding(.vertical, 8)
-            .background(VFColor.surface)
+            .vfSurface(.content, in: Rectangle())
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("detail.translating")
         }

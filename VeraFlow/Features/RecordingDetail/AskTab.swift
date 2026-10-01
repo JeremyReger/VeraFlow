@@ -32,7 +32,7 @@ struct AskTab: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .background(VFColor.background)
+        .background { VFBackdrop() }
         .task {
             if controller == nil {
                 let passages = AskController.passages(
@@ -157,7 +157,7 @@ struct AskTab: View {
                     }
                     .padding(.horizontal, VFSpace.cardPaddingH)
                     .frame(minHeight: 50)
-                    .background(VFColor.surface, in: RoundedRectangle(cornerRadius: VFRadius.block, style: .continuous))
+                    .vfSurface(.card, in: RoundedRectangle(cornerRadius: VFRadius.block, style: .continuous))
                     .overlay {
                         RoundedRectangle(cornerRadius: VFRadius.block, style: .continuous)
                             .strokeBorder(VFColor.border, lineWidth: VFMetric.hairline)
@@ -247,7 +247,7 @@ struct AskTab: View {
         .padding(.horizontal, VFSpace.cardPaddingH)
         .padding(.vertical, VFSpace.cardPaddingV)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(VFColor.surface, in: RoundedRectangle(cornerRadius: VFRadius.card, style: .continuous))
+        .vfSurface(.card, in: RoundedRectangle(cornerRadius: VFRadius.card, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: VFRadius.card, style: .continuous)
                 .strokeBorder(VFColor.border, lineWidth: VFMetric.hairline)
@@ -270,7 +270,7 @@ struct AskTab: View {
                 .padding(.horizontal, 14)
                 .frame(maxWidth: .infinity)
                 .frame(minHeight: VFMetric.minHit)
-                .background(VFColor.surface, in: RoundedRectangle(cornerRadius: VFRadius.field, style: .continuous))
+                .vfSurface(.raised, in: RoundedRectangle(cornerRadius: VFRadius.field, style: .continuous))
                 .overlay {
                     RoundedRectangle(cornerRadius: VFRadius.field, style: .continuous)
                         .strokeBorder(VFColor.border, lineWidth: VFMetric.hairline)
@@ -289,7 +289,7 @@ struct AskTab: View {
         .padding(.horizontal, VFSpace.gutterTight)
         .padding(.top, 10)
         .padding(.bottom, 12)
-        .background(VFColor.playerBar)
+        .vfSurface(.chrome, in: Rectangle())
         .overlay(alignment: .top) {
             Rectangle().fill(VFColor.border).frame(height: VFMetric.hairline)
         }

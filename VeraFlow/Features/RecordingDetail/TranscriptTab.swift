@@ -79,7 +79,7 @@ struct TranscriptTab: View {
                 emptyState
             }
         }
-        .background(VFColor.background)
+        .background { VFBackdrop() }
         .modifier(OptionalSpeakerAlerts(controller: speakerController))
         .task {
             if speakerController == nil {
@@ -191,7 +191,7 @@ struct TranscriptTab: View {
         }
         .padding(.horizontal)
         .padding(.vertical, 10)
-        .background(VFColor.surface)
+        .vfSurface(.content, in: Rectangle())
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("transcript.progress")
     }
@@ -210,7 +210,7 @@ struct TranscriptTab: View {
         }
         .padding(.horizontal)
         .padding(.vertical, 10)
-        .background(VFColor.surface)
+        .vfSurface(.content, in: Rectangle())
     }
 
     // MARK: Header (search + edit)
@@ -300,7 +300,7 @@ struct TranscriptTab: View {
                 .font(.system(size: 17, weight: .medium))
                 .foregroundStyle(VFColor.iconPrimary)
                 .frame(width: VFMetric.iconButton, height: VFMetric.iconButton)
-                .background(VFColor.surface, in: Circle())
+                .vfSurface(.raised, in: Circle())
                 .overlay { Circle().strokeBorder(VFColor.border, lineWidth: VFMetric.hairline) }
         }
         .accessibilityLabel("Speakers")

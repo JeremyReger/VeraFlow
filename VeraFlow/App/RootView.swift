@@ -108,7 +108,7 @@ struct RootView: View {
                     systemImage: "waveform",
                     description: Text("Or press ⌘N to start a new one, or drop an audio file here to import it.")
                 )
-                .background(VFColor.background)
+                .background { VFBackdrop() }
             }
         }
         // Files dragged from the Finder import like "Open with" does (sandbox access rides with the drop).

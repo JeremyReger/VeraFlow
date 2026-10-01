@@ -41,7 +41,7 @@ struct ProcessingCard: View {
                 .vfText(VFText.reassurance, color: VFColor.textSecondary)
         }
         .padding(VFSpace.cardPaddingH)
-        .background(VFColor.surface, in: RoundedRectangle(cornerRadius: VFRadius.card, style: .continuous))
+        .vfSurface(.card, in: RoundedRectangle(cornerRadius: VFRadius.card, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: VFRadius.card, style: .continuous)
                 .strokeBorder(VFColor.border, lineWidth: VFMetric.hairline)

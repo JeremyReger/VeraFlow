@@ -46,7 +46,7 @@ struct AudioTab: View {
             .padding(.top, VFSpace.sectionGap)
             .padding(.bottom, VFSpace.bottomInset)
         }
-        .background(VFColor.background)
+        .background { VFBackdrop() }
         .modifier(OptionalSpeakerAlerts(controller: speakerController))
         .task {
             if speakerController == nil {
@@ -86,7 +86,7 @@ struct AudioTab: View {
             }
             .padding(VFSpace.cardPaddingH)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(VFColor.surface, in: RoundedRectangle(cornerRadius: VFRadius.block, style: .continuous))
+            .vfSurface(.card, in: RoundedRectangle(cornerRadius: VFRadius.block, style: .continuous))
         } else {
             VStack(spacing: 14) {
                 scrubber
@@ -102,7 +102,7 @@ struct AudioTab: View {
             }
             .padding(.horizontal, VFSpace.cardPaddingH)
             .padding(.vertical, VFSpace.cardPaddingV + 4)
-            .background(VFColor.surface, in: RoundedRectangle(cornerRadius: VFRadius.card, style: .continuous))
+            .vfSurface(.card, in: RoundedRectangle(cornerRadius: VFRadius.card, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: VFRadius.card, style: .continuous)
                     .strokeBorder(VFColor.border, lineWidth: VFMetric.hairline)
@@ -489,7 +489,7 @@ struct AudioTab: View {
         .vfText(VFText.rowLabel, color: VFColor.textPrimary)
         .frame(maxWidth: .infinity)
         .frame(height: 54)
-        .background(VFColor.surface, in: Capsule())
+        .vfSurface(.raised, in: Capsule())
         .overlay { Capsule().strokeBorder(VFColor.borderStrong, lineWidth: VFMetric.hairline) }
         .contentShape(Capsule())
     }

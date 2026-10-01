@@ -55,7 +55,7 @@ public struct VFIconButton: View {
                 .font(.system(size: 17, weight: .medium))
                 .foregroundStyle(VFColor.iconPrimary)
                 .frame(width: VFMetric.iconButton, height: VFMetric.iconButton)
-                .background(bordered ? VFColor.surface : .clear, in: Circle())
+                .vfSurface(bordered ? .raised : .chrome, in: Circle())
                 .overlay {
                     if bordered { Circle().strokeBorder(VFColor.border, lineWidth: VFMetric.hairline) }
                 }
@@ -93,7 +93,7 @@ public struct VFSecondaryPillStyle: ButtonStyle {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
             .frame(minHeight: 54)
-            .background(VFColor.surface, in: Capsule())
+            .vfSurface(.raised, in: Capsule())
             .overlay { Capsule().strokeBorder(VFColor.borderStrong, lineWidth: VFMetric.hairline) }
             .opacity(configuration.isPressed ? 0.82 : 1)
     }
@@ -181,7 +181,7 @@ public struct VFRecordingCard: View {
         }
         .padding(.horizontal, VFSpace.cardPaddingH)
         .padding(.vertical, VFSpace.cardPaddingV)
-        .background(VFColor.surface, in: RoundedRectangle(cornerRadius: VFRadius.card, style: .continuous))
+        .vfSurface(.card, in: RoundedRectangle(cornerRadius: VFRadius.card, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: VFRadius.card, style: .continuous)
                 .strokeBorder(VFColor.border, lineWidth: VFMetric.hairline)
@@ -484,7 +484,7 @@ public struct VFSettingsGroup<Content: View>: View {
     public var body: some View {
         VStack(spacing: 0) { content }
             .padding(.horizontal, VFSpace.cardPaddingH)
-            .background(VFColor.surface, in: RoundedRectangle(cornerRadius: VFRadius.card, style: .continuous))
+            .vfSurface(.card, in: RoundedRectangle(cornerRadius: VFRadius.card, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: VFRadius.card, style: .continuous)
                     .strokeBorder(VFColor.border, lineWidth: VFMetric.hairline)
@@ -656,7 +656,7 @@ public struct VFMiniPlayer: View {
         .padding(.horizontal, VFSpace.gutterTight)
         .padding(.top, 12)
         .padding(.bottom, 28)
-        .background(VFColor.playerBar)
+        .vfSurface(.chrome, in: Rectangle())
         .overlay(alignment: .top) {
             Rectangle().fill(VFColor.border).frame(height: VFMetric.hairline)
         }
@@ -783,7 +783,7 @@ public struct VFPickerRowLabel: View {
         // wrapped lines sat right on the card's border and read as overlapping it.
         .padding(.vertical, 10)
         .frame(minHeight: 60)
-        .background(VFColor.surface, in: RoundedRectangle(cornerRadius: VFRadius.block, style: .continuous))
+        .vfSurface(.card, in: RoundedRectangle(cornerRadius: VFRadius.block, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: VFRadius.block, style: .continuous)
                 .strokeBorder(VFColor.border, lineWidth: VFMetric.hairline)
@@ -931,7 +931,7 @@ public struct VFField<Trailing: View>: View {
         }
         .padding(.horizontal, 14)
         .frame(minHeight: VFMetric.minHit)
-        .background(VFColor.surface, in: RoundedRectangle(cornerRadius: VFRadius.field, style: .continuous))
+        .vfSurface(.raised, in: RoundedRectangle(cornerRadius: VFRadius.field, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: VFRadius.field, style: .continuous)
                 .strokeBorder(VFColor.border, lineWidth: VFMetric.hairline)
@@ -949,7 +949,7 @@ public struct VFRoundButtonLabel: View {
             .font(.system(size: 19, weight: .medium))
             .foregroundStyle(VFColor.iconPrimary)
             .frame(width: VFMetric.primaryPillHeight, height: VFMetric.primaryPillHeight)
-            .background(VFColor.surface, in: Circle())
+            .vfSurface(.raised, in: Circle())
             .overlay { Circle().strokeBorder(VFColor.borderStrong, lineWidth: VFMetric.hairline) }
     }
 }

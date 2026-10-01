@@ -330,7 +330,7 @@ private struct RecorderContent: View {
                         .vfText(VFText.rowLabel)
                         .padding(.horizontal, 14)
                         .frame(minHeight: 50)
-                        .background(VFColor.surface, in: RoundedRectangle(cornerRadius: VFRadius.field, style: .continuous))
+                        .vfSurface(.raised, in: RoundedRectangle(cornerRadius: VFRadius.field, style: .continuous))
                         .overlay {
                             RoundedRectangle(cornerRadius: VFRadius.field, style: .continuous)
                                 .strokeBorder(VFColor.border, lineWidth: VFMetric.hairline)
@@ -407,7 +407,7 @@ private struct TransportButton: View {
                 .minimumScaleFactor(0.6)
                 .padding(.horizontal, 6)
                 .frame(width: diameter, height: diameter)
-                .background(VFColor.surface, in: Circle())
+                .vfSurface(.raised, in: Circle())
                 .overlay { Circle().strokeBorder(VFColor.borderStrong, lineWidth: VFMetric.hairline) }
                 .contentShape(Circle())
         }
@@ -492,7 +492,7 @@ struct LowDiskBanner: View {
         .padding(.horizontal, VFSpace.cardPaddingH)
         .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(VFColor.surface, in: RoundedRectangle(cornerRadius: VFRadius.block, style: .continuous))
+        .vfSurface(.card, in: RoundedRectangle(cornerRadius: VFRadius.block, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: VFRadius.block, style: .continuous)
                 .strokeBorder(VFColor.danger.opacity(0.5), lineWidth: VFMetric.hairline)
@@ -557,7 +557,7 @@ private struct MicrophoneMenu: View {
                     .vfText(VFText.meta, color: VFColor.textSecondary)
                     .padding(.horizontal, 12)
                     .frame(minHeight: 32)
-                    .background(VFColor.surface, in: Capsule())
+                    .vfSurface(.raised, in: Capsule())
                     .overlay { Capsule().strokeBorder(VFColor.border, lineWidth: VFMetric.hairline) }
                     .frame(minHeight: VFMetric.minHit)
                 } else {
@@ -664,7 +664,7 @@ private struct FocusField: View {
         }
         .padding(.horizontal, 14)
         .frame(minHeight: 50)
-        .background(VFColor.surface, in: RoundedRectangle(cornerRadius: VFRadius.field, style: .continuous))
+        .vfSurface(.raised, in: RoundedRectangle(cornerRadius: VFRadius.field, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: VFRadius.field, style: .continuous)
                 .strokeBorder(VFColor.border, lineWidth: VFMetric.hairline)

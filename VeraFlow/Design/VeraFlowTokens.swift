@@ -231,3 +231,169 @@ public enum VFMotion {
     public static let transcriptScroll = Animation.easeOut(duration: 0.28)
     public static let tabSwitch = Animation.easeInOut(duration: 0.2)
 }
+
+// MARK: - Glass
+
+/// The frosted-surface pass (Jeremy, 2026-10-01). Three things make a surface read as glass rather
+/// than as a flat panel, and all three have to be here or none of it works:
+///
+/// 1. **Something behind it worth blurring.** A material over a flat fill looks like a flat fill.
+///    `VFBackdrop` is the depth the blur samples, so screens use it in place of `VFColor.background`.
+/// 2. **An edge.** A hairline that is brighter at the top than the bottom reads as a lit rim.
+/// 3. **Lift.** A soft shadow puts the panel in front of the backdrop instead of inside it.
+///
+/// Built on `Material`, which exists on the iOS 18 floor and on macOS, rather than on iOS 26's
+/// Liquid Glass: that API is new, its shape moved through the betas, and CLAUDE.md says not to
+/// write Apple APIs from memory. `VFSurfaceRole.material` is the one place it would go — add an
+/// `if #available(iOS 26, *)` branch there once the signature is checked against the SDK, and
+/// every surface in the app follows.
+public enum VFSurfaceRole: CaseIterable {
+    /// Player bar, tab strip, navigation — the chrome that floats over content.
+    case chrome
+    /// Cards, settings groups, summary sections.
+    case card
+    /// Chips, pills and small controls sitting on a card.
+    case raised
+    /// Long-form reading: transcript paragraphs, summary prose. The most opaque of the three,
+    /// because body text over a thin blur is where contrast goes first.
+    case content
+
+    /// The frosted fill. These are `Material`'s own members (`.regular`, `.thin`, `.thick`) — the
+    /// `.regularMaterial` spellings are `ShapeStyle`'s and don't exist on `Material`.
+    var material: Material {
+        switch self {
+        case .chrome: .bar
+        case .card: .regular
+        case .raised: .thin
+        case .content: .thick
+        }
+    }
+
+    /// What this surface becomes when the blur has to go: Reduce Transparency, or Increase
+    /// Contrast. Not a dimmer version of the glass — the flat palette the app shipped with.
+    var opaqueColor: Color {
+        switch self {
+        case .chrome: VFColor.playerBar
+        case .card, .content: VFColor.surface
+        case .raised: VFColor.surfaceRaised
+        }
+    }
+
+    /// Whether to draw the lit rim. Panels get one; the full-bleed bars don't, because a rim on a
+    /// `Rectangle` is a box drawn around the whole bar, and those already carry the single top
+    /// hairline their design calls for.
+    var drawsRim: Bool {
+        switch self {
+        case .card, .raised: true
+        case .chrome, .content: false
+        }
+    }
+
+    /// Shadow radius and vertical offset. Chrome sits highest, content barely lifts at all.
+    var shadow: (radius: CGFloat, y: CGFloat, opacity: Double) {
+        switch self {
+        case .chrome: (18, -2, 0.16)
+        case .card: (14, 6, 0.10)
+        case .raised: (6, 2, 0.07)
+        case .content: (10, 4, 0.07)
+        }
+    }
+}
+
+/// Applies a glass surface, or the flat one when the system asks for it.
+public struct VFSurface<S: InsettableShape>: ViewModifier {
+    let role: VFSurfaceRole
+    let shape: S
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.colorScheme) private var scheme
+
+    private var isFlat: Bool { reduceTransparency || contrast == .increased }
+
+    private var fill: AnyShapeStyle {
+        isFlat ? AnyShapeStyle(role.opaqueColor) : AnyShapeStyle(role.material)
+    }
+
+    /// Brighter along the top edge than the bottom, so the rim reads as catching the light. In
+    /// dark mode that edge is most of what separates one panel from the next.
+    ///
+    /// Drawn only over glass. The components already carry a `VFColor.border` stroke of their own,
+    /// which is the flat design's edge, so when the blur goes the rim goes with it and Reduce
+    /// Transparency looks exactly like the app did before this pass.
+    private var rim: LinearGradient {
+        let top = scheme == .dark ? Color.white.opacity(0.22) : Color.white.opacity(0.65)
+        let bottom = scheme == .dark ? Color.white.opacity(0.04) : Color.black.opacity(0.06)
+        return LinearGradient(colors: [top, bottom], startPoint: .top, endPoint: .bottom)
+    }
+
+    public func body(content: Content) -> some View {
+        let shadow = role.shadow
+        return content
+            .background(fill, in: shape)
+            .overlay {
+                if !isFlat, role.drawsRim {
+                    shape.strokeBorder(rim, lineWidth: VFMetric.hairline)
+                }
+            }
+            .shadow(
+                color: Color.black.opacity(isFlat ? 0 : shadow.opacity),
+                radius: isFlat ? 0 : shadow.radius,
+                y: isFlat ? 0 : shadow.y
+            )
+    }
+}
+
+public extension View {
+    /// A glass surface clipped to `shape`.
+    func vfSurface<S: InsettableShape>(_ role: VFSurfaceRole = .card, in shape: S) -> some View {
+        modifier(VFSurface(role: role, shape: shape))
+    }
+
+    /// A glass surface on the card radius, which is almost every use.
+    func vfSurface(_ role: VFSurfaceRole = .card) -> some View {
+        modifier(VFSurface(role: role, shape: RoundedRectangle(cornerRadius: VFRadius.card, style: .continuous)))
+    }
+}
+
+/// What the glass blurs. Two soft accent blooms over the base colour: enough variation for a
+/// material to have something to sample, far too little to compete with text. Flattens to the
+/// plain background under Reduce Transparency, so nothing moves under the user's feet.
+public struct VFBackdrop: View {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorScheme) private var scheme
+
+    public init() {}
+
+    public var body: some View {
+        if reduceTransparency {
+            VFColor.background
+        } else {
+            VFColor.background.overlay {
+                GeometryReader { geo in
+                    let short = min(geo.size.width, geo.size.height)
+                    ZStack {
+                        bloom(VFColor.accent, opacity: scheme == .dark ? 0.20 : 0.13)
+                            .frame(width: short * 1.5, height: short * 1.5)
+                            .offset(x: -short * 0.35, y: -short * 0.45)
+                        bloom(VFColor.speaker(1), opacity: scheme == .dark ? 0.14 : 0.09)
+                            .frame(width: short * 1.3, height: short * 1.3)
+                            .offset(x: short * 0.45, y: geo.size.height - short * 0.5)
+                    }
+                }
+            }
+            .ignoresSafeArea()
+        }
+    }
+
+    private func bloom(_ color: Color, opacity: Double) -> some View {
+        Circle().fill(
+            RadialGradient(
+                colors: [color.opacity(opacity), color.opacity(0)],
+                center: .center,
+                startRadius: 0,
+                endRadius: 320
+            )
+        )
+        .blur(radius: 40)
+    }
+}

@@ -139,7 +139,7 @@ struct PaywallView: View {
                             .vfText(VFText.snippet, color: VFColor.textSecondary)
                     }
                     .padding(VFSpace.cardPaddingH)
-                    .background(VFColor.surfaceRaised, in: RoundedRectangle(cornerRadius: VFRadius.block, style: .continuous))
+                    .vfSurface(.raised, in: RoundedRectangle(cornerRadius: VFRadius.block, style: .continuous))
                 }
 
                 VFSettingsGroup {

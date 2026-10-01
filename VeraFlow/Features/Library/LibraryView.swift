@@ -298,7 +298,7 @@ struct LibraryView: View {
                         .font(.system(size: 17, weight: .medium))
                         .foregroundStyle(VFColor.iconPrimary)
                         .frame(width: VFMetric.iconButton, height: VFMetric.iconButton)
-                        .background(VFColor.surface, in: Circle())
+                        .vfSurface(.raised, in: Circle())
                         .overlay { Circle().strokeBorder(VFColor.border, lineWidth: VFMetric.hairline) }
                 }
                 .accessibilityLabel("More")
@@ -594,7 +594,7 @@ struct LibraryCard: View {
         }
         .padding(.horizontal, VFSpace.cardPaddingH)
         .padding(.vertical, VFSpace.cardPaddingV)
-        .background(VFColor.surface, in: RoundedRectangle(cornerRadius: VFRadius.card, style: .continuous))
+        .vfSurface(.card, in: RoundedRectangle(cornerRadius: VFRadius.card, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: VFRadius.card, style: .continuous)
                 .strokeBorder(VFColor.border, lineWidth: VFMetric.hairline)
